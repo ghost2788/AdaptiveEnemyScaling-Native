@@ -1,0 +1,90 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_TestPendingApply((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, 0, 0.0);
+NOT DB_AESN_TestPendingRemove((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, 0, 0.0);
+NOT DB_AESN_TestObservation("", (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, 0, 0, 0, 0.0);
+KBSECTION
+
+// CAP-04 test-only entry point. Query failure prevents mutation.
+PROC
+PROC_AESN_TestApplyOneHp((CHARACTER)_Target)
+AND
+GetHitpoints(_Target, _BeforeCurrent)
+AND
+GetMaxHitpoints(_Target, _BeforeMaximum)
+AND
+GetHitpointsPercentage(_Target, _BeforePercentage)
+AND
+NOT DB_AESN_TestPendingApply(_Target, _, _, _)
+THEN
+DB_AESN_TestPendingApply(_Target, _BeforeCurrent, _BeforeMaximum, _BeforePercentage);
+ApplyStatus(_Target, "AESN_HP_BIT_00001", -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+
+// Restore the captured percentage exactly once for a living target after acknowledgement.
+IF
+StatusApplied((CHARACTER)_Target, "AESN_HP_BIT_00001", _, _)
+AND
+DB_AESN_TestPendingApply(_Target, _BeforeCurrent, _BeforeMaximum, _BeforePercentage)
+AND
+_BeforeCurrent > 0
+AND
+GetMaxHitpoints(_Target, _AfterMaximum)
+THEN
+SetHitpointsPercentage(_Target, _BeforePercentage, "Guaranteed");
+DB_AESN_TestObservation("APPLY", _Target, _BeforeCurrent, _BeforeMaximum, _AfterMaximum, 1, _BeforePercentage);
+NOT DB_AESN_TestPendingApply(_Target, _BeforeCurrent, _BeforeMaximum, _BeforePercentage);
+
+// A dead target is observed but never receives a percentage write that could resurrect it.
+IF
+StatusApplied((CHARACTER)_Target, "AESN_HP_BIT_00001", _, _)
+AND
+DB_AESN_TestPendingApply(_Target, 0, _BeforeMaximum, _BeforePercentage)
+AND
+GetMaxHitpoints(_Target, _AfterMaximum)
+THEN
+DB_AESN_TestObservation("APPLY_DEAD", _Target, 0, _BeforeMaximum, _AfterMaximum, 1, _BeforePercentage);
+NOT DB_AESN_TestPendingApply(_Target, 0, _BeforeMaximum, _BeforePercentage);
+
+// CAP-04 test-only cleanup entry point. Query failure prevents mutation.
+PROC
+PROC_AESN_TestRemoveOneHp((CHARACTER)_Target)
+AND
+GetHitpoints(_Target, _BeforeCurrent)
+AND
+GetMaxHitpoints(_Target, _BeforeMaximum)
+AND
+GetHitpointsPercentage(_Target, _BeforePercentage)
+AND
+NOT DB_AESN_TestPendingRemove(_Target, _, _, _)
+THEN
+DB_AESN_TestPendingRemove(_Target, _BeforeCurrent, _BeforeMaximum, _BeforePercentage);
+RemoveStatus(_Target, "AESN_HP_BIT_00001", NULL_00000000-0000-0000-0000-000000000000);
+
+// Cleanup restores the percentage once and records the exact removed bit.
+IF
+StatusRemoved((CHARACTER)_Target, "AESN_HP_BIT_00001", _, _)
+AND
+DB_AESN_TestPendingRemove(_Target, _BeforeCurrent, _BeforeMaximum, _BeforePercentage)
+AND
+_BeforeCurrent > 0
+AND
+GetMaxHitpoints(_Target, _AfterMaximum)
+THEN
+SetHitpointsPercentage(_Target, _BeforePercentage, "Guaranteed");
+DB_AESN_TestObservation("REMOVE", _Target, _BeforeCurrent, _BeforeMaximum, _AfterMaximum, 1, _BeforePercentage);
+NOT DB_AESN_TestPendingRemove(_Target, _BeforeCurrent, _BeforeMaximum, _BeforePercentage);
+
+IF
+StatusRemoved((CHARACTER)_Target, "AESN_HP_BIT_00001", _, _)
+AND
+DB_AESN_TestPendingRemove(_Target, 0, _BeforeMaximum, _BeforePercentage)
+AND
+GetMaxHitpoints(_Target, _AfterMaximum)
+THEN
+DB_AESN_TestObservation("REMOVE_DEAD", _Target, 0, _BeforeMaximum, _AfterMaximum, 1, _BeforePercentage);
+NOT DB_AESN_TestPendingRemove(_Target, 0, _BeforeMaximum, _BeforePercentage);
+
+EXITSECTION
+
+ENDEXITSECTION

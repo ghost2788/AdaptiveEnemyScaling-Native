@@ -9,9 +9,11 @@ The binary HP mechanism is a POC hypothesis until its isolated runtime gate pass
 ## Project identity and isolation
 
 - Project/module: `AdaptiveEnemyScalingNativePOC`
-- Module UUID: `bb8bdf43-775b-4451-9ffd-69b5f3f531e8`
-- Module folder: `AdaptiveEnemyScalingNativePOC_bb8bdf43-775b-4451-9ffd-69b5f3f531e8`
-- Version: `0.1.0`
+- Module UUID: `a4567f52-1665-df50-b84c-3992f80fdb90`
+- Module folder: `AdaptiveEnemyScalingNativePOC_a4567f52-1665-df50-b84c-3992f80fdb90`
+- Internal POC milestone: `0.1.0`
+- Toolkit module version: `1.0.0.0`; the Toolkit UI rejected major version `0`
+- Expected first Publish Local version: `1.0.0.1` with auto-increment enabled
 - Status namespace: `AESN_*`
 - Database namespace: `DB_AESN_*`
 - No Script Extender tree
@@ -30,8 +32,8 @@ AdaptiveEnemyScaling-Native-POC/
 |-- UPSTREAM.md
 |-- THIRD-PARTY-NOTICE.md
 |-- toolkit/
-|   |-- Mods/AdaptiveEnemyScalingNativePOC_bb8bdf43-775b-4451-9ffd-69b5f3f531e8/meta.lsx
-|   `-- Public/AdaptiveEnemyScalingNativePOC_bb8bdf43-775b-4451-9ffd-69b5f3f531e8/
+|   |-- Mods/AdaptiveEnemyScalingNativePOC_a4567f52-1665-df50-b84c-3992f80fdb90/meta.lsx
+|   `-- Public/AdaptiveEnemyScalingNativePOC_a4567f52-1665-df50-b84c-3992f80fdb90/
 |       |-- Stats/Generated/Data/Status_BOOST.txt
 |       `-- Localization/English/AdaptiveEnemyScalingNativePOC.xml
 |-- story/RawFiles/Goals/
@@ -201,4 +203,3 @@ Diagnostics are disabled by default. Test mode emits structured, one-shot record
 ## Publication boundary
 
 The official Toolkit is installed on `B:` after design approval. The project is built with Publish Local and the prompted output location is set to this repository's ignored `artifacts/` directory. Before and after manifests must prove that the live Mods directory and `modsettings.lsx` did not change. Work stops after the local package and static package report are ready. Installation, activation, multiplayer testing, and upload require a separate approval.
-

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "recordedOn": "2026-08-31",
+  "toolkitVersion": "4.1.1.6931813",
+  "projectName": "AdaptiveEnemyScalingNativePOC",
+  "projectUuid": "58e90e45-f96d-379d-a71e-dbe0b8f36770",
+  "generatedModuleUuid": "a4567f52-1665-df50-b84c-3992f80fdb90",
+  "generatedModuleFolder": "AdaptiveEnemyScalingNativePOC_a4567f52-1665-df50-b84c-3992f80fdb90",
+  "generatedIdentityClassification": "Verified locally",
+  "internalPocMilestone": "0.1.0",
+  "toolkitModuleVersion": "1.0.0.0",
+  "toolkitModuleVersion64": 36028797018963968,
+  "expectedFirstPublishVersion": "1.0.0.1",
+  "zeroMajorVersionClassification": "Rejected",
+  "zeroMajorVersionDiagnostic": "Toolkit Project Settings would not accept major version 0 and restored it to 1.",
+  "reservedModuleUuid": "bb8bdf43-775b-4451-9ffd-69b5f3f531e8",
+  "reservedIdentityMigrationClassification": "Rejected",
+  "reservedIdentityFailure": {
+    "exception": "EXCEPTION_ACCESS_VIOLATION",
+    "faultingModule": "CoreLib.dll",
+    "crashDump": "B:\\SteamLibrary\\steamapps\\common\\Baldurs Gate 3 Toolkit\\CrashDump - 08-31-2026 17h 53m 47s.dmp.txt",
+    "diagnostic": "Removing the migrated project folder allowed Toolkit to reach its data-path screen; restoring the generated UUID and generated folder names allowed the project to open."
+  },
+  "startupLogReview": {
+    "projectSpecificErrorsFound": false,
+    "notes": "The visible error log contained base Toolkit/editor-data warnings and no occurrence of the project name or either module UUID."
+  },
+  "decision": "User approved continuing with the Toolkit-generated module UUID."
+}

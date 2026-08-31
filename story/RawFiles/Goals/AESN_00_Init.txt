@@ -1,0 +1,18 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+DB_AESN_SchemaVersion(1);
+
+NOT DB_AESN_DiagnosticOnce("");
+KBSECTION
+
+PROC
+PROC_AESN_RecordDiagnostic((STRING)_Key)
+AND
+NOT DB_AESN_DiagnosticOnce(_Key)
+THEN
+DB_AESN_DiagnosticOnce(_Key);
+
+EXITSECTION
+
+ENDEXITSECTION

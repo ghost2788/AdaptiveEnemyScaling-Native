@@ -7,8 +7,9 @@ The POC is intentionally narrow. It must prove native roster selection, determin
 ## Identity
 
 - Module name: `AdaptiveEnemyScalingNativePOC`
-- Module UUID: `bb8bdf43-775b-4451-9ffd-69b5f3f531e8`
-- Version: `0.1.0`
+- Module UUID: `a4567f52-1665-df50-b84c-3992f80fdb90`
+- Internal POC milestone: `0.1.0`
+- Toolkit module version: `1.0.0.0` (first Publish Local is expected to auto-increment to `1.0.0.1`)
 - Status namespace: `AESN_*`
 - Osiris database namespace: `DB_AESN_*`
 - External mod dependencies: none
@@ -24,4 +25,3 @@ Until a separate post-build approval is given, this project must not write to th
 - [Capability proof](CAPABILITY-PROOF.md)
 - [Upstream record](UPSTREAM.md)
 - [Third-party notice](THIRD-PARTY-NOTICE.md)
-

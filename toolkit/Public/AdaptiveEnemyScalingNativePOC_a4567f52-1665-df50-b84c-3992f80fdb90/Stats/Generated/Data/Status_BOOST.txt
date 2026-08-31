@@ -1,0 +1,6 @@
+new entry "AESN_HP_BIT_00001"
+type "StatusData"
+data "StatusType" "BOOST"
+data "StackId" "AESN_HP_BIT_00001"
+data "Boosts" "IncreaseMaxHP(1);"
+data "StatusPropertyFlags" "DisableOverhead;DisableCombatlog;DisablePortraitIndicator"

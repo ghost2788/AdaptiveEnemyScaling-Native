@@ -21,6 +21,8 @@ The POC is not declared complete until every required runtime row passes.
 | CAP-06 | Save during an active combat with versioned database facts | Facts, transaction state, and applied status identities are available after reload | Reject save/load design |
 | CAP-07 | Cause or reproduce a combat switch | `SwitchedCombat` arguments and later `CombatEnded` ordering allow the discarded owner to be marked first | Reject merge design |
 
+CAP-02 was **Rejected locally on 2026-08-31** because Publish Local wrote the package into the live player Mods directory. The exact new file was moved to ignored `B:` artifact storage, its hash was preserved, and the live manifest was restored exactly. Per the approved gate, CAP-04 runtime execution is paused pending review.
+
 ## Host-side deterministic tests
 
 `tests/test_poc_model.py` is the arithmetic and state-transition oracle. It must cover:
@@ -43,7 +45,7 @@ The POC is not declared complete until every required runtime row passes.
 
 - All custom status IDs and stack IDs begin `AESN_`.
 - All custom database names begin `DB_AESN_`.
-- Module UUID is exactly `bb8bdf43-775b-4451-9ffd-69b5f3f531e8`.
+- Module UUID is exactly `a4567f52-1665-df50-b84c-3992f80fdb90`.
 - Upstream and Tactician UUIDs never appear in executable Story or Stats files, except the verified Simple Enemy Scaling conflict declaration when added to metadata.
 - `DB_PartOfTheTeam` occurs only in `AESN_90_Diagnostics.txt` or tests.
 - Roster production rules consume `DB_PartyMembers` and no second candidate database.
@@ -96,4 +98,3 @@ After Publish Local:
 5. Compare live Mods and `modsettings.lsx` manifests with their pre-build versions.
 6. Produce `artifacts/reports/package-validation.json`.
 7. Stop for user review without installing or uploading.
-

@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Native implementation is the primary path; `B:\UserData\Tom\BG3ModAnalysis\AdaptiveEnemyScaling-PartyLevel` remains untouched as the Script Extender fallback.
-- Module name is `AdaptiveEnemyScalingNativePOC`; module UUID is `bb8bdf43-775b-4451-9ffd-69b5f3f531e8`; semantic version is `0.1.0`.
+- Module name is `AdaptiveEnemyScalingNativePOC`; Toolkit-generated and user-approved module UUID is `a4567f52-1665-df50-b84c-3992f80fdb90`; internal POC milestone is `0.1.0`; Toolkit module version is `1.0.0.0` with expected first-publish version `1.0.0.1`.
 - Every owned status and stack ID begins `AESN_`; every owned Osiris database begins `DB_AESN_`.
 - `DB_PartyMembers` is the only eligible-roster candidate database. `DB_PartOfTheTeam` is diagnostic only and may occur in production source only in `AESN_90_Diagnostics.txt`.
 - Enemy eligibility requires hostility to at least one snapshotted eligible member participating in the same combat.
@@ -24,7 +24,7 @@
 - Tactician Enhanced is feasibility evidence only. Do not reuse its code, resource definitions, localization, UUIDs, database names, statuses, stack IDs, or other authored content.
 - Credit Simple Enemy Scaling by trashcanhvnds as distribution labeled `1.4.1.2`, distribution SHA-256 `16B34DE94FDBD3704F8D3053A29CE00E9423DA774D8F2779B907455A68126B96`, package SHA-256 `3D5F28550D9633321E68531E069510A75965C633F461825EA791BC30153F41D9`.
 - Install the official Toolkit to the `B:` Steam library. Before a separate approval, do not write the live Mods directory, change `modsettings.lsx`, install/activate the POC, or upload it.
-- Publish Local output goes to ignored `B:\UserData\Tom\BG3ModAnalysis\AdaptiveEnemyScaling-Native-POC\artifacts\packed\AdaptiveEnemyScalingNativePOC-0.1.0.pak`; stop after package validation.
+- CAP-02 proved that this Toolkit build writes Publish Local output into the live player Mods directory. The exact probe package was moved to ignored `B:` storage and live state was restored; no further Publish Local run is allowed without redesign or a separately scoped user exception.
 - A capability classified below **Verified locally** receives an isolated spike before dependent implementation. A rejected mandatory spike stops the native path.
 
 ---
@@ -53,7 +53,7 @@ import pathlib
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-MODULE_UUID = "bb8bdf43-775b-4451-9ffd-69b5f3f531e8"
+MODULE_UUID = "a4567f52-1665-df50-b84c-3992f80fdb90"
 
 class DocumentContracts(unittest.TestCase):
     def test_identity_is_consistent(self):
@@ -88,8 +88,8 @@ Create `build/module-identity.json`:
 ```json
 {
   "moduleName": "AdaptiveEnemyScalingNativePOC",
-  "moduleFolder": "AdaptiveEnemyScalingNativePOC_bb8bdf43-775b-4451-9ffd-69b5f3f531e8",
-  "moduleUuid": "bb8bdf43-775b-4451-9ffd-69b5f3f531e8",
+  "moduleFolder": "AdaptiveEnemyScalingNativePOC_a4567f52-1665-df50-b84c-3992f80fdb90",
+  "moduleUuid": "a4567f52-1665-df50-b84c-3992f80fdb90",
   "version": "0.1.0",
   "schemaVersion": 1,
   "statusPrefix": "AESN_",
@@ -271,8 +271,8 @@ git commit -m "docs: verify official Toolkit installation"
 ### Task 4: Isolated Toolkit Project and Flat-HP Capability Spike
 
 **Files:**
-- Create: `toolkit/Mods/AdaptiveEnemyScalingNativePOC_bb8bdf43-775b-4451-9ffd-69b5f3f531e8/meta.lsx`
-- Create: `toolkit/Public/AdaptiveEnemyScalingNativePOC_bb8bdf43-775b-4451-9ffd-69b5f3f531e8/Stats/Generated/Data/Status_BOOST.txt`
+- Create: `toolkit/Mods/AdaptiveEnemyScalingNativePOC_a4567f52-1665-df50-b84c-3992f80fdb90/meta.lsx`
+- Create: `toolkit/Public/AdaptiveEnemyScalingNativePOC_a4567f52-1665-df50-b84c-3992f80fdb90/Stats/Generated/Data/Status_BOOST.txt`
 - Create: `assets/thumbnail.png`
 - Create: `story/RawFiles/Goals/AESN_00_Init.txt`
 - Create: `story/RawFiles/Goals/AESN_99_TestHarness.txt`
@@ -288,9 +288,9 @@ git commit -m "docs: verify official Toolkit installation"
 - Consumes: `evidence/toolkit-paths.json`, fixed module identity.
 - Produces: compiled native project; proven `AESN_HP_BIT_00001`; base initialization fact `DB_AESN_SchemaVersion(1)`.
 
-- [ ] **Step 1: Create the project with the reserved identity**
+- [x] **Step 1: Create the project and resolve the generated identity**
 
-In the official Toolkit, create a new Adventure/add-on project named `AdaptiveEnemyScalingNativePOC`. Set module UUID to `bb8bdf43-775b-4451-9ffd-69b5f3f531e8`, version `0.1.0`, no external dependencies, and copy the generated `meta.lsx` into the exact repository path above. Set the user-facing name to `Adaptive Enemy Scaling` and the description to `Native proof of concept for Adaptive Enemy Scaling. Independently implemented with prominent credit to Simple Enemy Scaling by trashcanhvnds.` If the Toolkit refuses the reserved UUID or generates an unavoidable different identity, stop and report rather than changing the approved UUID silently.
+In the official Toolkit, create a new Adventure/add-on project named `AdaptiveEnemyScalingNativePOC` with no external mod dependencies and copy the generated `meta.lsx` into the exact repository path above. Set the user-facing name to `Adaptive Enemy Scaling` and the description to `Native proof of concept for Adaptive Enemy Scaling. Independently implemented with prominent credit to Simple Enemy Scaling by trashcanhvnds.` The Toolkit generated module UUID `a4567f52-1665-df50-b84c-3992f80fdb90`; a post-creation migration to the originally reserved UUID crashed project scanning, so the user explicitly approved the generated UUID on 2026-08-31. The Toolkit also rejected major version `0`, producing module version `1.0.0.0` while `0.1.0` remains the internal milestone. Evidence is recorded in `evidence/toolkit-project-identity.json`.
 
 Create an original, non-game-art POC thumbnail at `assets/thumbnail.png` using the `imagegen` skill: a clean dark red and gold circular difficulty-scale emblem, no characters, logos, copyrighted game art, or third-party assets. Set it as the mandatory Project Settings thumbnail.
 
@@ -331,6 +331,8 @@ Expected: zero compiler errors and the project appears only in the Toolkit works
 
 - [ ] **Step 6: Run CAP-04 in editor mode**
 
+Blocked pending review of the rejected CAP-02 isolation gate. Do not execute this runtime mutation until the user approves a revised boundary.
+
 On a living test character, record `(current, maximum)`, apply `AESN_HP_BIT_00001`, wait for `StatusApplied`, verify maximum is exactly `maximum + 1`, restore percentage once, remove the status, wait for `StatusRemoved`, verify maximum returns exactly, and verify no resurrection behavior on a dead test entity. Save observations and Toolkit log excerpts in `evidence/capability-spikes/CAP-04-flat-hp.md`.
 
 Expected: all observations pass. If any fails, mark binary flat HP **Rejected**, stop native implementation, and preserve the SE fallback.
@@ -340,6 +342,8 @@ Expected: all observations pass. If any fails, mark binary flat HP **Rejected**,
 Capture a fresh live manifest, use **Publish Local** and choose `B:\UserData\Tom\BG3ModAnalysis\AdaptiveEnemyScaling-Native-POC\artifacts\capability-spikes\CAP-02-minimal.pak`, then capture `artifacts/safety/post-minimal-publish.json`. Compare both against `artifacts/safety/pre-build.json` and record the prompt, output path, package hash, and comparison result in `evidence/capability-spikes/CAP-02-publish-local.md`.
 
 Expected: a local `.pak` is created at the chosen B: path, nothing is uploaded, and the live Mods directory and `modsettings.lsx` remain byte-for-byte unchanged. If Publish Local forces a live write, stop and report before continuing.
+
+Observed 2026-08-31: **Rejected.** Publish Local created the package in the live player Mods directory. The exact new package was moved to ignored `B:` artifact storage, its SHA-256 was preserved, and the live manifest was restored exactly. Work stopped before CAP-04 runtime execution.
 
 - [ ] **Step 8: Update proof status, run host tests, and commit**
 
@@ -356,7 +360,7 @@ git commit -m "feat: prove isolated native flat HP status"
 ### Task 5: Full Status Registry and Roster Capability Gate
 
 **Files:**
-- Modify: `toolkit/Public/AdaptiveEnemyScalingNativePOC_bb8bdf43-775b-4451-9ffd-69b5f3f531e8/Stats/Generated/Data/Status_BOOST.txt`
+- Modify: `toolkit/Public/AdaptiveEnemyScalingNativePOC_a4567f52-1665-df50-b84c-3992f80fdb90/Stats/Generated/Data/Status_BOOST.txt`
 - Create: `story/RawFiles/Goals/AESN_10_Roster.txt`
 - Create: `story/RawFiles/Goals/AESN_20_Policy.txt`
 - Create: `story/RawFiles/Goals/AESN_90_Diagnostics.txt`
@@ -761,6 +765,8 @@ Open Project Settings in the official Toolkit, confirm name `Adaptive Enemy Scal
 `B:\UserData\Tom\BG3ModAnalysis\AdaptiveEnemyScaling-Native-POC\artifacts\packed\AdaptiveEnemyScalingNativePOC-0.1.0.pak`
 
 Do not choose Publish/mod.io, do not authenticate, and do not copy the package afterward.
+
+This step is currently blocked: CAP-02 rejected the assumption that Publish Local can avoid the live player Mods directory. Do not retry it unless the design is changed to avoid the write or the user explicitly authorizes a narrowly scoped temporary-package exception.
 
 If the Toolkit conflict UI requires installing Simple Enemy Scaling into the live Mods directory, do not install it. Attempt the conflict only through the Toolkit's supported project metadata interface using module UUID `b7e3a1d2-f4c6-4e89-9abc-d012ef345678`; if that supported path is unavailable, stop before Publish Local and report the conflict-declaration gate instead of violating the live-directory boundary.
 

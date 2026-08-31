@@ -1,8 +1,11 @@
 {
   "moduleName": "AdaptiveEnemyScalingNativePOC",
-  "moduleFolder": "AdaptiveEnemyScalingNativePOC_bb8bdf43-775b-4451-9ffd-69b5f3f531e8",
-  "moduleUuid": "bb8bdf43-775b-4451-9ffd-69b5f3f531e8",
+  "moduleFolder": "AdaptiveEnemyScalingNativePOC_a4567f52-1665-df50-b84c-3992f80fdb90",
+  "moduleUuid": "a4567f52-1665-df50-b84c-3992f80fdb90",
   "version": "0.1.0",
+  "toolkitModuleVersion": "1.0.0.0",
+  "toolkitModuleVersion64": 36028797018963968,
+  "expectedFirstPublishVersion": "1.0.0.1",
   "schemaVersion": 1,
   "statusPrefix": "AESN_",
   "databasePrefix": "DB_AESN_"
