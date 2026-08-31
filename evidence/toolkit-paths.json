@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "steamLibraryRoot": "B:\\SteamLibrary",
+  "toolkitRoot": "B:\\SteamLibrary\\steamapps\\common\\Baldurs Gate 3 Toolkit",
+  "toolkitExecutable": "B:\\SteamLibrary\\steamapps\\common\\Baldurs Gate 3 Toolkit\\Glasses.exe",
+  "gameRoot": "B:\\SteamLibrary\\steamapps\\common\\Baldurs Gate 3",
+  "gameDataRoot": "B:\\SteamLibrary\\steamapps\\common\\Baldurs Gate 3\\Data",
+  "editorDataRoot": "B:\\SteamLibrary\\steamapps\\common\\Baldurs Gate 3\\Data\\Editor",
+  "editorDataRootVerified": true,
+  "liveModsRoot": "C:\\Users\\Tom Girard\\AppData\\Local\\Larian Studios\\Baldur's Gate 3\\Mods",
+  "liveModsettings": "C:\\Users\\Tom Girard\\AppData\\Local\\Larian Studios\\Baldur's Gate 3\\PlayerProfiles\\Public\\modsettings.lsx"
+}

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "capturedAtUtc": "2026-08-31T17:35:05Z",
+  "source": "Steam local app manifests and installed files",
+  "toolkit": {
+    "appId": 2934770,
+    "name": "Baldur's Gate 3 Toolkit",
+    "buildId": 19988805,
+    "installDirectoryName": "Baldurs Gate 3 Toolkit",
+    "lastUpdatedUnix": 1788196822,
+    "lastUpdatedUtc": "2026-08-31T17:20:22Z",
+    "sizeOnDiskBytes": 576807236,
+    "installedDepot": {
+      "depotId": 2934771,
+      "manifestId": "5300403907239633818"
+    }
+  },
+  "dataDlc": {
+    "appId": 2956320,
+    "name": "BG3 Toolkit Data",
+    "hostAppId": 1086940,
+    "classification": "verified-locally",
+    "installedDepot": {
+      "depotId": 2330358,
+      "manifestId": "7444994150796633975",
+      "sizeBytes": 11227179410
+    },
+    "localAcceptance": {
+      "editorDirectoryPresent": true,
+      "toolkitDataDepotPresentInHostManifest": true,
+      "downloadInProgress": false
+    },
+    "hostManifest": {
+      "path": "B:\\SteamLibrary\\steamapps\\appmanifest_1086940.acf",
+      "lengthBytes": 1467,
+      "sha256": "2723968dc714257e1233dcdb531d0f3c7529e737370a47d1ab2121af4f51d1a3"
+    }
+  },
+  "files": [
+    {
+      "path": "B:\\SteamLibrary\\steamapps\\appmanifest_2934770.acf",
+      "lengthBytes": 906,
+      "sha256": "9b9d2ffd78be9c7d6b9bbf7bd8de58f538981c43911314a4f851b3809c4459be"
+    },
+    {
+      "path": "B:\\SteamLibrary\\steamapps\\common\\Baldurs Gate 3 Toolkit\\Glasses.exe",
+      "lengthBytes": 654848,
+      "sha256": "2e4fe7debf1f5e8dd275c49d4824c3fcb51ce270b8149012b1fc6be1b782a26e"
+    },
+    {
+      "path": "B:\\SteamLibrary\\steamapps\\common\\Baldurs Gate 3 Toolkit\\StoryPlugin.dll",
+      "lengthBytes": 514560,
+      "sha256": "22aa85620a03df45d2c0dff6ab62ddd714ba15436e26a4a4644aa800bacbed71"
+    },
+    {
+      "path": "B:\\SteamLibrary\\steamapps\\common\\Baldurs Gate 3 Toolkit\\Osiris.dll",
+      "lengthBytes": 567808,
+      "sha256": "340d688aca31cc399c4639529a3381f1a7e57e489d7501dbc337eff90a91e6fc"
+    }
+  ]
+}

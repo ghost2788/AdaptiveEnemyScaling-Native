@@ -221,7 +221,7 @@ git commit -m "test: lock native POC policy arithmetic"
 - Test: `tests/verify_live_directories_unchanged.ps1`
 
 **Interfaces:**
-- Consumes: Steam app `2956320`; `artifacts/safety/pre-build.json`.
+- Consumes: Steam tool app `2934770`, BG3 Toolkit Data DLC app `2956320`, Baldur's Gate 3 app `1086940`, and `artifacts/safety/pre-build.json`.
 - Produces: verified Toolkit executable/data roots and a no-live-change comparison.
 
 - [ ] **Step 1: Reconfirm the exact installation target and available space**
@@ -230,18 +230,19 @@ Run:
 
 ```powershell
 Get-PSDrive B | Select-Object Name,Free,Used
-Test-Path -LiteralPath 'B:\SteamLibrary\steamapps\appmanifest_2956320.acf'
+Test-Path -LiteralPath 'B:\SteamLibrary\steamapps\appmanifest_2934770.acf'
+Test-Path -LiteralPath 'B:\SteamLibrary\steamapps\common\Baldurs Gate 3\Data\Editor'
 ```
 
-Expected: adequate free space; manifest is absent before installation.
+Expected: adequate free space; the Toolkit manifest and BG3 editor-data folder are absent before installation.
 
 - [ ] **Step 2: Install the official Baldur's Gate 3 Toolkit through Steam**
 
-Use Steam's product page for app `2956320`, select `B:\SteamLibrary`, wait for Steam verification to complete, and do not launch any third-party toolkit or mod manager.
+Use Steam's product page for the official Toolkit tool app `2934770`, select `B:\SteamLibrary`, and wait for Steam verification to complete. Then open Baldur's Gate 3 Properties > DLC and enable BG3 Toolkit Data (`2956320`) so Steam adds the editor-data depot to the installed game. Do not launch any third-party toolkit or mod manager.
 
 - [ ] **Step 3: Record version-specific installation evidence**
 
-Parse `B:\SteamLibrary\steamapps\appmanifest_2956320.acf` for `buildid`, `installdir`, and `LastUpdated`; resolve the executable and data roots; write those exact values and SHA-256 hashes of the Toolkit executables to `evidence/toolkit-install.json` and `evidence/toolkit-paths.json`.
+Parse `B:\SteamLibrary\steamapps\appmanifest_2934770.acf` for `buildid`, `installdir`, and `LastUpdated`; inspect the Baldur's Gate 3 manifest for Toolkit Data depot `2330358` with DLC app ID `2956320`; resolve the Toolkit executable and BG3 data roots; write those exact values and SHA-256 hashes of the Toolkit executables to `evidence/toolkit-install.json` and `evidence/toolkit-paths.json`.
 
 - [ ] **Step 4: Prove installation did not change live mod state**
 
