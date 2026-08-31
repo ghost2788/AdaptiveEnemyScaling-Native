@@ -104,6 +104,91 @@ class DocumentContracts(unittest.TestCase):
         ):
             self.assertIn(required, harness_text)
 
+    def test_editor_console_triggers_target_only_the_host_character(self):
+        harness_text = (
+            ROOT / "story/RawFiles/Goals/AESN_99_TestHarness.txt"
+        ).read_text(encoding="utf-8")
+
+        for event_name, procedure_name in (
+            ("AESN_TEST_APPLY_ONE_HP", "PROC_AESN_TestApplyOneHp"),
+            ("AESN_TEST_REMOVE_ONE_HP", "PROC_AESN_TestRemoveOneHp"),
+        ):
+            self.assertIn(f'TextEvent("{event_name}")', harness_text)
+            event_position = harness_text.index(f'TextEvent("{event_name}")')
+            host_position = harness_text.index(
+                "GetHostCharacter(_Target)", event_position
+            )
+            call_position = harness_text.index(
+                f"{procedure_name}(_Target);", host_position
+            )
+            self.assertLess(event_position, host_position)
+            self.assertLess(host_position, call_position)
+
+        self.assertIn(
+            'DB_AESN_TestObservation("APPLY_POST"', harness_text
+        )
+        self.assertIn(
+            'DB_AESN_TestObservation("REMOVE_POST"', harness_text
+        )
+
+    def test_editor_staged_target_probe_is_explicit_and_isolated(self):
+        harness_text = (
+            ROOT / "story/RawFiles/Goals/AESN_99_TestHarness.txt"
+        ).read_text(encoding="utf-8")
+
+        for required in (
+            "DB_AESN_TestSpawnedTarget",
+            'TextEvent("AESN_TEST_SPAWN_AND_APPLY_ONE_HP")',
+            "CreateAtObject((CHARACTERROOT)"
+            "Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b",
+            "S_CampSetup_CAMP_TrainingDummy_"
+            "9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7",
+            "SetCanFight((CHARACTER)_Target, 0);",
+            "SetCanJoinCombat((CHARACTER)_Target, 0);",
+            "DB_AESN_TestSpawnPendingReady((CHARACTER)_Target);",
+            'RealtimeObjectTimerLaunch((CHARACTER)_Target, "AESN_CAP04_SPAWN_READY", 250);',
+            'ObjectTimerFinished((CHARACTER)_Target, "AESN_CAP04_SPAWN_READY")',
+            "PROC_AESN_TestApplyOneHp((CHARACTER)_Target);",
+            'TextEvent("AESN_TEST_REMOVE_SPAWNED_ONE_HP")',
+            "PROC_AESN_TestRemoveOneHp(_Target);",
+        ):
+            self.assertIn(required, harness_text)
+
+    def test_flat_hp_probe_emits_strict_pass_only_debug_records(self):
+        harness_text = (
+            ROOT / "story/RawFiles/Goals/AESN_99_TestHarness.txt"
+        ).read_text(encoding="utf-8")
+
+        for required in (
+            '"AESN_CAP04 APPLY beforeCurrent="',
+            '"AESN_CAP04 REMOVE beforeCurrent="',
+            '",percentagePreserved=1,bit=1"',
+            "IntegerSum(_BeforeMaximum, 1, _ExpectedMaximum)",
+            "IntegerSubtract(_BeforeMaximum, 1, _ExpectedMaximum)",
+            "_AfterPercentage == _BeforePercentage",
+            "DebugLog(_Message);",
+        ):
+            self.assertIn(required, harness_text)
+
+    def test_flat_hp_dead_probe_skips_mutation_and_retires_target(self):
+        harness_text = (
+            ROOT / "story/RawFiles/Goals/AESN_99_TestHarness.txt"
+        ).read_text(encoding="utf-8")
+
+        for required in (
+            'TextEvent("AESN_TEST_SPAWN_DEAD_AND_APPLY_ONE_HP")',
+            "DB_AESN_TestSpawnPendingDeath",
+            "Die((CHARACTER)_Target, DEATHTYPE.DoT,",
+            'DB_AESN_TestObservation("SKIP_DEAD"',
+            'DB_AESN_TestObservation("SKIP_DEAD_POST"',
+            '"AESN_CAP04 SKIP_DEAD current="',
+            '",statusApplied=0,percentageWrite=0"',
+            'HasActiveStatus(_Target, "AESN_HP_BIT_00001", 0)',
+            "_BeforeCurrent > 0",
+            "_AfterCurrent == 0",
+        ):
+            self.assertIn(required, harness_text)
+
 
 if __name__ == "__main__":
     unittest.main()

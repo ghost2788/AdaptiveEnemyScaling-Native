@@ -21,7 +21,9 @@ The POC is not declared complete until every required runtime row passes.
 | CAP-06 | Save during an active combat with versioned database facts | Facts, transaction state, and applied status identities are available after reload | Reject save/load design |
 | CAP-07 | Cause or reproduce a combat switch | `SwitchedCombat` arguments and later `CombatEnded` ordering allow the discarded owner to be marked first | Reject merge design |
 
-CAP-02 was **Rejected locally on 2026-08-31** because Publish Local wrote the package into the live player Mods directory. The exact new file was moved to ignored `B:` artifact storage, its hash was preserved, and the live manifest was restored exactly. Per the approved gate, CAP-04 runtime execution is paused pending review.
+CAP-02 was **Rejected locally on 2026-08-31** because Publish Local wrote the package into the live player Mods directory. The exact new file was moved to ignored `B:` artifact storage, its hash was preserved, and the live manifest was restored exactly. After review, the user approved a narrow temporary-staging exception: only this POC package may be created there by Publish Local, it must be moved to ignored `B:` storage before any game launch, and the live manifest must then match exactly. CAP-04 editor execution may continue; the CAP-02 capability classification remains Rejected.
+
+CAP-04 was **Verified locally on 2026-08-31**. The living path produced `12/12 -> 13/13 -> 12/12`, exact apply/remove acknowledgements, 100% preserved once, and applied bit `1`; the creation-frame `-1/-1` observation was resolved with a 250 ms entity-bound native timer. Native status application to a dead character is rejected, so the failure-closed policy detects `0` HP before mutation, applies no bit, performs no percentage write, preserves `0/12`, and retires the test target.
 
 ## Host-side deterministic tests
 

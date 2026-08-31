@@ -4,7 +4,95 @@ INITSECTION
 NOT DB_AESN_TestPendingApply((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, 0, 0.0);
 NOT DB_AESN_TestPendingRemove((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, 0, 0.0);
 NOT DB_AESN_TestObservation("", (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, 0, 0, 0, 0.0);
+NOT DB_AESN_TestSpawnedTarget((CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_TestSpawnPendingReady((CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_TestSpawnPendingDeath((CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
 KBSECTION
+
+// Editor-only CAP-04 triggers. ReCon command: oe AESN_TEST_APPLY_ONE_HP
+IF
+TextEvent("AESN_TEST_APPLY_ONE_HP")
+AND
+GetHostCharacter(_Target)
+THEN
+PROC_AESN_TestApplyOneHp(_Target);
+
+// ReCon command: oe AESN_TEST_REMOVE_ONE_HP
+IF
+TextEvent("AESN_TEST_REMOVE_ONE_HP")
+AND
+GetHostCharacter(_Target)
+THEN
+PROC_AESN_TestRemoveOneHp(_Target);
+
+// Hostless editor fallback for CAP-04 only. The vanilla kobold is staged at a
+// known WLD_Campfire_E object and cannot fight or join combat.
+// ReCon command: oe AESN_TEST_SPAWN_AND_APPLY_ONE_HP
+IF
+TextEvent("AESN_TEST_SPAWN_AND_APPLY_ONE_HP")
+AND
+NOT DB_AESN_TestSpawnedTarget(_)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _Target)
+THEN
+DB_AESN_TestSpawnedTarget((CHARACTER)_Target);
+SetCanFight((CHARACTER)_Target, 0);
+SetCanJoinCombat((CHARACTER)_Target, 0);
+DB_AESN_TestSpawnPendingReady((CHARACTER)_Target);
+RealtimeObjectTimerLaunch((CHARACTER)_Target, "AESN_CAP04_SPAWN_READY", 250);
+
+// CreateAtObject can expose -1/-1 HP during the creation frame. Wait for the
+// entity-bound real-time timer before capturing the transaction baseline.
+IF
+ObjectTimerFinished((CHARACTER)_Target, "AESN_CAP04_SPAWN_READY")
+AND
+DB_AESN_TestSpawnPendingReady(_Target)
+AND
+DB_AESN_TestSpawnedTarget(_Target)
+THEN
+NOT DB_AESN_TestSpawnPendingReady(_Target);
+PROC_AESN_TestApplyOneHp((CHARACTER)_Target);
+
+// ReCon command: oe AESN_TEST_SPAWN_DEAD_AND_APPLY_ONE_HP
+IF
+TextEvent("AESN_TEST_SPAWN_DEAD_AND_APPLY_ONE_HP")
+AND
+NOT DB_AESN_TestSpawnedTarget(_)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _Target)
+THEN
+DB_AESN_TestSpawnedTarget((CHARACTER)_Target);
+DB_AESN_TestSpawnPendingDeath((CHARACTER)_Target);
+SetCanFight((CHARACTER)_Target, 0);
+SetCanJoinCombat((CHARACTER)_Target, 0);
+Die((CHARACTER)_Target, DEATHTYPE.DoT, NULL_00000000-0000-0000-0000-000000000000, 0, 1, 0.0);
+
+IF
+Died((CHARACTER)_Target)
+AND
+DB_AESN_TestSpawnPendingDeath(_Target)
+AND
+DB_AESN_TestSpawnedTarget(_Target)
+THEN
+RealtimeObjectTimerLaunch((CHARACTER)_Target, "AESN_CAP04_DEAD_READY", 250);
+
+IF
+ObjectTimerFinished((CHARACTER)_Target, "AESN_CAP04_DEAD_READY")
+AND
+DB_AESN_TestSpawnPendingDeath(_Target)
+AND
+DB_AESN_TestSpawnedTarget(_Target)
+THEN
+NOT DB_AESN_TestSpawnPendingDeath(_Target);
+PROC_AESN_TestApplyOneHp((CHARACTER)_Target);
+
+// ReCon command: oe AESN_TEST_REMOVE_SPAWNED_ONE_HP
+IF
+TextEvent("AESN_TEST_REMOVE_SPAWNED_ONE_HP")
+AND
+DB_AESN_TestSpawnedTarget((CHARACTER)_Target)
+THEN
+PROC_AESN_TestRemoveOneHp(_Target);
 
 // CAP-04 test-only entry point. Query failure prevents mutation.
 PROC
@@ -15,6 +103,8 @@ AND
 GetMaxHitpoints(_Target, _BeforeMaximum)
 AND
 GetHitpointsPercentage(_Target, _BeforePercentage)
+AND
+_BeforeCurrent > 0
 AND
 NOT DB_AESN_TestPendingApply(_Target, _, _, _)
 THEN
@@ -35,16 +125,100 @@ SetHitpointsPercentage(_Target, _BeforePercentage, "Guaranteed");
 DB_AESN_TestObservation("APPLY", _Target, _BeforeCurrent, _BeforeMaximum, _AfterMaximum, 1, _BeforePercentage);
 NOT DB_AESN_TestPendingApply(_Target, _BeforeCurrent, _BeforeMaximum, _BeforePercentage);
 
-// A dead target is observed but never receives a percentage write that could resurrect it.
+// Observe the post-restoration state independently of the acknowledgement rule.
 IF
-StatusApplied((CHARACTER)_Target, "AESN_HP_BIT_00001", _, _)
+DB_AESN_TestObservation("APPLY", _Target, _, _, _, 1, _)
 AND
-DB_AESN_TestPendingApply(_Target, 0, _BeforeMaximum, _BeforePercentage)
+GetHitpoints(_Target, _AfterCurrent)
 AND
 GetMaxHitpoints(_Target, _AfterMaximum)
+AND
+GetHitpointsPercentage(_Target, _AfterPercentage)
 THEN
-DB_AESN_TestObservation("APPLY_DEAD", _Target, 0, _BeforeMaximum, _AfterMaximum, 1, _BeforePercentage);
-NOT DB_AESN_TestPendingApply(_Target, 0, _BeforeMaximum, _BeforePercentage);
+DB_AESN_TestObservation("APPLY_POST", _Target, _AfterCurrent, _AfterMaximum, _AfterMaximum, 1, _AfterPercentage);
+
+// Emit a main-log record only when the exact one-bit and percentage invariants pass.
+IF
+DB_AESN_TestObservation("APPLY", (CHARACTER)_Target, _BeforeCurrent, _BeforeMaximum, _AppliedMaximum, 1, _BeforePercentage)
+AND
+DB_AESN_TestObservation("APPLY_POST", _Target, _AfterCurrent, _AfterMaximum, _AfterMaximum, 1, _AfterPercentage)
+AND
+IntegerSum(_BeforeMaximum, 1, _ExpectedMaximum)
+AND
+_AppliedMaximum == _ExpectedMaximum
+AND
+_AfterMaximum == _ExpectedMaximum
+AND
+_AfterPercentage == _BeforePercentage
+AND
+ConcatenateInteger("AESN_CAP04 APPLY beforeCurrent=", _BeforeCurrent, _Message1)
+AND
+Concatenate(_Message1, ",beforeMax=", _Message2)
+AND
+ConcatenateInteger(_Message2, _BeforeMaximum, _Message3)
+AND
+Concatenate(_Message3, ",afterCurrent=", _Message4)
+AND
+ConcatenateInteger(_Message4, _AfterCurrent, _Message5)
+AND
+Concatenate(_Message5, ",afterMax=", _Message6)
+AND
+ConcatenateInteger(_Message6, _AfterMaximum, _Message7)
+AND
+Concatenate(_Message7, ",percentagePreserved=1,bit=1", _Message)
+THEN
+DebugLog(_Message);
+
+// Native ApplyStatus rejects dead characters. Detect zero HP before mutation,
+// apply no fork-owned bit, perform no percentage write, and prove no change.
+PROC
+PROC_AESN_TestApplyOneHp((CHARACTER)_Target)
+AND
+GetHitpoints(_Target, 0)
+AND
+GetMaxHitpoints(_Target, _BeforeMaximum)
+AND
+GetHitpointsPercentage(_Target, _BeforePercentage)
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00001", 0)
+THEN
+DB_AESN_TestObservation("SKIP_DEAD", _Target, 0, _BeforeMaximum, _BeforeMaximum, 0, _BeforePercentage);
+
+IF
+DB_AESN_TestObservation("SKIP_DEAD", (CHARACTER)_Target, 0, _BeforeMaximum, _BeforeMaximum, 0, _BeforePercentage)
+AND
+GetHitpoints(_Target, _AfterCurrent)
+AND
+GetMaxHitpoints(_Target, _AfterMaximum)
+AND
+GetHitpointsPercentage(_Target, _AfterPercentage)
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00001", 0)
+AND
+_AfterCurrent == 0
+AND
+_AfterMaximum == _BeforeMaximum
+AND
+_AfterPercentage == _BeforePercentage
+AND
+ConcatenateInteger("AESN_CAP04 SKIP_DEAD current=", _AfterCurrent, _Message1)
+AND
+Concatenate(_Message1, ",max=", _Message2)
+AND
+ConcatenateInteger(_Message2, _AfterMaximum, _Message3)
+AND
+Concatenate(_Message3, ",statusApplied=0,percentageWrite=0", _Message)
+THEN
+DB_AESN_TestObservation("SKIP_DEAD_POST", _Target, _AfterCurrent, _AfterMaximum, _AfterMaximum, 0, _AfterPercentage);
+DebugLog(_Message);
+
+IF
+DB_AESN_TestObservation("SKIP_DEAD_POST", _Target, 0, _, _, 0, _)
+AND
+DB_AESN_TestSpawnedTarget(_Target)
+THEN
+PROC_SetOnStage(_Target, 0);
+NOT DB_AESN_TestSpawnedTarget(_Target);
 
 // CAP-04 test-only cleanup entry point. Query failure prevents mutation.
 PROC
@@ -76,14 +250,55 @@ DB_AESN_TestObservation("REMOVE", _Target, _BeforeCurrent, _BeforeMaximum, _Afte
 NOT DB_AESN_TestPendingRemove(_Target, _BeforeCurrent, _BeforeMaximum, _BeforePercentage);
 
 IF
-StatusRemoved((CHARACTER)_Target, "AESN_HP_BIT_00001", _, _)
+DB_AESN_TestObservation("REMOVE", _Target, _, _, _, 1, _)
 AND
-DB_AESN_TestPendingRemove(_Target, 0, _BeforeMaximum, _BeforePercentage)
+GetHitpoints(_Target, _AfterCurrent)
 AND
 GetMaxHitpoints(_Target, _AfterMaximum)
+AND
+GetHitpointsPercentage(_Target, _AfterPercentage)
 THEN
-DB_AESN_TestObservation("REMOVE_DEAD", _Target, 0, _BeforeMaximum, _AfterMaximum, 1, _BeforePercentage);
-NOT DB_AESN_TestPendingRemove(_Target, 0, _BeforeMaximum, _BeforePercentage);
+DB_AESN_TestObservation("REMOVE_POST", _Target, _AfterCurrent, _AfterMaximum, _AfterMaximum, 1, _AfterPercentage);
+
+IF
+DB_AESN_TestObservation("REMOVE", (CHARACTER)_Target, _BeforeCurrent, _BeforeMaximum, _RemovedMaximum, 1, _BeforePercentage)
+AND
+DB_AESN_TestObservation("REMOVE_POST", _Target, _AfterCurrent, _AfterMaximum, _AfterMaximum, 1, _AfterPercentage)
+AND
+IntegerSubtract(_BeforeMaximum, 1, _ExpectedMaximum)
+AND
+_RemovedMaximum == _ExpectedMaximum
+AND
+_AfterMaximum == _ExpectedMaximum
+AND
+_AfterPercentage == _BeforePercentage
+AND
+ConcatenateInteger("AESN_CAP04 REMOVE beforeCurrent=", _BeforeCurrent, _Message1)
+AND
+Concatenate(_Message1, ",beforeMax=", _Message2)
+AND
+ConcatenateInteger(_Message2, _BeforeMaximum, _Message3)
+AND
+Concatenate(_Message3, ",afterCurrent=", _Message4)
+AND
+ConcatenateInteger(_Message4, _AfterCurrent, _Message5)
+AND
+Concatenate(_Message5, ",afterMax=", _Message6)
+AND
+ConcatenateInteger(_Message6, _AfterMaximum, _Message7)
+AND
+Concatenate(_Message7, ",percentagePreserved=1,bit=1", _Message)
+THEN
+DebugLog(_Message);
+
+// Retire only the harness-owned temporary target after the cleanup observation.
+IF
+DB_AESN_TestObservation("REMOVE_POST", _Target, _, _, _, 1, _)
+AND
+DB_AESN_TestSpawnedTarget(_Target)
+THEN
+PROC_SetOnStage(_Target, 0);
+NOT DB_AESN_TestSpawnedTarget(_Target);
 
 EXITSECTION
 

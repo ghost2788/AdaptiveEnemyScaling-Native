@@ -24,7 +24,7 @@
 - Tactician Enhanced is feasibility evidence only. Do not reuse its code, resource definitions, localization, UUIDs, database names, statuses, stack IDs, or other authored content.
 - Credit Simple Enemy Scaling by trashcanhvnds as distribution labeled `1.4.1.2`, distribution SHA-256 `16B34DE94FDBD3704F8D3053A29CE00E9423DA774D8F2779B907455A68126B96`, package SHA-256 `3D5F28550D9633321E68531E069510A75965C633F461825EA791BC30153F41D9`.
 - Install the official Toolkit to the `B:` Steam library. Before a separate approval, do not write the live Mods directory, change `modsettings.lsx`, install/activate the POC, or upload it.
-- CAP-02 proved that this Toolkit build writes Publish Local output into the live player Mods directory. The exact probe package was moved to ignored `B:` storage and live state was restored; no further Publish Local run is allowed without redesign or a separately scoped user exception.
+- CAP-02 proved that this Toolkit build writes Publish Local output into the live player Mods directory. The exact probe package was moved to ignored `B:` storage and live state was restored. The user subsequently approved a narrow exception: future Publish Local runs may transiently stage only this POC package, which must be moved to `B:` before any game launch and followed by an exact live-manifest comparison; activation, `modsettings.lsx` edits, and uploads remain forbidden.
 - A capability classified below **Verified locally** receives an isolated spike before dependent implementation. A rejected mandatory spike stops the native path.
 
 ---
@@ -294,7 +294,7 @@ In the official Toolkit, create a new Adventure/add-on project named `AdaptiveEn
 
 Create an original, non-game-art POC thumbnail at `assets/thumbnail.png` using the `imagegen` skill: a clean dark red and gold circular difficulty-scale emblem, no characters, logos, copyrighted game art, or third-party assets. Set it as the mandatory Project Settings thumbnail.
 
-- [ ] **Step 2: Write the failing static status test**
+- [x] **Step 2: Write the failing static status test**
 
 Extend `tests/test_document_contracts.py` to require `AESN_HP_BIT_00001`, exact boost `IncreaseMaxHP(1);`, unique stack ID `AESN_HP_BIT_00001`, and hidden flags; run it before creating the Stats file.
 
@@ -302,7 +302,7 @@ Run: `python -m unittest tests.test_document_contracts -v`
 
 Expected: FAIL because `Status_BOOST.txt` is absent.
 
-- [ ] **Step 3: Add the independently authored one-bit probe status**
+- [x] **Step 3: Add the independently authored one-bit probe status**
 
 Create `Status_BOOST.txt` with this resource:
 
@@ -315,13 +315,13 @@ data "Boosts" "IncreaseMaxHP(1);"
 data "StatusPropertyFlags" "DisableOverhead;DisableCombatlog;DisablePortraitIndicator"
 ```
 
-- [ ] **Step 4: Add minimal Story initialization and probe procedures**
+- [x] **Step 4: Add minimal Story initialization and probe procedures**
 
 `AESN_00_Init.txt` declares `DB_AESN_SchemaVersion(1)` in `INIT` and supplies `PROC_AESN_RecordDiagnostic((STRING)_Key)` with `DB_AESN_DiagnosticOnce(_Key)` duplicate suppression.
 
 `AESN_99_TestHarness.txt` supplies `PROC_AESN_TestApplyOneHp((CHARACTER)_Target)` and `PROC_AESN_TestRemoveOneHp((CHARACTER)_Target)`, which capture `GetHitpoints`/`GetMaxHitpoints`, call `ApplyStatus`/`RemoveStatus` for the exact probe ID, and record `StatusApplied`/`StatusRemoved` observations in `DB_AESN_TestObservation` facts. The harness contains no production policy rule.
 
-- [ ] **Step 5: Synchronize to the Toolkit project and compile**
+- [x] **Step 5: Synchronize to the Toolkit project and compile**
 
 `tools/sync_toolkit_project.ps1` accepts `-ToolkitDataRoot`, validates the destination ends in the installed Toolkit data root from `evidence/toolkit-paths.json`, then copies only the repository `toolkit/Mods`, `toolkit/Public`, and `story/RawFiles/Goals` trees to their matching project locations. It refuses any destination containing `AppData\Local\Larian Studios\Baldur's Gate 3\Mods`.
 
@@ -329,15 +329,17 @@ Run the sync script, then build Stats and Story in the Toolkit.
 
 Expected: zero compiler errors and the project appears only in the Toolkit workspace.
 
-- [ ] **Step 6: Run CAP-04 in editor mode**
+- [x] **Step 6: Run CAP-04 in editor mode**
 
-Blocked pending review of the rejected CAP-02 isolation gate. Do not execute this runtime mutation until the user approves a revised boundary.
+Authorized after review of the rejected CAP-02 isolation gate. Execute only in the Toolkit editor source project; do not install or activate the published package.
 
 On a living test character, record `(current, maximum)`, apply `AESN_HP_BIT_00001`, wait for `StatusApplied`, verify maximum is exactly `maximum + 1`, restore percentage once, remove the status, wait for `StatusRemoved`, verify maximum returns exactly, and verify no resurrection behavior on a dead test entity. Save observations and Toolkit log excerpts in `evidence/capability-spikes/CAP-04-flat-hp.md`.
 
 Expected: all observations pass. If any fails, mark binary flat HP **Rejected**, stop native implementation, and preserve the SE fallback.
 
-- [ ] **Step 7: Verify Publish Local isolation with the minimal probe**
+Observed 2026-08-31: **Verified locally.** After an initial fail-closed `-1/-1` creation-frame observation, a 250 ms entity-bound native timer produced exact living records `12/12 -> 13/13 -> 12/12`, with matching status acknowledgements and 100% preserved once. Native `ApplyStatus` rejects dead characters; the final failure-closed policy detects `0` HP before mutation, applies no bit, performs no percentage write, preserves `0/12`, and retires the test target.
+
+- [x] **Step 7: Verify Publish Local isolation with the minimal probe**
 
 Capture a fresh live manifest, use **Publish Local** and choose `B:\UserData\Tom\BG3ModAnalysis\AdaptiveEnemyScaling-Native-POC\artifacts\capability-spikes\CAP-02-minimal.pak`, then capture `artifacts/safety/post-minimal-publish.json`. Compare both against `artifacts/safety/pre-build.json` and record the prompt, output path, package hash, and comparison result in `evidence/capability-spikes/CAP-02-publish-local.md`.
 
@@ -347,7 +349,7 @@ Observed 2026-08-31: **Rejected.** Publish Local created the package in the live
 
 - [ ] **Step 8: Update proof status, run host tests, and commit**
 
-Mark binary flat-HP status behavior and Publish Local isolation **Verified locally** with the current Toolkit/game builds.
+Mark CAP-04 flat-HP behavior **Verified locally** and retain Publish Local direct-output isolation as **Rejected** with the current Toolkit/game builds.
 
 ```powershell
 python -m unittest discover -s tests -v

@@ -21,3 +21,7 @@ The exact new package was moved, without modification, to the ignored artifact p
 - Post-remediation comparison: live Mods and `modsettings.lsx` exactly matched the pre-publish manifest.
 
 The package was not activated, added to `modsettings.lsx`, or uploaded. Per the approved Task 4 gate, work stops before CAP-04 runtime execution. Continuing requires either a design that avoids Publish Local writing to the live Mods directory or an explicit, separately scoped exception from the user.
+
+## Separately scoped exception
+
+The user explicitly approved `approve temporary publish-local staging` after reviewing this result. The exception permits future **Publish Local** runs to transiently create only this POC package in the live Mods directory, provided the package is moved immediately to ignored `B:` artifact storage before any game launch and an exact manifest comparison confirms that `modsettings.lsx` and every other live mod remain unchanged. It does not authorize activation, game installation, editing `modsettings.lsx`, uploading, or leaving the package in live Mods.
