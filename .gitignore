@@ -1,0 +1,6 @@
+artifacts/
+analysis/
+.devspace/
+__pycache__/
+*.pyc
+

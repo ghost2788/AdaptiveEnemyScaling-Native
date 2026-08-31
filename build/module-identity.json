@@ -1,0 +1,9 @@
+{
+  "moduleName": "AdaptiveEnemyScalingNativePOC",
+  "moduleFolder": "AdaptiveEnemyScalingNativePOC_bb8bdf43-775b-4451-9ffd-69b5f3f531e8",
+  "moduleUuid": "bb8bdf43-775b-4451-9ffd-69b5f3f531e8",
+  "version": "0.1.0",
+  "schemaVersion": 1,
+  "statusPrefix": "AESN_",
+  "databasePrefix": "DB_AESN_"
+}
