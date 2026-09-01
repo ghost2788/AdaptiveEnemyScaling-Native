@@ -1,0 +1,163 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_RelentlessLedger((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, 0, 0, 0, 0, 0, 0, 0);
+NOT DB_AESN_RelentlessRecipient((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0);
+NOT DB_AESN_RelentlessApplication((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, "", "");
+NOT DB_AESN_RelentlessRejected((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+KBSECTION
+
+// The ledger is persistent even while the capability gate is closed. Its
+// spent counters are monotonic: death, late entry, save/load, and merge never
+// return budget or replace a recipient.
+IF
+DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _ActionBudget, _BonusActionBudget, _RecipientCap, "Supported")
+AND
+NOT DB_AESN_RelentlessLedger(_Combat, _, _, _, _, _, _, _)
+THEN
+DB_AESN_RelentlessLedger(_Combat, 2, _ActionBudget, _BonusActionBudget, _RecipientCap, 0, 0, 0);
+
+// Production allocation is fail-closed. The capability fact is absent from
+// shipped initialization until the hostile runtime proof has passed.
+IF
+DB_AESN_ComponentApplication(_Combat, _Enemy, 1, "FullyCommitted")
+AND
+DB_AESN_EnemyEligible(_Combat, _Enemy)
+AND
+DB_AESN_RelentlessCapability(1)
+AND
+DB_AESN_RelentlessLedger(_Combat, 2, _, _, _, _, _, _)
+AND
+NOT DB_AESN_RelentlessRecipient(_Combat, _Enemy, _)
+AND
+NOT DB_AESN_RelentlessApplication(_Combat, _Enemy, _, _, _)
+AND
+NOT DB_AESN_RelentlessRejected(_Combat, _Enemy, _)
+AND
+NOT DB_AESN_MergeInProgress(_, _Combat)
+THEN
+PROC_AESN_CheckRelentlessResources(_Combat, _Enemy);
+
+// This procedure is shared with the temporary proof harness. Any personal
+// pool already above the normal 1/1 baseline is rejected, never stacked.
+PROC
+PROC_AESN_CheckRelentlessResources((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+GetActionResourceValuePersonal(_Enemy, "ActionPoint", 0, _ActionValue)
+AND
+GetActionResourceValuePersonal(_Enemy, "BonusActionPoint", 0, _BonusActionValue)
+AND
+_ActionValue > 1.0
+AND
+NOT DB_AESN_RelentlessRejected(_Combat, _Enemy, _)
+THEN
+DB_AESN_RelentlessRejected(_Combat, _Enemy, "PreexistingActionResource");
+
+PROC
+PROC_AESN_CheckRelentlessResources((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+GetActionResourceValuePersonal(_Enemy, "ActionPoint", 0, _ActionValue)
+AND
+GetActionResourceValuePersonal(_Enemy, "BonusActionPoint", 0, _BonusActionValue)
+AND
+_ActionValue <= 1.0
+AND
+_BonusActionValue > 1.0
+AND
+NOT DB_AESN_RelentlessRejected(_Combat, _Enemy, _)
+THEN
+DB_AESN_RelentlessRejected(_Combat, _Enemy, "PreexistingBonusActionResource");
+
+PROC
+PROC_AESN_CheckRelentlessResources((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+GetActionResourceValuePersonal(_Enemy, "ActionPoint", 0, _ActionValue)
+AND
+GetActionResourceValuePersonal(_Enemy, "BonusActionPoint", 0, _BonusActionValue)
+AND
+_ActionValue <= 1.0
+AND
+_BonusActionValue <= 1.0
+THEN
+PROC_AESN_AllocateRelentless(_Combat, _Enemy);
+
+// Unspent Bonus-Action budget upgrades the next Action recipient to tier II.
+PROC
+PROC_AESN_AllocateRelentless((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_RelentlessLedger(_Combat, 2, _ActionBudget, _BonusActionBudget, _RecipientCap, _ActionSpent, _BonusActionSpent, _RecipientSpent)
+AND
+_ActionSpent < _ActionBudget
+AND
+_BonusActionSpent < _BonusActionBudget
+AND
+_RecipientSpent < _RecipientCap
+AND
+IntegerSum(_ActionSpent, 1, _NextActionSpent)
+AND
+IntegerSum(_BonusActionSpent, 1, _NextBonusActionSpent)
+AND
+IntegerSum(_RecipientSpent, 1, _NextRecipientSpent)
+THEN
+NOT DB_AESN_RelentlessLedger(_Combat, 2, _ActionBudget, _BonusActionBudget, _RecipientCap, _ActionSpent, _BonusActionSpent, _RecipientSpent);
+DB_AESN_RelentlessLedger(_Combat, 2, _ActionBudget, _BonusActionBudget, _RecipientCap, _NextActionSpent, _NextBonusActionSpent, _NextRecipientSpent);
+DB_AESN_RelentlessApplication(_Combat, _Enemy, 2, "AESN_RELENTLESS_FOE_02", "Applying");
+ApplyStatus(_Enemy, "AESN_RELENTLESS_FOE_02", -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+RealtimeObjectTimerLaunch(_Enemy, "AESN_RELENTLESS_APPLY_TIMEOUT", 1000);
+
+// Tier I is selected only after all available Bonus-Action upgrades are spent.
+PROC
+PROC_AESN_AllocateRelentless((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_RelentlessLedger(_Combat, 2, _ActionBudget, _BonusActionBudget, _RecipientCap, _ActionSpent, _BonusActionSpent, _RecipientSpent)
+AND
+_ActionSpent < _ActionBudget
+AND
+_BonusActionSpent >= _BonusActionBudget
+AND
+_RecipientSpent < _RecipientCap
+AND
+IntegerSum(_ActionSpent, 1, _NextActionSpent)
+AND
+IntegerSum(_RecipientSpent, 1, _NextRecipientSpent)
+THEN
+NOT DB_AESN_RelentlessLedger(_Combat, 2, _ActionBudget, _BonusActionBudget, _RecipientCap, _ActionSpent, _BonusActionSpent, _RecipientSpent);
+DB_AESN_RelentlessLedger(_Combat, 2, _ActionBudget, _BonusActionBudget, _RecipientCap, _NextActionSpent, _BonusActionSpent, _NextRecipientSpent);
+DB_AESN_RelentlessApplication(_Combat, _Enemy, 1, "AESN_RELENTLESS_FOE_01", "Applying");
+ApplyStatus(_Enemy, "AESN_RELENTLESS_FOE_01", -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+RealtimeObjectTimerLaunch(_Enemy, "AESN_RELENTLESS_APPLY_TIMEOUT", 1000);
+
+IF
+StatusApplied((CHARACTER)_Enemy, _Status, _, _)
+AND
+DB_AESN_RelentlessApplication(_Combat, _Enemy, _Tier, _Status, "Applying")
+THEN
+RealtimeObjectTimerCancel(_Enemy, "AESN_RELENTLESS_APPLY_TIMEOUT");
+NOT DB_AESN_RelentlessApplication(_Combat, _Enemy, _Tier, _Status, "Applying");
+DB_AESN_RelentlessApplication(_Combat, _Enemy, _Tier, _Status, "Committed");
+DB_AESN_RelentlessRecipient(_Combat, _Enemy, _Tier);
+DB_AESN_EnemyComponent(_Combat, _Enemy, "Relentless", _Status);
+DebugLog("AESN_RELENTLESS recipient committed; spent budget remains monotonic");
+
+IF
+StatusAttemptFailed((CHARACTER)_Enemy, _Status, _, _)
+AND
+DB_AESN_RelentlessApplication(_Combat, _Enemy, _Tier, _Status, "Applying")
+THEN
+RealtimeObjectTimerCancel(_Enemy, "AESN_RELENTLESS_APPLY_TIMEOUT");
+NOT DB_AESN_RelentlessApplication(_Combat, _Enemy, _Tier, _Status, "Applying");
+DB_AESN_RelentlessApplication(_Combat, _Enemy, _Tier, _Status, "Failed");
+DB_AESN_RelentlessRejected(_Combat, _Enemy, "StatusAttemptFailed");
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_RELENTLESS_APPLY_TIMEOUT")
+AND
+DB_AESN_RelentlessApplication(_Combat, _Enemy, _Tier, _Status, "Applying")
+THEN
+NOT DB_AESN_RelentlessApplication(_Combat, _Enemy, _Tier, _Status, "Applying");
+DB_AESN_RelentlessApplication(_Combat, _Enemy, _Tier, _Status, "Failed");
+DB_AESN_RelentlessRejected(_Combat, _Enemy, "StatusApplyTimeout");
+
+EXITSECTION
+
+ENDEXITSECTION

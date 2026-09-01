@@ -1,0 +1,272 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_CAP05_Target((CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_CAP05_SpawnPendingReady((CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_CAP05_PendingApply((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, 0, 0.0);
+NOT DB_AESN_CAP05_PendingRemove((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, 0, 0.0);
+NOT DB_AESN_CAP05_Observation("", (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, 0, 0, 0, 0.0);
+KBSECTION
+
+// CAP-05 hostless editor probe. The staged vanilla target cannot fight or join combat.
+// ReCon command: oe AESN_TEST_SPAWN_AND_APPLY_13_HP
+IF
+TextEvent("AESN_TEST_SPAWN_AND_APPLY_13_HP")
+AND
+NOT DB_AESN_CAP05_Target(_)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _Target)
+THEN
+DB_AESN_CAP05_Target((CHARACTER)_Target);
+SetCanFight((CHARACTER)_Target, 0);
+SetCanJoinCombat((CHARACTER)_Target, 0);
+DB_AESN_CAP05_SpawnPendingReady((CHARACTER)_Target);
+RealtimeObjectTimerLaunch((CHARACTER)_Target, "AESN_CAP05_SPAWN_READY", 250);
+
+IF
+ObjectTimerFinished((CHARACTER)_Target, "AESN_CAP05_SPAWN_READY")
+AND
+DB_AESN_CAP05_SpawnPendingReady(_Target)
+AND
+DB_AESN_CAP05_Target(_Target)
+THEN
+NOT DB_AESN_CAP05_SpawnPendingReady(_Target);
+PROC_AESN_CAP05_Apply13Hp((CHARACTER)_Target);
+
+// ReCon command: oe AESN_TEST_REMOVE_SPAWNED_13_HP
+IF
+TextEvent("AESN_TEST_REMOVE_SPAWNED_13_HP")
+AND
+DB_AESN_CAP05_Target((CHARACTER)_Target)
+THEN
+PROC_AESN_CAP05_Remove13Hp(_Target);
+
+// Capture one living baseline, apply the exact fork-owned 1|4|8 bit set, and
+// defer percentage restoration until all three acknowledgements are active.
+PROC
+PROC_AESN_CAP05_Apply13Hp((CHARACTER)_Target)
+AND
+GetHitpoints(_Target, _BeforeCurrent)
+AND
+GetMaxHitpoints(_Target, _BeforeMaximum)
+AND
+GetHitpointsPercentage(_Target, _BeforePercentage)
+AND
+_BeforeCurrent > 0
+AND
+NOT DB_AESN_CAP05_PendingApply(_Target, _, _, _)
+THEN
+DB_AESN_CAP05_PendingApply(_Target, _BeforeCurrent, _BeforeMaximum, _BeforePercentage);
+ApplyStatus(_Target, "AESN_HP_BIT_00001", -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+ApplyStatus(_Target, "AESN_HP_BIT_00004", -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+ApplyStatus(_Target, "AESN_HP_BIT_00008", -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+
+IF
+StatusApplied((CHARACTER)_Target, "AESN_HP_BIT_00001", _, _)
+AND
+DB_AESN_CAP05_PendingApply(_Target, _, _, _)
+THEN
+PROC_AESN_CAP05_TryFinalizeApply(_Target);
+
+IF
+StatusApplied((CHARACTER)_Target, "AESN_HP_BIT_00004", _, _)
+AND
+DB_AESN_CAP05_PendingApply(_Target, _, _, _)
+THEN
+PROC_AESN_CAP05_TryFinalizeApply(_Target);
+
+IF
+StatusApplied((CHARACTER)_Target, "AESN_HP_BIT_00008", _, _)
+AND
+DB_AESN_CAP05_PendingApply(_Target, _, _, _)
+THEN
+PROC_AESN_CAP05_TryFinalizeApply(_Target);
+
+PROC
+PROC_AESN_CAP05_TryFinalizeApply((CHARACTER)_Target)
+AND
+DB_AESN_CAP05_PendingApply(_Target, _BeforeCurrent, _BeforeMaximum, _BeforePercentage)
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00001", 1)
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00004", 1)
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00008", 1)
+AND
+GetMaxHitpoints(_Target, _AppliedMaximum)
+THEN
+SetHitpointsPercentage(_Target, _BeforePercentage, "Guaranteed");
+DB_AESN_CAP05_Observation("APPLY13", _Target, _BeforeCurrent, _BeforeMaximum, _AppliedMaximum, 13, _BeforePercentage);
+NOT DB_AESN_CAP05_PendingApply(_Target, _BeforeCurrent, _BeforeMaximum, _BeforePercentage);
+
+IF
+DB_AESN_CAP05_Observation("APPLY13", _Target, _, _, _, 13, _)
+AND
+GetHitpoints(_Target, _AfterCurrent)
+AND
+GetMaxHitpoints(_Target, _AfterMaximum)
+AND
+GetHitpointsPercentage(_Target, _AfterPercentage)
+THEN
+DB_AESN_CAP05_Observation("APPLY13_POST", _Target, _AfterCurrent, _AfterMaximum, _AfterMaximum, 13, _AfterPercentage);
+
+IF
+DB_AESN_CAP05_Observation("APPLY13", (CHARACTER)_Target, _BeforeCurrent, _BeforeMaximum, _AppliedMaximum, 13, _BeforePercentage)
+AND
+DB_AESN_CAP05_Observation("APPLY13_POST", _Target, _AfterCurrent, _AfterMaximum, _AfterMaximum, 13, _AfterPercentage)
+AND
+IntegerSum(_BeforeMaximum, 13, _ExpectedMaximum)
+AND
+_AppliedMaximum == _ExpectedMaximum
+AND
+_AfterMaximum == _ExpectedMaximum
+AND
+_AfterPercentage == _BeforePercentage
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00001", 1)
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00004", 1)
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00008", 1)
+AND
+ConcatenateInteger("AESN_CAP05 APPLY13 beforeCurrent=", _BeforeCurrent, _Message1)
+AND
+Concatenate(_Message1, ",beforeMax=", _Message2)
+AND
+ConcatenateInteger(_Message2, _BeforeMaximum, _Message3)
+AND
+Concatenate(_Message3, ",afterCurrent=", _Message4)
+AND
+ConcatenateInteger(_Message4, _AfterCurrent, _Message5)
+AND
+Concatenate(_Message5, ",afterMax=", _Message6)
+AND
+ConcatenateInteger(_Message6, _AfterMaximum, _Message7)
+AND
+Concatenate(_Message7, ",percentagePreserved=1,bits=1|4|8", _Message)
+THEN
+DebugLog(_Message);
+
+// Capture one cleanup baseline, remove exactly the recorded 1|4|8 bit set, and
+// restore percentage only after all three removals are acknowledged.
+PROC
+PROC_AESN_CAP05_Remove13Hp((CHARACTER)_Target)
+AND
+GetHitpoints(_Target, _BeforeCurrent)
+AND
+GetMaxHitpoints(_Target, _BeforeMaximum)
+AND
+GetHitpointsPercentage(_Target, _BeforePercentage)
+AND
+_BeforeCurrent > 0
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00001", 1)
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00004", 1)
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00008", 1)
+AND
+NOT DB_AESN_CAP05_PendingRemove(_Target, _, _, _)
+THEN
+DB_AESN_CAP05_PendingRemove(_Target, _BeforeCurrent, _BeforeMaximum, _BeforePercentage);
+RemoveStatus(_Target, "AESN_HP_BIT_00001", NULL_00000000-0000-0000-0000-000000000000);
+RemoveStatus(_Target, "AESN_HP_BIT_00004", NULL_00000000-0000-0000-0000-000000000000);
+RemoveStatus(_Target, "AESN_HP_BIT_00008", NULL_00000000-0000-0000-0000-000000000000);
+
+IF
+StatusRemoved((CHARACTER)_Target, "AESN_HP_BIT_00001", _, _)
+AND
+DB_AESN_CAP05_PendingRemove(_Target, _, _, _)
+THEN
+PROC_AESN_CAP05_TryFinalizeRemove(_Target);
+
+IF
+StatusRemoved((CHARACTER)_Target, "AESN_HP_BIT_00004", _, _)
+AND
+DB_AESN_CAP05_PendingRemove(_Target, _, _, _)
+THEN
+PROC_AESN_CAP05_TryFinalizeRemove(_Target);
+
+IF
+StatusRemoved((CHARACTER)_Target, "AESN_HP_BIT_00008", _, _)
+AND
+DB_AESN_CAP05_PendingRemove(_Target, _, _, _)
+THEN
+PROC_AESN_CAP05_TryFinalizeRemove(_Target);
+
+PROC
+PROC_AESN_CAP05_TryFinalizeRemove((CHARACTER)_Target)
+AND
+DB_AESN_CAP05_PendingRemove(_Target, _BeforeCurrent, _BeforeMaximum, _BeforePercentage)
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00001", 0)
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00004", 0)
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00008", 0)
+AND
+GetMaxHitpoints(_Target, _RemovedMaximum)
+THEN
+SetHitpointsPercentage(_Target, _BeforePercentage, "Guaranteed");
+DB_AESN_CAP05_Observation("REMOVE13", _Target, _BeforeCurrent, _BeforeMaximum, _RemovedMaximum, 13, _BeforePercentage);
+NOT DB_AESN_CAP05_PendingRemove(_Target, _BeforeCurrent, _BeforeMaximum, _BeforePercentage);
+
+IF
+DB_AESN_CAP05_Observation("REMOVE13", _Target, _, _, _, 13, _)
+AND
+GetHitpoints(_Target, _AfterCurrent)
+AND
+GetMaxHitpoints(_Target, _AfterMaximum)
+AND
+GetHitpointsPercentage(_Target, _AfterPercentage)
+THEN
+DB_AESN_CAP05_Observation("REMOVE13_POST", _Target, _AfterCurrent, _AfterMaximum, _AfterMaximum, 13, _AfterPercentage);
+
+IF
+DB_AESN_CAP05_Observation("REMOVE13", (CHARACTER)_Target, _BeforeCurrent, _BeforeMaximum, _RemovedMaximum, 13, _BeforePercentage)
+AND
+DB_AESN_CAP05_Observation("REMOVE13_POST", _Target, _AfterCurrent, _AfterMaximum, _AfterMaximum, 13, _AfterPercentage)
+AND
+IntegerSubtract(_BeforeMaximum, 13, _ExpectedMaximum)
+AND
+_RemovedMaximum == _ExpectedMaximum
+AND
+_AfterMaximum == _ExpectedMaximum
+AND
+_AfterPercentage == _BeforePercentage
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00001", 0)
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00004", 0)
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00008", 0)
+AND
+ConcatenateInteger("AESN_CAP05 REMOVE13 beforeCurrent=", _BeforeCurrent, _Message1)
+AND
+Concatenate(_Message1, ",beforeMax=", _Message2)
+AND
+ConcatenateInteger(_Message2, _BeforeMaximum, _Message3)
+AND
+Concatenate(_Message3, ",afterCurrent=", _Message4)
+AND
+ConcatenateInteger(_Message4, _AfterCurrent, _Message5)
+AND
+Concatenate(_Message5, ",afterMax=", _Message6)
+AND
+ConcatenateInteger(_Message6, _AfterMaximum, _Message7)
+AND
+Concatenate(_Message7, ",percentagePreserved=1,bits=1|4|8", _Message)
+THEN
+DebugLog(_Message);
+
+IF
+DB_AESN_CAP05_Observation("REMOVE13_POST", _Target, _, _, _, 13, _)
+AND
+DB_AESN_CAP05_Target(_Target)
+THEN
+PROC_SetOnStage(_Target, 0);
+NOT DB_AESN_CAP05_Target(_Target);
+
+EXITSECTION
+
+ENDEXITSECTION

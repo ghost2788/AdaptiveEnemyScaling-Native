@@ -1,0 +1,314 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+// Disabled in production. A separately staged proof build may enable this
+// exact harness without enabling the production Relentless capability.
+NOT DB_AESN_ActionProofHarnessEnabled(1);
+NOT DB_AESN_ActionProofFixture((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (FACTION)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_ActionProofCombat((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_ActionProofActive((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_ActionProofFailure((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_ActionProofCleanupPending((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+KBSECTION
+
+// Native resource semantics are proved in an ordinary combat between two
+// disposable spawned NPCs. The separate accepted narrative trace proves that
+// production selection reaches a real DB_AESN_EnemyEligible hostile at its
+// allocation point; this fixture does not fabricate that production fact.
+// ReCon command: oe AESN_TEST_ACTION_RESOURCE_PROOF
+IF
+TextEvent("AESN_TEST_ACTION_RESOURCE_PROOF")
+AND
+DB_AESN_ActionProofHarnessEnabled(1)
+AND
+NOT DB_AESN_ActionProofFixture(_, _, _)
+AND
+GetHostCharacter(_Host)
+AND
+GetFaction(_Host, _HostFaction)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _Ally)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _Enemy)
+THEN
+PROC_AESN_SetupActionResourceProof((CHARACTER)_Ally, (CHARACTER)_Enemy, _HostFaction);
+
+PROC
+PROC_AESN_SetupActionResourceProof((CHARACTER)_Ally, (CHARACTER)_Enemy, (FACTION)_HostFaction)
+THEN
+SetFaction(_Ally, _HostFaction);
+SetCanFight(_Ally, 1);
+SetCanJoinCombat(_Ally, 1);
+SetCanFight(_Enemy, 1);
+SetCanJoinCombat(_Enemy, 1);
+SetIndividualRelation(_Enemy, _HostFaction, 0);
+PROC_SetInvulnerable(_Ally, 1);
+PROC_SetInvulnerable(_Enemy, 1);
+DB_AESN_ActionProofFixture(_Ally, _Enemy, _HostFaction);
+RealtimeObjectTimerLaunch(_Enemy, "AESN_ACTION_PROOF_START_COMBAT", 500);
+RealtimeObjectTimerLaunch(_Enemy, "AESN_ACTION_PROOF_SETUP_WATCHDOG", 10000);
+DebugLog("AESN_ACTION_RESOURCE_PROOF SETUP ordinaryNpcPairCreated=1");
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_ACTION_PROOF_START_COMBAT")
+AND
+DB_AESN_ActionProofFixture(_Ally, _Enemy, _)
+THEN
+PROC_EnterCombat(_Enemy, _Ally);
+
+IF
+EnteredCombat(_Object, _Combat)
+AND
+DB_AESN_ActionProofFixture(_Ally, (CHARACTER)_Object, _)
+AND
+NOT DB_AESN_ActionProofCombat(_, _, _)
+THEN
+DB_AESN_ActionProofCombat(_Combat, _Ally, (CHARACTER)_Object);
+DB_AESN_ActionProofActive(_Combat, (CHARACTER)_Object, "WaitingBaselineTurn");
+RealtimeObjectTimerLaunch((CHARACTER)_Object, "AESN_ACTION_PROOF_WATCHDOG", 20000);
+DebugLog("AESN_ACTION_RESOURCE_PROOF COMBAT ordinaryNpcPairEntered=1");
+
+// The first hostile turn proves the normal 1/1 baseline. Applying a maximum-
+// resource status does not refill the current turn, so each boosted total is
+// deliberately sampled on a later hostile TurnStarted event.
+IF
+TurnStarted(_Object)
+AND
+DB_AESN_ActionProofActive(_Combat, (CHARACTER)_Object, "WaitingBaselineTurn")
+AND
+GetActionResourceValuePersonal((CHARACTER)_Object, "ActionPoint", 0, 1.0)
+AND
+GetActionResourceValuePersonal((CHARACTER)_Object, "BonusActionPoint", 0, 1.0)
+THEN
+RealtimeObjectTimerCancel((CHARACTER)_Object, "AESN_ACTION_PROOF_SETUP_WATCHDOG");
+NOT DB_AESN_ActionProofActive(_Combat, (CHARACTER)_Object, "WaitingBaselineTurn");
+DB_AESN_ActionProofActive(_Combat, (CHARACTER)_Object, "WaitingRelentlessITurn");
+ApplyStatus((CHARACTER)_Object, "AESN_RELENTLESS_FOE_01", -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+DebugLog("AESN_ACTION_RESOURCE_PROOF BASELINE normal=1/1");
+
+IF
+TurnStarted(_Object)
+AND
+DB_AESN_ActionProofActive(_Combat, (CHARACTER)_Object, "WaitingBaselineTurn")
+AND
+GetActionResourceValuePersonal((CHARACTER)_Object, "ActionPoint", 0, _ActionValue)
+AND
+_ActionValue != 1.0
+THEN
+DB_AESN_ActionProofFailure(_Combat, (CHARACTER)_Object, "NormalActionWasNotOne");
+DebugLog("AESN_ACTION_RESOURCE_PROOF FAIL normal hostile ActionPoint was not 1");
+
+IF
+TurnStarted(_Object)
+AND
+DB_AESN_ActionProofActive(_Combat, (CHARACTER)_Object, "WaitingBaselineTurn")
+AND
+GetActionResourceValuePersonal((CHARACTER)_Object, "ActionPoint", 0, 1.0)
+AND
+GetActionResourceValuePersonal((CHARACTER)_Object, "BonusActionPoint", 0, _BonusActionValue)
+AND
+_BonusActionValue != 1.0
+THEN
+DB_AESN_ActionProofFailure(_Combat, (CHARACTER)_Object, "NormalBonusActionWasNotOne");
+DebugLog("AESN_ACTION_RESOURCE_PROOF FAIL normal hostile BonusActionPoint was not 1");
+
+// First refreshed hostile turn: Relentless I must expose 2/1. While those
+// values are live, the production pre-existing-resource guard must reject the
+// same target instead of attempting to stack another AESN resource status.
+IF
+TurnStarted(_Object)
+AND
+DB_AESN_ActionProofActive(_Combat, (CHARACTER)_Object, "WaitingRelentlessITurn")
+AND
+GetActionResourceValuePersonal((CHARACTER)_Object, "ActionPoint", 0, 2.0)
+AND
+GetActionResourceValuePersonal((CHARACTER)_Object, "BonusActionPoint", 0, 1.0)
+THEN
+NOT DB_AESN_ActionProofActive(_Combat, (CHARACTER)_Object, "WaitingRelentlessITurn");
+DB_AESN_ActionProofActive(_Combat, (CHARACTER)_Object, "CheckingPreexistingGuard");
+PROC_AESN_CheckRelentlessResources(_Combat, (CHARACTER)_Object);
+
+IF
+DB_AESN_RelentlessRejected(_Combat, _Enemy, "PreexistingActionResource")
+AND
+DB_AESN_ActionProofActive(_Combat, _Enemy, "CheckingPreexistingGuard")
+THEN
+NOT DB_AESN_RelentlessRejected(_Combat, _Enemy, "PreexistingActionResource");
+NOT DB_AESN_ActionProofActive(_Combat, _Enemy, "CheckingPreexistingGuard");
+DB_AESN_ActionProofActive(_Combat, _Enemy, "RemovingRelentlessI");
+RemoveStatus(_Enemy, "AESN_RELENTLESS_FOE_01", NULL_00000000-0000-0000-0000-000000000000);
+
+IF
+StatusRemoved((CHARACTER)_Enemy, "AESN_RELENTLESS_FOE_01", _, _)
+AND
+DB_AESN_ActionProofActive(_Combat, _Enemy, "RemovingRelentlessI")
+THEN
+NOT DB_AESN_ActionProofActive(_Combat, _Enemy, "RemovingRelentlessI");
+DB_AESN_ActionProofActive(_Combat, _Enemy, "WaitingRelentlessICleanupTurn");
+DebugLog("AESN_ACTION_RESOURCE_PROOF RELENTLESS_I removed; cleanupAwaitingRefresh=1");
+
+IF
+TurnStarted(_Object)
+AND
+DB_AESN_ActionProofActive(_Combat, (CHARACTER)_Object, "WaitingRelentlessICleanupTurn")
+AND
+GetActionResourceValuePersonal((CHARACTER)_Object, "ActionPoint", 0, 1.0)
+AND
+GetActionResourceValuePersonal((CHARACTER)_Object, "BonusActionPoint", 0, 1.0)
+THEN
+NOT DB_AESN_ActionProofActive(_Combat, (CHARACTER)_Object, "WaitingRelentlessICleanupTurn");
+DB_AESN_ActionProofActive(_Combat, (CHARACTER)_Object, "WaitingRelentlessIITurn");
+ApplyStatus((CHARACTER)_Object, "AESN_RELENTLESS_FOE_02", -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+DebugLog("AESN_ACTION_RESOURCE_PROOF RELENTLESS_I refreshed=2/1,cleanup=1/1,preexistingSkipped=1");
+
+// Second boosted hostile turn: Relentless II must expose 2/2. Removal changes
+// capacity immediately but current points normalize on the next turn refresh.
+IF
+TurnStarted(_Object)
+AND
+DB_AESN_ActionProofActive(_Combat, (CHARACTER)_Object, "WaitingRelentlessIITurn")
+AND
+GetActionResourceValuePersonal((CHARACTER)_Object, "ActionPoint", 0, 2.0)
+AND
+GetActionResourceValuePersonal((CHARACTER)_Object, "BonusActionPoint", 0, 2.0)
+THEN
+NOT DB_AESN_ActionProofActive(_Combat, (CHARACTER)_Object, "WaitingRelentlessIITurn");
+DB_AESN_ActionProofActive(_Combat, (CHARACTER)_Object, "RemovingRelentlessII");
+RemoveStatus((CHARACTER)_Object, "AESN_RELENTLESS_FOE_02", NULL_00000000-0000-0000-0000-000000000000);
+
+IF
+StatusRemoved((CHARACTER)_Enemy, "AESN_RELENTLESS_FOE_02", _, _)
+AND
+DB_AESN_ActionProofActive(_Combat, _Enemy, "RemovingRelentlessII")
+THEN
+NOT DB_AESN_ActionProofActive(_Combat, _Enemy, "RemovingRelentlessII");
+DB_AESN_ActionProofActive(_Combat, _Enemy, "WaitingRelentlessIICleanupTurn");
+DebugLog("AESN_ACTION_RESOURCE_PROOF RELENTLESS_II removed; cleanupAwaitingRefresh=1");
+
+IF
+TurnStarted(_Object)
+AND
+DB_AESN_ActionProofActive(_Combat, (CHARACTER)_Object, "WaitingRelentlessIICleanupTurn")
+AND
+GetActionResourceValuePersonal((CHARACTER)_Object, "ActionPoint", 0, 1.0)
+AND
+GetActionResourceValuePersonal((CHARACTER)_Object, "BonusActionPoint", 0, 1.0)
+THEN
+RealtimeObjectTimerCancel((CHARACTER)_Object, "AESN_ACTION_PROOF_WATCHDOG");
+NOT DB_AESN_ActionProofActive(_Combat, (CHARACTER)_Object, "WaitingRelentlessIICleanupTurn");
+DebugLog("AESN_ACTION_RESOURCE_PROOF PASS normal=1/1,relentlessI=2/1,relentlessII=2/2,cleanup=1/1,preexistingSkipped=1");
+PROC_AESN_CleanupActionResourceProof((CHARACTER)_Object);
+
+// Advance the isolated NPC-pair proof without asking the player to manage
+// combat turns. Value checks fire synchronously before the delayed EndTurn.
+IF
+TurnStarted(_Object)
+AND
+DB_AESN_ActionProofFixture((CHARACTER)_Object, _Enemy, _)
+AND
+DB_AESN_ActionProofActive(_, _Enemy, _)
+THEN
+RealtimeObjectTimerLaunch((CHARACTER)_Object, "AESN_ACTION_PROOF_AUTO_END_ALLY", 250);
+
+IF
+ObjectTimerFinished((CHARACTER)_Ally, "AESN_ACTION_PROOF_AUTO_END_ALLY")
+AND
+DB_AESN_ActionProofFixture(_Ally, _, _)
+THEN
+EndTurn(_Ally);
+
+IF
+TurnStarted(_Object)
+AND
+DB_AESN_ActionProofCombat(_Combat, _, (CHARACTER)_Object)
+AND
+DB_AESN_ActionProofActive(_Combat, (CHARACTER)_Object, _)
+THEN
+RealtimeObjectTimerLaunch((CHARACTER)_Object, "AESN_ACTION_PROOF_AUTO_END_ENEMY", 500);
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_ACTION_PROOF_AUTO_END_ENEMY")
+AND
+DB_AESN_ActionProofCombat(_, _, _Enemy)
+THEN
+EndTurn(_Enemy);
+
+// Any missing combat event, native query result, expected turn value, or
+// status acknowledgement fails closed and begins the same exact cleanup.
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_ACTION_PROOF_SETUP_WATCHDOG")
+AND
+DB_AESN_ActionProofFixture(_, _Enemy, _)
+AND
+NOT DB_AESN_ActionProofActive(_, _Enemy, _)
+THEN
+DB_AESN_ActionProofFailure((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, _Enemy, "SetupOrCombatTimeout");
+DebugLog("AESN_ACTION_RESOURCE_PROOF FAIL setup or combat watchdog");
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_ACTION_PROOF_WATCHDOG")
+AND
+DB_AESN_ActionProofActive(_Combat, _Enemy, _Stage)
+THEN
+NOT DB_AESN_ActionProofActive(_Combat, _Enemy, _Stage);
+DB_AESN_ActionProofFailure(_Combat, _Enemy, _Stage);
+DebugLog("AESN_ACTION_RESOURCE_PROOF FAIL turn-aware watchdog");
+
+IF
+DB_AESN_ActionProofFailure(_Combat, _Enemy, _Reason)
+THEN
+NOT DB_AESN_ActionProofFailure(_Combat, _Enemy, _Reason);
+RemoveStatus(_Enemy, "AESN_RELENTLESS_FOE_01", NULL_00000000-0000-0000-0000-000000000000);
+RemoveStatus(_Enemy, "AESN_RELENTLESS_FOE_02", NULL_00000000-0000-0000-0000-000000000000);
+PROC_AESN_CleanupActionResourceProof(_Enemy);
+
+PROC
+PROC_AESN_CleanupActionResourceProof((CHARACTER)_Enemy)
+AND
+DB_AESN_ActionProofFixture(_Ally, _Enemy, _HostFaction)
+THEN
+RealtimeObjectTimerCancel(_Enemy, "AESN_ACTION_PROOF_SETUP_WATCHDOG");
+RealtimeObjectTimerCancel(_Enemy, "AESN_ACTION_PROOF_WATCHDOG");
+RealtimeObjectTimerCancel(_Enemy, "AESN_ACTION_PROOF_AUTO_END_ENEMY");
+RealtimeObjectTimerCancel(_Ally, "AESN_ACTION_PROOF_AUTO_END_ALLY");
+RemoveStatus(_Enemy, "AESN_RELENTLESS_FOE_01", NULL_00000000-0000-0000-0000-000000000000);
+RemoveStatus(_Enemy, "AESN_RELENTLESS_FOE_02", NULL_00000000-0000-0000-0000-000000000000);
+ClearIndividualRelation(_Enemy, _HostFaction);
+LeaveCombat(_Ally);
+LeaveCombat(_Enemy);
+SetCanFight(_Ally, 0);
+SetCanJoinCombat(_Ally, 0);
+SetCanFight(_Enemy, 0);
+SetCanJoinCombat(_Enemy, 0);
+PROC_SetInvulnerable(_Ally, 0);
+PROC_SetInvulnerable(_Enemy, 0);
+NOT DB_AESN_ActionProofFixture(_Ally, _Enemy, _HostFaction);
+DB_AESN_ActionProofCleanupPending(_Ally, _Enemy);
+RealtimeObjectTimerLaunch(_Enemy, "AESN_ACTION_PROOF_DESTROY", 1000);
+
+PROC
+PROC_AESN_CleanupActionResourceProof((CHARACTER)_Enemy)
+AND
+DB_AESN_ActionProofCombat(_Combat, _Ally, _Enemy)
+THEN
+NOT DB_AESN_ActionProofCombat(_Combat, _Ally, _Enemy);
+
+PROC
+PROC_AESN_CleanupActionResourceProof((CHARACTER)_Enemy)
+AND
+DB_AESN_ActionProofActive(_Combat, _Enemy, _Stage)
+THEN
+NOT DB_AESN_ActionProofActive(_Combat, _Enemy, _Stage);
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_ACTION_PROOF_DESTROY")
+AND
+DB_AESN_ActionProofCleanupPending(_Ally, _Enemy)
+THEN
+NOT DB_AESN_ActionProofCleanupPending(_Ally, _Enemy);
+PROC_SetOnStage(_Ally, 0);
+PROC_SetOnStage(_Enemy, 0);
+
+EXITSECTION
+
+ENDEXITSECTION

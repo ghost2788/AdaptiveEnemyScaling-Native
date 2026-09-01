@@ -1,4 +1,9 @@
+import json
+import pathlib
 import unittest
+
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
 def load_model(test_case: unittest.TestCase):
@@ -10,7 +15,59 @@ def load_model(test_case: unittest.TestCase):
 
 
 class PocModelTests(unittest.TestCase):
-    def test_build_policy_floors_average_and_calculates_party_factor(self):
+    def test_hp_transaction_fixtures_are_exact(self):
+        model = load_model(self)
+        rows = json.loads(
+            (ROOT / "tests/fixtures/hp_transactions.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        for row in rows:
+            with self.subTest(row=row["id"]):
+                if row["operation"] == "cleanup":
+                    restored = model.restore_current(
+                        row["current"],
+                        row["scaledMaximum"],
+                        row["baseMaximum"],
+                        alive=row["alive"],
+                    )
+                    self.assertEqual(restored, row["restoredCurrent"])
+                    continue
+
+                if row["operation"] == "policy_plan":
+                    policy = model.policy_from_summary(
+                        row["eligibleSize"], row["averageLevel"]
+                    )
+                    target = model.target_maximum(row["baseMaximum"], policy)
+                else:
+                    target = row["targetMaximum"]
+
+                if "error" in row:
+                    with self.assertRaisesRegex(
+                        model.PolicyError, row["error"]
+                    ):
+                        model.plan_hp_target(
+                            row["current"],
+                            row["baseMaximum"],
+                            target,
+                            alive=row["alive"],
+                        )
+                    continue
+
+                plan = model.plan_hp_target(
+                    row["current"],
+                    row["baseMaximum"],
+                    target,
+                    alive=row["alive"],
+                )
+                self.assertEqual(plan.target_maximum, row["targetMaximum"])
+                self.assertEqual(plan.delta, row["delta"])
+                self.assertEqual(list(plan.bits), row["bits"])
+                self.assertEqual(plan.restored_current, row["restoredCurrent"])
+                self.assertEqual(plan.outcome, row["outcome"])
+
+    def test_build_policy_floors_average_and_calculates_schema2_policy(self):
         model = load_model(self)
 
         policy = model.build_policy([5, 7, 8])
@@ -18,18 +75,107 @@ class PocModelTests(unittest.TestCase):
         self.assertEqual(policy.eligible_size, 3)
         self.assertEqual(policy.level_sum, 20)
         self.assertEqual(policy.average_level, 6)
-        self.assertEqual(policy.level_percent, 115)
-        self.assertEqual(policy.party_percent, 140)
+        self.assertEqual(policy.hardened_tier, 2)
+        self.assertEqual(policy.target_hp_percent, 190)
+        self.assertEqual(policy.attack_save_dc_bonus, 2)
+        self.assertEqual(policy.ac_bonus, 1)
+        self.assertEqual(policy.action_budget, 1)
+        self.assertEqual(policy.bonus_action_budget, 0)
+        self.assertEqual(policy.recipient_cap, 1)
         self.assertFalse(policy.clamped)
 
-    def test_build_policy_caps_only_the_balance_factor_above_eight(self):
+    def test_build_policy_caps_hp_and_relentless_inputs_above_twelve(self):
         model = load_model(self)
 
-        policy = model.build_policy([7] * 9)
+        policy = model.build_policy([7] * 13)
 
-        self.assertEqual(policy.eligible_size, 9)
-        self.assertEqual(policy.party_percent, 240)
+        self.assertEqual(policy.eligible_size, 13)
+        self.assertEqual(policy.effective_size, 12)
+        self.assertEqual(policy.target_hp_percent, 370)
+        self.assertEqual(policy.action_budget, 6)
+        self.assertEqual(policy.bonus_action_budget, 4)
+        self.assertEqual(policy.recipient_cap, 6)
         self.assertTrue(policy.clamped)
+
+    def test_hardened_matrix_matches_approved_literal_boundaries(self):
+        model = load_model(self)
+
+        rows = (
+            (1, 1, 125, 1, 0),
+            (4, 1, 125, 1, 0),
+            (5, 2, 150, 2, 1),
+            (8, 2, 150, 2, 1),
+            (9, 3, 180, 3, 1),
+            (12, 3, 180, 3, 1),
+            (13, 4, 220, 4, 2),
+            (16, 4, 220, 4, 2),
+            (17, 5, 260, 5, 2),
+            (18, 5, 260, 5, 2),
+            (19, 6, 300, 6, 3),
+            (20, 6, 300, 6, 3),
+        )
+
+        for level, tier, solo_hp, stat_bonus, ac_bonus in rows:
+            with self.subTest(level=level):
+                policy = model.build_policy([level])
+                self.assertEqual(policy.hardened_tier, tier)
+                self.assertEqual(policy.target_hp_percent, solo_hp)
+                self.assertEqual(
+                    policy.attack_save_dc_bonus,
+                    stat_bonus,
+                )
+                self.assertEqual(policy.ac_bonus, ac_bonus)
+
+    def test_party_size_adds_twenty_hp_points_per_member_through_twelve(self):
+        model = load_model(self)
+
+        expected = {
+            1: 125,
+            2: 145,
+            3: 165,
+            4: 185,
+            8: 265,
+            12: 345,
+            13: 345,
+        }
+
+        for size, target_hp_percent in expected.items():
+            with self.subTest(size=size):
+                policy = model.build_policy([1] * size)
+                self.assertEqual(
+                    policy.target_hp_percent,
+                    target_hp_percent,
+                )
+
+    def test_relentless_budget_caps_each_recipient_at_tier_two(self):
+        model = load_model(self)
+
+        rows = (
+            (1, 1, 0, 0, 0, 0),
+            (1, 5, 1, 0, 1, 0),
+            (2, 20, 1, 0, 1, 0),
+            (4, 5, 1, 0, 1, 0),
+            (4, 13, 1, 1, 0, 1),
+            (4, 17, 2, 1, 1, 1),
+            (4, 19, 2, 2, 0, 2),
+            (6, 1, 2, 1, 1, 1),
+            (8, 19, 6, 4, 2, 4),
+            (12, 19, 6, 6, 0, 6),
+        )
+
+        for size, level, action, bonus, tier_one, tier_two in rows:
+            with self.subTest(size=size, level=level):
+                policy = model.build_policy([level] * size)
+                self.assertEqual(policy.action_budget, action)
+                self.assertEqual(policy.bonus_action_budget, bonus)
+                self.assertEqual(
+                    policy.relentless_i_recipients,
+                    tier_one,
+                )
+                self.assertEqual(
+                    policy.relentless_ii_recipients,
+                    tier_two,
+                )
 
     def test_build_policy_rejects_empty_or_non_positive_levels(self):
         model = load_model(self)
@@ -42,17 +188,15 @@ class PocModelTests(unittest.TestCase):
     def test_target_maximum_matches_hand_calculated_solo_and_three_member_values(self):
         model = load_model(self)
 
-        self.assertEqual(model.target_maximum(100, model.build_policy([7])), 115)
+        self.assertEqual(model.target_maximum(100, model.build_policy([7])), 150)
         self.assertEqual(
             model.target_maximum(100, model.build_policy([5, 7, 8])),
-            161,
+            190,
         )
 
-    def test_target_maximum_rejects_unsupported_tier_and_unsafe_product(self):
+    def test_target_maximum_rejects_unsafe_product(self):
         model = load_model(self)
 
-        with self.assertRaises(model.PolicyError):
-            model.target_maximum(100, model.build_policy([9]))
         with self.assertRaises(model.PolicyError):
             model.target_maximum(100_000_000, model.build_policy([7]))
 
@@ -94,8 +238,119 @@ class PocModelTests(unittest.TestCase):
         self.assertEqual(merged.average_level, 7)
         self.assertEqual(merged.eligible_size, 3)
         self.assertEqual(merged.level_sum, 21)
-        self.assertEqual(merged.level_percent, 115)
-        self.assertEqual(merged.party_percent, 140)
+        self.assertEqual(merged.hardened_tier, 2)
+        self.assertEqual(merged.target_hp_percent, 190)
+
+    def test_merge_fixtures_migrate_ownership_and_suppress_discarded_cleanup(self):
+        model = load_model(self)
+        rows = json.loads(
+            (ROOT / "tests/fixtures/merge_cases.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        for row in rows:
+            with self.subTest(row=row["id"]):
+                result = model.reconcile_merge_case(row)
+                final = row["expectedFinal"]
+                policy = result.snapshots[final]
+
+                self.assertEqual(policy.average_level, row["expectedAverage"])
+                self.assertEqual(policy.eligible_size, row["expectedSize"])
+                self.assertEqual(
+                    result.mismatch_count,
+                    row["expectedMismatchCount"],
+                )
+                for discarded in row["discardedEnds"]:
+                    self.assertEqual(
+                        model.cleanup_commands(result, discarded),
+                        (),
+                    )
+                    self.assertEqual(
+                        model.resolve_combat_owner(result.aliases, discarded),
+                        final,
+                    )
+                self.assertEqual(
+                    model.cleanup_commands(result, final),
+                    tuple(row["expectedCleanup"]),
+                )
+
+    def test_reload_reconciliation_retains_only_valid_active_commit(self):
+        model = load_model(self)
+
+        decision = model.reconcile_reload_state(
+            combat_active=True,
+            schema_version=2,
+            hp_state="HPCommitted",
+            component_state="FullyCommitted",
+            identities_valid=True,
+        )
+
+        self.assertEqual(decision.action, "retain")
+        self.assertFalse(decision.mutate)
+        self.assertEqual(decision.reason, "ValidActiveCommit")
+
+    def test_reload_reconciliation_cleans_stale_commit_and_rolls_back_partial_states(self):
+        model = load_model(self)
+
+        cases = (
+            (
+                dict(
+                    combat_active=False,
+                    schema_version=2,
+                    hp_state="HPCommitted",
+                    component_state="FullyCommitted",
+                    identities_valid=True,
+                ),
+                ("cleanup", "InactiveCombat"),
+            ),
+            (
+                dict(
+                    combat_active=True,
+                    schema_version=2,
+                    hp_state="ApplyingHP",
+                    component_state=None,
+                    identities_valid=True,
+                ),
+                ("rollback", "PendingApplication"),
+            ),
+            (
+                dict(
+                    combat_active=True,
+                    schema_version=2,
+                    hp_state="HPCommitted",
+                    component_state="ApplyingAction",
+                    identities_valid=True,
+                ),
+                ("rollback", "PendingApplication"),
+            ),
+            (
+                dict(
+                    combat_active=True,
+                    schema_version=1,
+                    hp_state="HPCommitted",
+                    component_state="FullyCommitted",
+                    identities_valid=True,
+                ),
+                ("cleanup", "UnsupportedSchema"),
+            ),
+            (
+                dict(
+                    combat_active=True,
+                    schema_version=2,
+                    hp_state="HPCommitted",
+                    component_state="FullyCommitted",
+                    identities_valid=False,
+                ),
+                ("cleanup", "IdentityMismatch"),
+            ),
+        )
+
+        for arguments, expected in cases:
+            with self.subTest(arguments=arguments):
+                decision = model.reconcile_reload_state(**arguments)
+                self.assertEqual((decision.action, decision.reason), expected)
+                self.assertTrue(decision.mutate)
 
 
 if __name__ == "__main__":

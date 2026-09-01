@@ -1,10 +1,40 @@
 Version 1
 SubGoalCombiner SGC_AND
 INITSECTION
-DB_AESN_SchemaVersion(1);
+DB_AESN_SchemaVersion(2);
+
+// Keep the legacy schema-1 snapshot typed while migration support remains.
+// The sentinel row is removed immediately; this declaration stores no state.
+NOT DB_AESN_CombatSnapshot((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, 0, 0, 0, 0, 0, 0, "");
+
+// The hostile ActionPoint/BonusActionPoint runtime proof passed locally.
+// Production checks each candidate's personal pools before allocation and
+// rejects targets already above the normal 1/1 baseline.
+DB_AESN_RelentlessCapability(1);
 
 NOT DB_AESN_DiagnosticOnce("");
 KBSECTION
+
+// Normalize a persisted schema-1 marker before reconciliation creates a new
+// schema-2 snapshot. Database insertion is idempotent if schema 2 is already
+// present from the new Story initialization.
+IF
+SavegameLoaded()
+AND
+DB_AESN_SchemaVersion(_PersistedVersion)
+AND
+_PersistedVersion != 2
+THEN
+NOT DB_AESN_SchemaVersion(_PersistedVersion);
+DB_AESN_SchemaVersion(2);
+
+// INITSECTION is not replayed when an established save loads a newer Story
+// build. Reassert verified static capability facts so upgrade saves receive
+// the same production gates as a newly initialized Story.
+IF
+SavegameLoaded()
+THEN
+DB_AESN_RelentlessCapability(1);
 
 PROC
 PROC_AESN_RecordDiagnostic((STRING)_Key)

@@ -9,6 +9,17 @@
 
 The POC is not declared complete until every required runtime row passes.
 
+## Schema-2 production gate
+
+The current implementation is no longer the 5–8-only balance fixture. Before a production publish:
+
+1. Run the host-side model and source-contract suite. The Story policy harness must contain all 144 combinations of level boundaries `1,4,5,8,9,12,13,16,17,18,19,20` and party sizes `1–12`, with exact tier, HP percent, Action budget, Bonus-Action budget, and recipient ceiling.
+2. Synchronize the default production allowlist and rebuild Story in the Toolkit. No CAP/test goal, TextEvent command, UI proof banner, or reload-proof notification may be present.
+3. Verify Hardened I appears from level 1; the compact names, all six Hardened icons, thematic opening copy, and concise mechanics lines render cleanly in Examine. Verify the atlas also packages unused Relentless III–VI art.
+4. The isolated Action-resource proof passed and production Relentless is enabled. The accepted evidence records a normal hostile at `1/1`, Relentless I at `2/1`, Relentless II at `2/2`, cleanup to `1/1` on the following turn refresh, and rejection of a target already above `1/1`. Keep the proof goal excluded from normal production synchronization; stage it only with `-IncludeTestHarnesses -EnableActionResourceProof` if a future runtime version requires requalification.
+5. Re-run HP transaction, stale reconciliation, death cleanup, late entry, combat merge, save/load, and rollback under schema 2. No HP drift, AESN resource total above `2/2`, dead-recipient replacement, Toolkit crash, or game crash is acceptable.
+6. Sample Honour gameplay at levels `1,5,9,13,17,19` for solo, duo, four-, six-, and twelve-member synthetic policies before changing the approved numeric table.
+
 ## Capability spikes
 
 | ID | Setup | Required observation | Failure result |
@@ -18,30 +29,46 @@ The POC is not declared complete until every required runtime row passes.
 | CAP-03 | Inspect `DB_PartyMembers` in solo, three-player, companion, hireling, summon, familiar, and follower fixtures | Required candidates and exclusions match DESIGN.md exactly | Reject roster design |
 | CAP-04 | Apply and remove one `IncreaseMaxHP(1)` status | Maximum changes by exactly one; application/removal events are observable; current HP can be restored once | Reject binary HP design |
 | CAP-05 | Apply `+1`, `+4`, and `+8` statuses | Maximum changes by exactly thirteen and each exact status remains queryable | Reject binary HP design |
-| CAP-06 | Save during an active combat with versioned database facts | Facts, transaction state, and applied status identities are available after reload | Reject save/load design |
+| CAP-06 | Save during an active combat with versioned database facts | **Verified in the retail game for both committed and pending states:** a fully committed application retained schema, snapshot, transaction, exact applied bits, component ownership, active statuses, and maximum with `doubleApply=0`; a deliberately held zero-application `Planned` transaction survived save/load and production rolled it back exactly once with no bits, components, HP writes, or duplicate application. Stale inactive cleanup is separately verified in a focused editor fixture. | Reject save/load design |
 | CAP-07 | Cause or reproduce a combat switch | `SwitchedCombat` arguments and later `CombatEnded` ordering allow the discarded owner to be marked first | Reject merge design |
 
 CAP-02 was **Rejected locally on 2026-08-31** because Publish Local wrote the package into the live player Mods directory. The exact new file was moved to ignored `B:` artifact storage, its hash was preserved, and the live manifest was restored exactly. After review, the user approved a narrow temporary-staging exception: only this POC package may be created there by Publish Local, it must be moved to ignored `B:` storage before any game launch, and the live manifest must then match exactly. CAP-04 editor execution may continue; the CAP-02 capability classification remains Rejected.
 
+CAP-03 is partially verified as of 2026-08-31: managed Shadowheart, Gale, and Astarion fixtures each reached vanilla `DB_PartyMembers` without level mutation. AESN verified solo `size=1`, active-companion `size=2`, and three-character host-controlled `size=3,sum=3,average=1,partyPercent=140` snapshots. The latter is not yet a three-network-player result. An isolated command registered Shadowheart in vanilla `DB_Avatars`, after which Larian's built-in `hr_hire` path created and registered native hirelings. AESN verified that retained Ranger and newly created Wizard hirelings each passed summon/owner/follower exclusions, returned level `1`, and appeared exactly once in a three-member snapshot with Shadowheart. A genuine Scratch familiar then reached vanilla `DB_PartyMembers`, returned `IsSummon=1` with Shadowheart as owner, was excluded under both `Summon` and `Owned`, and left the eligible snapshot at host-only `size=1`. A native kobold added through `AddPartyFollower` likewise reached vanilla `DB_PartyMembers`; it returned `IsSummon=0`, `IsPartyFollower=1`, and owner Lae'zel, was excluded under both `Owned` and `PartyFollower`, and left the eligible snapshot at host-only `size=1`. The editor retained active party state across level re-entry, so later mutually exclusive fixtures require an editor-level reset. A prior combined fixture was retired after `SetLevel(Shadowheart,6)` encountered the off-level origin's missing Experience Component and crashed in `esv::Character::GetTotalXP`; no Gale or Astarion action executed. Level mutation is rejected for this editor-fixture context. Three-network-player and transformation fixtures remain open; further roster fixtures must be incremental and leave origin levels unchanged.
+
 CAP-04 was **Verified locally on 2026-08-31**. The living path produced `12/12 -> 13/13 -> 12/12`, exact apply/remove acknowledgements, 100% preserved once, and applied bit `1`; the creation-frame `-1/-1` observation was resolved with a 250 ms entity-bound native timer. Native status application to a dead character is rejected, so the failure-closed policy detects `0` HP before mutation, applies no bit, performs no percentage write, preserves `0/12`, and retires the test target.
+
+CAP-05 was **Verified locally on 2026-08-31**. Independent bits `1|4|8` produced the exact transaction `12/12 -> 25/25 -> 12/12`; each status emitted distinct apply/remove acknowledgements, all three remained individually queryable, and current HP percentage was restored once per transaction. The live manifest remained unchanged.
+
+ACTION-01 was **Verified locally on 2026-08-31**. The fork-owned Action and Bonus Action statuses emitted distinct apply events, were simultaneously active, emitted distinct removal events, and were simultaneously inactive after cleanup. This proves additive application/ownership only; no total resource normalization is claimed.
+
+STAT-01 was **Verified locally on 2026-08-31**. The exact loaded resource defines Attack `+1`, Saves `+1`, AC `+1`, and Spell DC `+1`. The isolated runtime harness received apply/remove acknowledgements and observed `AESN_TIER_LEVEL_05_08` active then inactive while touching no HP or action status. This proves the one-tier primitive and ownership cleanup; RT-08 remains open until hostile combat selection and integrated cleanup pass.
+
+HOSTILITY-01 was **Verified locally on 2026-08-31**. With two controlled participants, production rejected a candidate neutral to both and accepted a candidate neutral to the first but hostile to the second. Calling the production consideration interface twice for the accepted candidate produced one considered fact and one eligible fact. This proves the existential query and duplicate guard in isolation.
+
+COMBAT-01 was **Verified locally on 2026-08-31**. A native narrative combat emitted `CombatStarted` and `EnteredCombat`; production created one immutable snapshot and one participating member, accepted one initial hostile, then accepted one late hostile against the same snapshot. Exact additions were one snapshot, one participant, two consideration records, and two eligibility records. Two repeated production consideration calls for the late hostile added nothing. Reset removed both native memberships, destroyed the narrative combat, and cleared all combat-keyed fixture and production facts. This closes the isolated native-event proof for RT-15 and the classification-layer portion of RT-16; ordinary turn-based encounters, status-application idempotence, and the remaining RT-13/RT-14 scenarios stay open.
+
+HP-PLAN-01 was **Verified locally on 2026-08-31**. Production captured a native `12/12`, `100%` target against a synthetic version-1 supported size-three/average-six snapshot, calculated one target maximum `19`, persisted delta `7`, and registered exactly fork-owned bits `4|2|1`. The harness confirmed HP remained `12/12` before exact plan cleanup. A separate native-combat run recorded `UnsupportedPolicy` for both level-1 enemies and produced no transaction or bit rows. Application, rollback, and exact cleanup remain open.
+
+HP-TXN-01 was **Verified locally on 2026-08-31**. Production requested one desired status at a time and received native acknowledgements in exact `4 -> 2 -> 1` order, advancing the persisted applied sum to `7`. It verified maximum `19`, restored the captured percentage once, and committed. Cleanup captured the current percentage once, removed exactly those three recorded statuses with individual acknowledgements, verified maximum `12`, restored once, and deleted all transaction-owned rows. Forced rollback, timeout, damaged cleanup, and death-after-apply remain open.
+
+COMPONENTS-01 was **Verified locally on 2026-08-31**. An exact production HP commit started one persistent-guarded component chain. Native acknowledgements recorded exactly one `AESN_TIER_LEVEL_05_08`, one additive `AESN_EXTRA_ACTION_1`, and one additive `AESN_EXTRA_BONUS_ACTION_1`. Cleanup removed only those ownership rows in Bonus, Action, Stat order, then removed exact HP bits `4|2|1` and restored `12/12` at `100%`. There was one start, commit, component cleanup, apply pass, and cleanup pass, with no HP/component failure addition. This closes the integrated synthetic-policy component proof; ordinary hostile encounter end-to-end behavior remains open.
+
+CAP-07 was **Verified locally on 2026-08-31**. Two spatially separated ordinary combats received distinct native IDs. Spatial convergence emitted two `SwitchedCombat(object,old,new)` events; the harness marked the discarded owner on the first event, then observed `CombatEnded(old)` afterward and emitted its explicit pass. Each original combat dispatched once and no merge failure or dispatch loop occurred. MERGE-01 then verified RT-17 through the production goal: equal-policy ownership migrated to the survivor, `CombatEnded(old)` was suppressed, no canonical replan was queued, and the alias was removed only after the surviving combat ended. MERGE-02 verified RT-18: opposing `average=7,size=1` and `average=5,size=3` policies produced canonical `average=7,size=3`, and both tracked enemies were reconciled with one percentage restoration each. MERGE-03 verified RT-19 with a three-combat ordinary chain: both discarded owners resolved directly to the final survivor, both discarded ends were suppressed, and the final end removed both aliases.
 
 ## Host-side deterministic tests
 
-`tests/test_poc_model.py` is the arithmetic and state-transition oracle. It must cover:
+`tests/test_poc_model.py` is the arithmetic and state-transition oracle. It covers:
 
-- average: levels `[5] -> 5`, `[5, 7, 8] -> 6`, `[8, 8, 5] -> 7`;
-- party factor: sizes `1 -> 100`, `3 -> 140`, `8 -> 240`, `9 -> 240` plus clamp flag;
-- maximum: base `100`, average `7`, size `1 -> 115`;
-- maximum: base `100`, average `7`, size `3 -> 161`;
-- binary delta: `61 -> [32, 16, 8, 4, 1]`;
-- delta `0` produces no bits;
-- delta `-1` and `65,536` fail closed;
-- current-HP round-half-up: `50/100` into maximum `115 -> 58`;
-- cleanup percentage: `58/115` into maximum `100 -> 50`;
-- living clamping never produces zero; dead remains zero;
-- merged policy chooses the larger size and higher average independently;
-- committed application plus reload is idempotent;
-- discarded combat end is a no-op; surviving combat end owns cleanup.
+- floored average and rejection of an empty/non-positive roster;
+- all six Hardened level boundaries and exact solo HP values;
+- `+20` HP percentage points per member through twelve and a size-12 clamp above it;
+- exact solo/duo Relentless special cases and size-three-through-twelve budgets/caps;
+- the per-recipient tier-II maximum and no Action/Bonus-Action total above `2/2` from AESN;
+- direct target-maximum floor arithmetic and the `65,535` binary-delta limit;
+- current-HP round-half-up, living/dead clamping, exact cleanup, and rollback;
+- independent maximum-size/maximum-average merge policy plus monotonic spent state;
+- schema-2 save/load idempotence and stale cleanup.
 
 ## Static source tests
 
@@ -77,12 +104,12 @@ CAP-04 was **Verified locally on 2026-08-31**. The living path produced `12/12 -
 | RT-14 | Differing hostility by member | Scaled when hostile to at least one participating snapshotted member, even if neutral to another |
 | RT-15 | Late enemy entrant | Receives original combat snapshot exactly once |
 | RT-16 | Duplicate events | No second application record or status copy |
-| RT-17 | Equal-snapshot merge | Old owner aliases to survivor; records migrate; `CombatEnded(old)` performs no cleanup |
-| RT-18 | Mismatched-snapshot merge | Higher average and larger size selected independently; every tracked enemy reconciles; one mismatch log |
-| RT-19 | Merge chain | Every alias resolves to final survivor; only final end cleans |
-| RT-20 | Mid-combat committed save/load | Same maximum, bit rows, stat/action statuses, and transaction state after load; no double application |
-| RT-21 | Mid-transaction save/load | Pending state completes or rolls back once; never duplicates bits |
-| RT-22 | Stale inactive record | Exact fork-owned cleanup completes before records are deleted |
+| RT-17 | Equal-snapshot merge | **Verified locally:** old owner aliases to survivor; records migrate; `CombatEnded(old)` performs no cleanup; alias retires after final-owner cleanup |
+| RT-18 | Mismatched-snapshot merge | **Verified locally:** higher average and larger size selected independently; both tracked enemies reconciled exactly once; one mismatch log |
+| RT-19 | Merge chain | **Verified locally:** every discarded alias resolves directly to the final survivor; both discarded ends are suppressed; final end removes both aliases |
+| RT-20 | Mid-combat committed save/load | **Verified locally:** same maximum, exact bit rows, stat/action statuses, and committed transaction state after retail-game load; observation-only verifier reported `doubleApply=0` |
+| RT-21 | Mid-transaction save/load | **Verified locally in retail:** a one-shot production-order hold persisted a real `Planned`/zero-applied transaction through a mid-combat save/load; production reconciliation returned `ROLLED_BACK`, removed its transaction, hold, queue, bits, and components, preserved the pre-mutation HP values, and the observation-only verifier emitted `pending reload proof PASSED` with `doubleApply=0` |
+| RT-22 | Stale inactive record | **Verified locally:** native `CombatEnded` preceded injection; production observed `CombatIsActive=0`, performed one exact percentage-preserving cleanup, then deleted the snapshot and application records |
 | RT-23 | Enemy dead before entry | No application and no resurrection |
 | RT-24 | Enemy dies while scaled | Cleanup removes exact statuses without setting HP or resurrecting |
 | RT-25 | Overflow/failure injection | No partial stat/action scaling; acknowledged bits roll back; diagnostic remains |

@@ -1,22 +1,23 @@
-# Adaptive Enemy Scaling Native POC
+# Adaptive Enemy Scaling Native
 
-This repository contains the isolated, native Baldur's Gate 3 Toolkit proof of concept for **Adaptive Enemy Scaling**. The native path is primary; the existing Script Extender implementation remains untouched as a fallback.
+This repository contains the native Baldur's Gate 3 Toolkit implementation of **Adaptive Enemy Scaling**. The capability POC has been converted to a schema-2 production policy for the intended Honour-mode overhaul stack while retaining the exact, reversible HP transaction machinery proved during the POC.
 
-The POC is intentionally narrow. It must prove native roster selection, deterministic party-level and party-size policy, exact reversible HP mutation, one stat tier, additive Action and Bonus Action statuses, late entrants, merged combats, save/load reconciliation, and host/client behavior before the production balance table or optional spell injection is considered.
+Production Hardened scaling is enabled from level 1 through 20 using the permanent-party average and party size frozen at combat start. Relentless allocation is enabled after the hostile Action/Bonus-Action runtime proof passed locally. Test and capability goals are excluded from production Toolkit synchronization by default.
 
 ## Identity
 
 - Module name: `AdaptiveEnemyScalingNativePOC`
 - Module UUID: `a4567f52-1665-df50-b84c-3992f80fdb90`
-- Internal POC milestone: `0.1.0`
+- Persistent Story schema: `2`
 - Toolkit module version: `1.0.0.0` (first Publish Local is expected to auto-increment to `1.0.0.1`)
 - Status namespace: `AESN_*`
 - Osiris database namespace: `DB_AESN_*`
-- External mod dependencies: none
+- Technical mod dependencies: none
+- Balance target: Honour rules with BEYOND, level 1–20/x0.5 requirements, Expanded Armoury, FATE/FED, Enemies Reworked, and Extra Encounters
 
-## Safety boundary
+## Toolkit synchronization
 
-Until a separate post-build approval is given, this project must not write to the live Baldur's Gate 3 `Mods` directory, change `modsettings.lsx`, install a built package, or upload to mod.io. Toolkit **Publish Local** output is saved under ignored `artifacts/` storage on `B:` and then work stops for review.
+`tools/sync_toolkit_project.ps1` accepts only the locally verified Toolkit `Data` root and refuses the live player `Mods` directory. Its default mode copies only production goals and removes stale test/proof goals from the Toolkit project. `-IncludeTestHarnesses` is explicit; the isolated action-resource proof additionally requires `-EnableActionResourceProof` and is never included in a normal production sync.
 
 ## Documents
 

@@ -1,0 +1,881 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_MergeProbeSetupPending((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (FACTION)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeProbePairCombat("", (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeProbeFixture((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeProbeJoinPending((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeProbeMarked((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeProbeSwitched((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeProbeOldEnded((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_MergeProbePass((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeEqualProductionPass((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeMismatchPrepared((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeMismatchPreparePass((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeMismatchVerifyStarted((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeMismatchVerifyPending((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeMismatchPass((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeChainSetupPending((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (FACTION)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeChainFixture((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeChainJoinPending((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeChainMarked((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeChainSwitched((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeChainPass((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeProbeResetPending((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (FACTION)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeProbeFailure("");
+KBSECTION
+
+// CAP-07 only: construct two spatially separated ordinary combats, then join
+// their existing participants. Narrative-combat reassignment and direct join
+// were both rejected by local traces and are no longer used.
+// ReCon command: oe AESN_TEST_START_MERGE_PROBE
+IF
+TextEvent("AESN_TEST_START_MERGE_PROBE")
+AND
+NOT DB_AESN_MergeProbeSetupPending(_, _, _, _, _)
+AND
+GetHostCharacter(_Host)
+AND
+GetFaction(_Host, _HostFaction)
+AND
+GetPosition((ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, _X, _Y, _Z)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _OldFirst)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _OldSecond)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _NewFirst)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _NewSecond)
+AND
+RealSum(_X, 50.0, _FarCandidateX)
+AND
+FindValidPosition(_FarCandidateX, _Y, _Z, 15.0, _NewFirst, 0, _FarX, _FarY, _FarZ)
+AND
+RealSum(_FarX, 2.0, _FarSecondX)
+THEN
+PROC_AESN_SetupOrdinaryMergeProbe(_OldFirst, _OldSecond, _NewFirst, _NewSecond, _HostFaction, _FarX, _FarSecondX, _FarY, _FarZ);
+
+PROC
+PROC_AESN_SetupOrdinaryMergeProbe((GUIDSTRING)_OldFirst, (GUIDSTRING)_OldSecond, (GUIDSTRING)_NewFirst, (GUIDSTRING)_NewSecond, (FACTION)_HostFaction, (REAL)_FarX, (REAL)_FarSecondX, (REAL)_FarY, (REAL)_FarZ)
+THEN
+SetFaction(_OldSecond, _HostFaction);
+SetFaction(_NewSecond, _HostFaction);
+SetCanFight(_OldFirst, 1);
+SetCanFight(_OldSecond, 1);
+SetCanFight(_NewFirst, 1);
+SetCanFight(_NewSecond, 1);
+SetCanJoinCombat(_OldFirst, 1);
+SetCanJoinCombat(_OldSecond, 1);
+SetCanJoinCombat(_NewFirst, 1);
+SetCanJoinCombat(_NewSecond, 1);
+SetIndividualRelation((CHARACTER)_OldFirst, _HostFaction, 0);
+SetIndividualRelation((CHARACTER)_NewFirst, _HostFaction, 0);
+TeleportToPosition(_NewFirst, _FarX, _FarY, _FarZ, "", 0, 0, 0, 1, 1);
+TeleportToPosition(_NewSecond, _FarSecondX, _FarY, _FarZ, "", 0, 0, 0, 1, 1);
+DB_AESN_MergeProbeSetupPending(_OldFirst, _OldSecond, _NewFirst, _NewSecond, _HostFaction);
+RealtimeObjectTimerLaunch((CHARACTER)_OldFirst, "AESN_MERGE_PROBE_START_COMBATS", 500);
+DebugLog("AESN_MERGE_PROBE SETUP ordinaryPairsStaged=1");
+
+IF
+ObjectTimerFinished((CHARACTER)_OldFirst, "AESN_MERGE_PROBE_START_COMBATS")
+AND
+DB_AESN_MergeProbeSetupPending(_OldFirst, _OldSecond, _NewFirst, _NewSecond, _)
+THEN
+PROC_EnterCombat(_OldFirst, _OldSecond);
+PROC_EnterCombat(_NewFirst, _NewSecond);
+DebugLog("AESN_MERGE_PROBE SETUP ordinaryCombatRequests=2");
+
+IF
+EnteredCombat(_Object, _Combat)
+AND
+DB_AESN_MergeProbeSetupPending(_Object, _, _, _, _)
+AND
+NOT DB_AESN_MergeProbePairCombat("Old", _)
+THEN
+DB_AESN_MergeProbePairCombat("Old", _Combat);
+
+IF
+EnteredCombat(_Object, _Combat)
+AND
+DB_AESN_MergeProbeSetupPending(_, _, _Object, _, _)
+AND
+NOT DB_AESN_MergeProbePairCombat("New", _)
+THEN
+DB_AESN_MergeProbePairCombat("New", _Combat);
+
+IF
+DB_AESN_MergeProbePairCombat("Old", _OldCombat)
+AND
+DB_AESN_MergeProbePairCombat("New", _NewCombat)
+AND
+_OldCombat != _NewCombat
+AND
+DB_AESN_MergeProbeSetupPending(_OldFirst, _OldSecond, _NewFirst, _NewSecond, _)
+AND
+NOT DB_AESN_MergeProbeFixture(_, _, _, _, _, _)
+THEN
+DB_AESN_MergeProbeFixture(_OldCombat, _NewCombat, _OldFirst, _OldSecond, _NewFirst, _NewSecond);
+PROC_SetInvulnerable(_OldFirst, 1);
+PROC_SetInvulnerable(_OldSecond, 1);
+PROC_SetInvulnerable(_NewFirst, 1);
+PROC_SetInvulnerable(_NewSecond, 1);
+DebugLog("AESN_MERGE_PROBE SETUP_PASS distinctOrdinaryCombats=1");
+
+IF
+DB_AESN_MergeProbePairCombat("Old", _Combat)
+AND
+DB_AESN_MergeProbePairCombat("New", _Combat)
+AND
+NOT DB_AESN_MergeProbeFailure("OrdinarySetupAutoMerged")
+THEN
+DB_AESN_MergeProbeFailure("OrdinarySetupAutoMerged");
+DebugLog("AESN_MERGE_PROBE FAIL ordinarySetupAutoMerged=1");
+
+// RT-18 fixture setup. The harness supplies opposing source policies and two
+// real targets; production owns planning, merge selection, migration, exact
+// status removal/reapplication, and percentage restoration.
+// ReCon command: oe AESN_TEST_PREPARE_MISMATCH_MERGE
+IF
+TextEvent("AESN_TEST_PREPARE_MISMATCH_MERGE")
+AND
+DB_AESN_MergeProbeFixture(_OldCombat, _NewCombat, _OldFirst, _, _NewFirst, _)
+AND
+DB_AESN_CombatSnapshotV2(_OldCombat, 2, _, _, _, _, _, _, _, _, _, "Supported")
+AND
+DB_AESN_CombatSnapshotV2(_NewCombat, 2, _, _, _, _, _, _, _, _, _, "Supported")
+AND
+NOT DB_AESN_HpTransaction(_OldCombat, (CHARACTER)_OldFirst, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_HpTransaction(_NewCombat, (CHARACTER)_NewFirst, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_HpFailure(_OldCombat, (CHARACTER)_OldFirst, _)
+AND
+NOT DB_AESN_HpFailure(_NewCombat, (CHARACTER)_NewFirst, _)
+AND
+GetHitpoints((CHARACTER)_OldFirst, 12)
+AND
+GetMaxHitpoints((CHARACTER)_OldFirst, 12)
+AND
+GetHitpoints((CHARACTER)_NewFirst, 12)
+AND
+GetMaxHitpoints((CHARACTER)_NewFirst, 12)
+AND
+NOT DB_AESN_MergeMismatchPrepared(_, _, _, _)
+THEN
+PROC_AESN_PrepareMismatchMerge(_OldCombat, _NewCombat, _OldFirst, _NewFirst);
+
+PROC
+PROC_AESN_PrepareMismatchMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (GUIDSTRING)_OldFirst, (GUIDSTRING)_NewFirst)
+THEN
+PROC_AESN_DeleteMergeSnapshot(_OldCombat);
+PROC_AESN_DeleteMergeSnapshot(_NewCombat);
+DB_AESN_CombatSnapshotV2(_OldCombat, 2, 1, 1, 7, 7, 2, 150, 1, 0, 1, "Supported");
+DB_AESN_CombatSnapshotV2(_NewCombat, 2, 3, 3, 15, 5, 2, 190, 1, 0, 1, "Supported");
+DB_AESN_MergeMismatchPrepared(_OldCombat, _NewCombat, (CHARACTER)_OldFirst, (CHARACTER)_NewFirst);
+PROC_AESN_PlanEnemy((CHARACTER)_OldFirst, _OldCombat);
+PROC_AESN_PlanEnemy((CHARACTER)_NewFirst, _NewCombat);
+RealtimeObjectTimerLaunch((CHARACTER)_OldFirst, "AESN_MERGE_MISMATCH_PREPARE_VERIFY", 1500);
+DebugLog("AESN_MERGE_MISMATCH PREPARE opposingDimensions=1,trackedEnemies=2");
+
+IF
+ObjectTimerFinished((CHARACTER)_OldFirst, "AESN_MERGE_MISMATCH_PREPARE_VERIFY")
+AND
+DB_AESN_MergeMismatchPrepared(_OldCombat, _NewCombat, (CHARACTER)_OldFirst, (CHARACTER)_NewFirst)
+AND
+DB_AESN_HpTransaction(_OldCombat, (CHARACTER)_OldFirst, 1, "HPCommitted", 12, 12, 100.0, 18, 6, 6)
+AND
+DB_AESN_ComponentApplication(_OldCombat, (CHARACTER)_OldFirst, 1, "FullyCommitted")
+AND
+DB_AESN_EnemyHpBit(_OldCombat, (CHARACTER)_OldFirst, 4, "AESN_HP_BIT_00004")
+AND
+DB_AESN_EnemyHpBit(_OldCombat, (CHARACTER)_OldFirst, 2, "AESN_HP_BIT_00002")
+AND
+DB_AESN_EnemyComponent(_OldCombat, (CHARACTER)_OldFirst, "Stat", "AESN_HARDENED_FOE_02")
+AND
+NOT DB_AESN_EnemyComponent(_OldCombat, (CHARACTER)_OldFirst, "Action", _)
+AND
+NOT DB_AESN_EnemyComponent(_OldCombat, (CHARACTER)_OldFirst, "Bonus", _)
+AND
+DB_AESN_HpTransaction(_NewCombat, (CHARACTER)_NewFirst, 1, "HPCommitted", 12, 12, 100.0, 22, 10, 10)
+AND
+DB_AESN_ComponentApplication(_NewCombat, (CHARACTER)_NewFirst, 1, "FullyCommitted")
+AND
+DB_AESN_EnemyHpBit(_NewCombat, (CHARACTER)_NewFirst, 8, "AESN_HP_BIT_00008")
+AND
+DB_AESN_EnemyHpBit(_NewCombat, (CHARACTER)_NewFirst, 2, "AESN_HP_BIT_00002")
+AND
+DB_AESN_EnemyComponent(_NewCombat, (CHARACTER)_NewFirst, "Stat", "AESN_HARDENED_FOE_02")
+AND
+NOT DB_AESN_EnemyComponent(_NewCombat, (CHARACTER)_NewFirst, "Relentless", _)
+AND
+GetHitpoints((CHARACTER)_OldFirst, 18)
+AND
+GetMaxHitpoints((CHARACTER)_OldFirst, 18)
+AND
+GetHitpoints((CHARACTER)_NewFirst, 22)
+AND
+GetMaxHitpoints((CHARACTER)_NewFirst, 22)
+THEN
+DB_AESN_MergeMismatchPreparePass(_OldCombat, _NewCombat);
+DebugLog("AESN_MERGE_MISMATCH PREPARE_PASS opposingDimensions=1,trackedEnemies=2");
+
+// ReCon command: oe AESN_TEST_TRIGGER_MERGE_PROBE
+IF
+TextEvent("AESN_TEST_TRIGGER_MERGE_PROBE")
+AND
+DB_AESN_MergeProbeFixture(_, _, _OldFirst, _OldSecond, _, _NewSecond)
+AND
+GetPosition(_NewSecond, _X, _Y, _Z)
+AND
+RealSum(_X, 2.0, _SecondX)
+THEN
+SetCanFight(_OldFirst, 1);
+SetCanFight(_NewSecond, 1);
+SetCanJoinCombat(_OldFirst, 1);
+SetCanJoinCombat(_NewSecond, 1);
+TeleportToPosition(_OldFirst, _X, _Y, _Z, "", 0, 0, 0, 0, 1);
+TeleportToPosition(_OldSecond, _SecondX, _Y, _Z, "", 0, 0, 0, 0, 1);
+DB_AESN_MergeProbeJoinPending(_OldFirst, _NewSecond);
+RealtimeObjectTimerLaunch((CHARACTER)_OldFirst, "AESN_MERGE_PROBE_JOIN", 250);
+DebugLog("AESN_MERGE_PROBE TRIGGER ordinaryGroupsConverged=1");
+
+IF
+ObjectTimerFinished((CHARACTER)_OldFirst, "AESN_MERGE_PROBE_JOIN")
+AND
+DB_AESN_MergeProbeJoinPending(_OldFirst, _NewSecond)
+THEN
+PROC_EnterCombat(_OldFirst, _NewSecond);
+RealtimeObjectTimerLaunch((CHARACTER)_OldFirst, "AESN_MERGE_PROBE_SWITCH_TIMEOUT", 1000);
+DebugLog("AESN_MERGE_PROBE TRIGGER nativeJoinRequested=1");
+
+IF
+EnterCombatFailed(_OldFirst, _NewSecond)
+AND
+DB_AESN_MergeProbeJoinPending(_OldFirst, _NewSecond)
+THEN
+RealtimeObjectTimerCancel((CHARACTER)_OldFirst, "AESN_MERGE_PROBE_SWITCH_TIMEOUT");
+DB_AESN_MergeProbeFailure("OrdinaryJoinFailed");
+DebugLog("AESN_MERGE_PROBE FAIL ordinaryJoinFailed=1");
+
+// The engine chooses the survivor. Accept either fixture direction, but use
+// the native event's old/new values as discarded/surviving ownership.
+IF
+SwitchedCombat(_Object, _OldCombat, _NewCombat)
+AND
+DB_AESN_MergeProbeFixture(_OldCombat, _NewCombat, _OldFirst, _, _, _)
+THEN
+PROC_AESN_MergeProbeRecordSwitch(_Object, _OldCombat, _NewCombat, _OldFirst);
+
+IF
+SwitchedCombat(_Object, _NewCombat, _OldCombat)
+AND
+DB_AESN_MergeProbeFixture(_OldCombat, _NewCombat, _OldFirst, _, _, _)
+THEN
+PROC_AESN_MergeProbeRecordSwitch(_Object, _NewCombat, _OldCombat, _OldFirst);
+
+PROC
+PROC_AESN_MergeProbeRecordSwitch((GUIDSTRING)_Object, (GUIDSTRING)_DiscardedCombat, (GUIDSTRING)_SurvivingCombat, (GUIDSTRING)_TimerOwner)
+AND
+NOT DB_AESN_MergeProbeMarked(_DiscardedCombat, _SurvivingCombat)
+THEN
+RealtimeObjectTimerCancel((CHARACTER)_TimerOwner, "AESN_MERGE_PROBE_SWITCH_TIMEOUT");
+DB_AESN_MergeProbeMarked(_DiscardedCombat, _SurvivingCombat);
+DB_AESN_MergeProbeSwitched(_Object, _DiscardedCombat, _SurvivingCombat);
+DebugLog("AESN_MERGE_PROBE EVENT firstSwitched=1,markedBeforeMigration=1");
+
+PROC
+PROC_AESN_MergeProbeRecordSwitch((GUIDSTRING)_Object, (GUIDSTRING)_DiscardedCombat, (GUIDSTRING)_SurvivingCombat, (GUIDSTRING)_TimerOwner)
+AND
+DB_AESN_MergeProbeMarked(_DiscardedCombat, _SurvivingCombat)
+AND
+NOT DB_AESN_MergeProbeSwitched(_Object, _DiscardedCombat, _SurvivingCombat)
+THEN
+DB_AESN_MergeProbeSwitched(_Object, _DiscardedCombat, _SurvivingCombat);
+DebugLog("AESN_MERGE_PROBE EVENT additionalSwitched=1");
+
+IF
+ObjectTimerFinished((CHARACTER)_OldFirst, "AESN_MERGE_PROBE_SWITCH_TIMEOUT")
+AND
+DB_AESN_MergeProbeJoinPending(_OldFirst, _)
+AND
+NOT DB_AESN_MergeProbeMarked(_, _)
+THEN
+DB_AESN_MergeProbeFailure("OrdinaryJoinProducedNoSwitch");
+DebugLog("AESN_MERGE_PROBE FAIL ordinaryJoinProducedNoSwitch=1");
+
+IF
+CombatEnded(_DiscardedCombat)
+AND
+DB_AESN_MergeProbeMarked(_DiscardedCombat, _SurvivingCombat)
+AND
+NOT DB_AESN_MergeProbeOldEnded(_DiscardedCombat, _SurvivingCombat, _)
+THEN
+DB_AESN_MergeProbeOldEnded(_DiscardedCombat, _SurvivingCombat, "AfterMarker");
+DB_AESN_MergeProbePass(_DiscardedCombat, _SurvivingCombat);
+DebugLog("AESN_MERGE_PROBE EVENT discardedCombatEndedAfterMarker=1");
+DebugLog("AESN_MERGE_PROBE PASS switchedObserved=1,markedFirst=1,discardedEndedAfterMarker=1");
+
+// RT-17 equal-snapshot production assertion. The persistent production marker
+// remaining after discarded CombatEnded is the cleanup-suppression evidence.
+IF
+CombatEnded(_DiscardedCombat)
+AND
+DB_AESN_MergeProbeMarked(_DiscardedCombat, _SurvivingCombat)
+AND
+DB_AESN_MergedCombat(_DiscardedCombat, _SurvivingCombat)
+AND
+DB_AESN_CombatAlias(_DiscardedCombat, _SurvivingCombat)
+AND
+DB_AESN_CombatSnapshotV2(_SurvivingCombat, 2, _, _, _, _, _, _, _, _, _, "Supported")
+AND
+NOT DB_AESN_CombatSnapshotV2(_DiscardedCombat, _, _, _, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_MergePolicyMismatch(_DiscardedCombat, _SurvivingCombat, _, _, _, _, _, _)
+AND
+NOT DB_AESN_MergeReplanRequired(_SurvivingCombat, _)
+AND
+NOT DB_AESN_MergeEqualProductionPass(_DiscardedCombat, _SurvivingCombat)
+THEN
+DB_AESN_MergeEqualProductionPass(_DiscardedCombat, _SurvivingCombat);
+DebugLog("AESN_MERGE_EQUAL PASS ownershipMigrated=1,discardedCleanupSuppressed=1,canonicalReplan=0");
+
+// Start one delayed assertion after production has committed the canonical
+// mismatch row. Accept either native survivor direction.
+IF
+DB_AESN_MergePolicyMismatch(_DiscardedCombat, _SurvivingCombat, _, _, _, _, 7, 3)
+AND
+DB_AESN_MergeMismatchPrepared(_DiscardedCombat, _SurvivingCombat, _OldFirst, _NewFirst)
+AND
+NOT DB_AESN_MergeMismatchVerifyStarted(_DiscardedCombat, _SurvivingCombat)
+AND
+NOT DB_AESN_MergeMismatchVerifyPending(_, _, _, _)
+THEN
+PROC_AESN_StartMismatchMergeVerify(_DiscardedCombat, _SurvivingCombat, _OldFirst, _NewFirst);
+
+IF
+DB_AESN_MergePolicyMismatch(_DiscardedCombat, _SurvivingCombat, _, _, _, _, 7, 3)
+AND
+DB_AESN_MergeMismatchPrepared(_SurvivingCombat, _DiscardedCombat, _OldFirst, _NewFirst)
+AND
+NOT DB_AESN_MergeMismatchVerifyStarted(_DiscardedCombat, _SurvivingCombat)
+AND
+NOT DB_AESN_MergeMismatchVerifyPending(_, _, _, _)
+THEN
+PROC_AESN_StartMismatchMergeVerify(_DiscardedCombat, _SurvivingCombat, _OldFirst, _NewFirst);
+
+PROC
+PROC_AESN_StartMismatchMergeVerify((GUIDSTRING)_DiscardedCombat, (GUIDSTRING)_SurvivingCombat, (CHARACTER)_OldFirst, (CHARACTER)_NewFirst)
+THEN
+DB_AESN_MergeMismatchVerifyStarted(_DiscardedCombat, _SurvivingCombat);
+DB_AESN_MergeMismatchVerifyPending(_DiscardedCombat, _SurvivingCombat, _OldFirst, _NewFirst);
+RealtimeObjectTimerLaunch(_OldFirst, "AESN_MERGE_MISMATCH_VERIFY", 2000);
+
+IF
+ObjectTimerFinished((CHARACTER)_OldFirst, "AESN_MERGE_MISMATCH_VERIFY")
+AND
+DB_AESN_MergeMismatchVerifyPending(_DiscardedCombat, _SurvivingCombat, _OldFirst, _NewFirst)
+AND
+DB_AESN_MergePolicyMismatch(_DiscardedCombat, _SurvivingCombat, _, _, _, _, 7, 3)
+AND
+DB_AESN_CombatSnapshotV2(_SurvivingCombat, 2, 3, 3, 21, 7, 2, 190, 1, 0, 1, "Supported")
+AND
+NOT DB_AESN_CombatSnapshotV2(_DiscardedCombat, _, _, _, _, _, _, _, _, _, _, _)
+AND
+DB_AESN_HpTransaction(_SurvivingCombat, _OldFirst, 1, "HPCommitted", 12, 12, 100.0, 22, 10, 10)
+AND
+DB_AESN_HpTransaction(_SurvivingCombat, _NewFirst, 1, "HPCommitted", 12, 12, 100.0, 22, 10, 10)
+AND
+DB_AESN_ComponentApplication(_SurvivingCombat, _OldFirst, 1, "FullyCommitted")
+AND
+DB_AESN_ComponentApplication(_SurvivingCombat, _NewFirst, 1, "FullyCommitted")
+AND
+DB_AESN_EnemyHpBit(_SurvivingCombat, _OldFirst, 8, "AESN_HP_BIT_00008")
+AND
+DB_AESN_EnemyHpBit(_SurvivingCombat, _OldFirst, 2, "AESN_HP_BIT_00002")
+AND
+DB_AESN_EnemyHpBit(_SurvivingCombat, _NewFirst, 8, "AESN_HP_BIT_00008")
+AND
+DB_AESN_EnemyHpBit(_SurvivingCombat, _NewFirst, 2, "AESN_HP_BIT_00002")
+AND
+DB_AESN_EnemyComponent(_SurvivingCombat, _OldFirst, "Stat", "AESN_HARDENED_FOE_02")
+AND
+NOT DB_AESN_EnemyComponent(_SurvivingCombat, _OldFirst, "Relentless", _)
+AND
+DB_AESN_EnemyComponent(_SurvivingCombat, _NewFirst, "Stat", "AESN_HARDENED_FOE_02")
+AND
+NOT DB_AESN_EnemyComponent(_SurvivingCombat, _NewFirst, "Relentless", _)
+AND
+NOT DB_AESN_MergeReplanRequired(_SurvivingCombat, _)
+AND
+NOT DB_AESN_HpReplan(_SurvivingCombat, _, _, _, _)
+AND
+GetHitpoints(_OldFirst, 22)
+AND
+GetMaxHitpoints(_OldFirst, 22)
+AND
+GetHitpoints(_NewFirst, 22)
+AND
+GetMaxHitpoints(_NewFirst, 22)
+THEN
+NOT DB_AESN_MergeMismatchVerifyPending(_DiscardedCombat, _SurvivingCombat, _OldFirst, _NewFirst);
+DB_AESN_MergeMismatchPass(_DiscardedCombat, _SurvivingCombat);
+DebugLog("AESN_MERGE_MISMATCH PASS canonicalAverage=7,canonicalSize=3,reconciledEnemies=2,percentageWrites=1|1");
+
+IF
+ObjectTimerFinished((CHARACTER)_OldFirst, "AESN_MERGE_MISMATCH_VERIFY")
+AND
+DB_AESN_MergeMismatchVerifyPending(_DiscardedCombat, _SurvivingCombat, _OldFirst, _NewFirst)
+THEN
+NOT DB_AESN_MergeMismatchVerifyPending(_DiscardedCombat, _SurvivingCombat, _OldFirst, _NewFirst);
+DB_AESN_MergeProbeFailure("MismatchReconciliationIncomplete");
+DebugLog("AESN_MERGE_MISMATCH FAIL reconciliationIncomplete=1");
+
+// RT-19 extends a completed equal-policy merge with one more spatially
+// separated ordinary combat. Production receives a second native
+// SwitchedCombat and must flatten both discarded aliases to the final owner.
+// ReCon command: oe AESN_TEST_START_CHAIN_EXTENSION
+IF
+TextEvent("AESN_TEST_START_CHAIN_EXTENSION")
+AND
+DB_AESN_MergeEqualProductionPass(_FirstDiscarded, _SurvivingCombat)
+AND
+DB_AESN_MergeProbeSetupPending(_, _, _, _, _HostFaction)
+AND
+NOT DB_AESN_MergeChainSetupPending(_, _, _, _, _)
+AND
+GetPosition((ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, _X, _Y, _Z)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _ChainFirst)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _ChainSecond)
+THEN
+PROC_AESN_SetupMergeChainExtension(_FirstDiscarded, _SurvivingCombat, (CHARACTER)_ChainFirst, (CHARACTER)_ChainSecond, _HostFaction);
+
+PROC
+PROC_AESN_SetupMergeChainExtension((GUIDSTRING)_FirstDiscarded, (GUIDSTRING)_SurvivingCombat, (CHARACTER)_ChainFirst, (CHARACTER)_ChainSecond, (FACTION)_HostFaction)
+THEN
+SetFaction(_ChainSecond, _HostFaction);
+SetCanFight(_ChainFirst, 1);
+SetCanFight(_ChainSecond, 1);
+SetCanJoinCombat(_ChainFirst, 1);
+SetCanJoinCombat(_ChainSecond, 1);
+SetIndividualRelation(_ChainFirst, _HostFaction, 0);
+DB_AESN_MergeChainSetupPending(_FirstDiscarded, _SurvivingCombat, _ChainFirst, _ChainSecond, _HostFaction);
+RealtimeObjectTimerLaunch(_ChainFirst, "AESN_MERGE_CHAIN_START_COMBAT", 500);
+DebugLog("AESN_MERGE_CHAIN SETUP thirdPairStaged=1");
+
+IF
+ObjectTimerFinished((CHARACTER)_ChainFirst, "AESN_MERGE_CHAIN_START_COMBAT")
+AND
+DB_AESN_MergeChainSetupPending(_, _, _ChainFirst, _ChainSecond, _)
+THEN
+PROC_EnterCombat(_ChainFirst, _ChainSecond);
+DebugLog("AESN_MERGE_CHAIN SETUP thirdCombatRequested=1");
+
+IF
+EnteredCombat((CHARACTER)_ChainFirst, _ThirdCombat)
+AND
+DB_AESN_MergeChainSetupPending(_FirstDiscarded, _SurvivingCombat, _ChainFirst, _ChainSecond, _)
+AND
+_ThirdCombat != _SurvivingCombat
+AND
+NOT DB_AESN_MergeChainFixture(_, _, _, _, _)
+THEN
+DB_AESN_MergeProbePairCombat("Third", _ThirdCombat);
+DB_AESN_MergeChainFixture(_FirstDiscarded, _SurvivingCombat, _ThirdCombat, _ChainFirst, _ChainSecond);
+PROC_SetInvulnerable(_ChainFirst, 1);
+PROC_SetInvulnerable(_ChainSecond, 1);
+DebugLog("AESN_MERGE_CHAIN SETUP_PASS thirdCombatDistinct=1");
+
+IF
+EnteredCombat((CHARACTER)_ChainFirst, _SurvivingCombat)
+AND
+DB_AESN_MergeChainSetupPending(_, _SurvivingCombat, _ChainFirst, _, _)
+AND
+NOT DB_AESN_MergeProbeFailure("ChainThirdAutoMerged")
+THEN
+DB_AESN_MergeProbeFailure("ChainThirdAutoMerged");
+DebugLog("AESN_MERGE_CHAIN FAIL thirdCombatAutoMerged=1");
+
+// ReCon command: oe AESN_TEST_TRIGGER_CHAIN_EXTENSION
+IF
+TextEvent("AESN_TEST_TRIGGER_CHAIN_EXTENSION")
+AND
+DB_AESN_MergeChainFixture(_, _, _, _, _ChainSecond)
+AND
+DB_AESN_MergeProbeFixture(_, _, _, _, _MoveFirst, _MoveSecond)
+AND
+GetPosition(_ChainSecond, _X, _Y, _Z)
+AND
+RealSum(_X, 2.0, _SecondX)
+THEN
+TeleportToPosition(_MoveFirst, _X, _Y, _Z, "", 0, 0, 0, 0, 1);
+TeleportToPosition(_MoveSecond, _SecondX, _Y, _Z, "", 0, 0, 0, 0, 1);
+DB_AESN_MergeChainJoinPending((CHARACTER)_MoveFirst, (CHARACTER)_MoveSecond, _ChainSecond);
+RealtimeObjectTimerLaunch((CHARACTER)_MoveFirst, "AESN_MERGE_CHAIN_JOIN", 250);
+DebugLog("AESN_MERGE_CHAIN TRIGGER groupsConverged=1");
+
+IF
+ObjectTimerFinished((CHARACTER)_MoveFirst, "AESN_MERGE_CHAIN_JOIN")
+AND
+DB_AESN_MergeChainJoinPending(_MoveFirst, _, _ChainSecond)
+THEN
+PROC_EnterCombat(_MoveFirst, _ChainSecond);
+RealtimeObjectTimerLaunch(_MoveFirst, "AESN_MERGE_CHAIN_SWITCH_TIMEOUT", 1000);
+DebugLog("AESN_MERGE_CHAIN TRIGGER nativeJoinRequested=1");
+
+IF
+SwitchedCombat(_Object, _SurvivingCombat, _ThirdCombat)
+AND
+DB_AESN_MergeChainFixture(_FirstDiscarded, _SurvivingCombat, _ThirdCombat, _, _)
+AND
+DB_AESN_MergeChainJoinPending(_TimerOwner, _, _)
+THEN
+PROC_AESN_RecordMergeChainSwitch(_Object, _FirstDiscarded, _SurvivingCombat, _ThirdCombat, _TimerOwner);
+
+IF
+SwitchedCombat(_Object, _ThirdCombat, _SurvivingCombat)
+AND
+DB_AESN_MergeChainFixture(_FirstDiscarded, _SurvivingCombat, _ThirdCombat, _, _)
+AND
+DB_AESN_MergeChainJoinPending(_TimerOwner, _, _)
+THEN
+PROC_AESN_RecordMergeChainSwitch(_Object, _FirstDiscarded, _ThirdCombat, _SurvivingCombat, _TimerOwner);
+
+PROC
+PROC_AESN_RecordMergeChainSwitch((GUIDSTRING)_Object, (GUIDSTRING)_FirstDiscarded, (GUIDSTRING)_SecondDiscarded, (GUIDSTRING)_FinalCombat, (CHARACTER)_TimerOwner)
+AND
+NOT DB_AESN_MergeChainMarked(_, _, _)
+THEN
+RealtimeObjectTimerCancel(_TimerOwner, "AESN_MERGE_CHAIN_SWITCH_TIMEOUT");
+DB_AESN_MergeChainMarked(_FirstDiscarded, _SecondDiscarded, _FinalCombat);
+DB_AESN_MergeChainSwitched(_Object, _SecondDiscarded, _FinalCombat);
+DebugLog("AESN_MERGE_CHAIN EVENT secondMergeMarked=1");
+
+PROC
+PROC_AESN_RecordMergeChainSwitch((GUIDSTRING)_Object, (GUIDSTRING)_FirstDiscarded, (GUIDSTRING)_SecondDiscarded, (GUIDSTRING)_FinalCombat, (CHARACTER)_TimerOwner)
+AND
+DB_AESN_MergeChainMarked(_FirstDiscarded, _SecondDiscarded, _FinalCombat)
+AND
+NOT DB_AESN_MergeChainSwitched(_Object, _SecondDiscarded, _FinalCombat)
+THEN
+DB_AESN_MergeChainSwitched(_Object, _SecondDiscarded, _FinalCombat);
+DebugLog("AESN_MERGE_CHAIN EVENT additionalSwitched=1");
+
+IF
+ObjectTimerFinished((CHARACTER)_MoveFirst, "AESN_MERGE_CHAIN_SWITCH_TIMEOUT")
+AND
+DB_AESN_MergeChainJoinPending(_MoveFirst, _, _)
+AND
+NOT DB_AESN_MergeChainMarked(_, _, _)
+THEN
+DB_AESN_MergeProbeFailure("ChainJoinProducedNoSwitch");
+DebugLog("AESN_MERGE_CHAIN FAIL nativeJoinProducedNoSwitch=1");
+
+IF
+CombatEnded(_SecondDiscarded)
+AND
+DB_AESN_MergeChainMarked(_FirstDiscarded, _SecondDiscarded, _FinalCombat)
+AND
+DB_AESN_CombatAlias(_FirstDiscarded, _FinalCombat)
+AND
+DB_AESN_CombatAlias(_SecondDiscarded, _FinalCombat)
+AND
+NOT DB_AESN_CombatAlias(_, _SecondDiscarded)
+AND
+DB_AESN_MergedCombat(_FirstDiscarded, _FinalCombat)
+AND
+DB_AESN_MergedCombat(_SecondDiscarded, _FinalCombat)
+AND
+DB_AESN_CombatSnapshotV2(_FinalCombat, 2, _, _, _, _, _, _, _, _, _, "Supported")
+AND
+NOT DB_AESN_CombatSnapshotV2(_FirstDiscarded, _, _, _, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_CombatSnapshotV2(_SecondDiscarded, _, _, _, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_MergePolicyMismatch(_SecondDiscarded, _FinalCombat, _, _, _, _, _, _)
+AND
+NOT DB_AESN_MergeChainPass(_, _, _)
+THEN
+DB_AESN_MergeChainPass(_FirstDiscarded, _SecondDiscarded, _FinalCombat);
+DebugLog("AESN_MERGE_CHAIN PASS aliasesFlattened=2,discardedCleanupSuppressed=2,finalCleanupOwner=1");
+
+IF
+CombatEnded(_Combat)
+AND
+DB_AESN_MergeProbeJoinPending(_, _)
+AND
+DB_AESN_MergeProbePairCombat(_, _Combat)
+AND
+NOT DB_AESN_MergeProbeMarked(_, _)
+THEN
+DB_AESN_MergeProbeOldEnded(_Combat, _Combat, "BeforeMarker");
+DB_AESN_MergeProbeFailure("CombatEndedBeforeMarker");
+DebugLog("AESN_MERGE_PROBE FAIL combatEndedBeforeMarker=1");
+
+// ReCon command: oe AESN_TEST_RESET_MERGE_PROBE
+IF
+TextEvent("AESN_TEST_RESET_MERGE_PROBE")
+AND
+DB_AESN_MergeProbeSetupPending(_OldFirst, _OldSecond, _NewFirst, _NewSecond, _HostFaction)
+AND
+NOT DB_AESN_MergeProbeResetPending(_, _, _, _, _)
+THEN
+RealtimeObjectTimerCancel((CHARACTER)_OldFirst, "AESN_MERGE_PROBE_START_COMBATS");
+RealtimeObjectTimerCancel((CHARACTER)_OldFirst, "AESN_MERGE_PROBE_JOIN");
+RealtimeObjectTimerCancel((CHARACTER)_OldFirst, "AESN_MERGE_PROBE_SWITCH_TIMEOUT");
+RealtimeObjectTimerCancel((CHARACTER)_OldFirst, "AESN_MERGE_MISMATCH_PREPARE_VERIFY");
+RealtimeObjectTimerCancel((CHARACTER)_OldFirst, "AESN_MERGE_MISMATCH_VERIFY");
+PROC_SetInvulnerable(_OldFirst, 0);
+PROC_SetInvulnerable(_OldSecond, 0);
+PROC_SetInvulnerable(_NewFirst, 0);
+PROC_SetInvulnerable(_NewSecond, 0);
+ClearIndividualRelation((CHARACTER)_OldFirst, _HostFaction);
+ClearIndividualRelation((CHARACTER)_NewFirst, _HostFaction);
+LeaveCombat(_OldFirst);
+LeaveCombat(_OldSecond);
+LeaveCombat(_NewFirst);
+LeaveCombat(_NewSecond);
+PROC_AESN_ResetOptionalChainActors(_OldFirst);
+DB_AESN_MergeProbeResetPending(_OldFirst, _OldSecond, _NewFirst, _NewSecond, _HostFaction);
+RealtimeObjectTimerLaunch((CHARACTER)_OldFirst, "AESN_MERGE_PROBE_RESET_VERIFY", 2000);
+DebugLog("AESN_MERGE_PROBE RESET_REQUESTED exactProductionCleanup=1");
+
+IF
+ObjectTimerFinished((CHARACTER)_OldFirst, "AESN_MERGE_PROBE_RESET_VERIFY")
+AND
+DB_AESN_MergeProbeResetPending(_OldFirst, _OldSecond, _NewFirst, _NewSecond, _HostFaction)
+AND
+NOT DB_AESN_HpTransaction(_, (CHARACTER)_OldFirst, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_HpTransaction(_, (CHARACTER)_NewFirst, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_EnemyHpBit(_, (CHARACTER)_OldFirst, _, _)
+AND
+NOT DB_AESN_EnemyHpBit(_, (CHARACTER)_NewFirst, _, _)
+AND
+NOT DB_AESN_EnemyComponent(_, (CHARACTER)_OldFirst, _, _)
+AND
+NOT DB_AESN_EnemyComponent(_, (CHARACTER)_NewFirst, _, _)
+AND
+HasActiveStatus((CHARACTER)_OldFirst, "AESN_HP_BIT_00004", 0)
+AND
+HasActiveStatus((CHARACTER)_OldFirst, "AESN_HP_BIT_00008", 0)
+AND
+HasActiveStatus((CHARACTER)_OldFirst, "AESN_HP_BIT_00002", 0)
+AND
+HasActiveStatus((CHARACTER)_OldFirst, "AESN_HP_BIT_00001", 0)
+AND
+HasActiveStatus((CHARACTER)_OldFirst, "AESN_HARDENED_FOE_02", 0)
+AND
+HasActiveStatus((CHARACTER)_OldFirst, "AESN_EXTRA_ACTION_1", 0)
+AND
+HasActiveStatus((CHARACTER)_OldFirst, "AESN_EXTRA_BONUS_ACTION_1", 0)
+AND
+HasActiveStatus((CHARACTER)_NewFirst, "AESN_HP_BIT_00004", 0)
+AND
+HasActiveStatus((CHARACTER)_NewFirst, "AESN_HP_BIT_00008", 0)
+AND
+HasActiveStatus((CHARACTER)_NewFirst, "AESN_HP_BIT_00002", 0)
+AND
+HasActiveStatus((CHARACTER)_NewFirst, "AESN_HP_BIT_00001", 0)
+AND
+HasActiveStatus((CHARACTER)_NewFirst, "AESN_HARDENED_FOE_02", 0)
+AND
+HasActiveStatus((CHARACTER)_NewFirst, "AESN_EXTRA_ACTION_1", 0)
+AND
+HasActiveStatus((CHARACTER)_NewFirst, "AESN_EXTRA_BONUS_ACTION_1", 0)
+THEN
+PROC_AESN_ResetMergeProbeCombats(_OldFirst);
+PROC_AESN_ResetMergeProbeFacts(_OldFirst);
+NOT DB_AESN_MergeProbeSetupPending(_OldFirst, _OldSecond, _NewFirst, _NewSecond, _HostFaction);
+NOT DB_AESN_MergeProbeResetPending(_OldFirst, _OldSecond, _NewFirst, _NewSecond, _HostFaction);
+PROC_SetOnStage((CHARACTER)_OldFirst, 0);
+PROC_SetOnStage((CHARACTER)_OldSecond, 0);
+PROC_SetOnStage((CHARACTER)_NewFirst, 0);
+PROC_SetOnStage((CHARACTER)_NewSecond, 0);
+DebugLog("AESN_MERGE_PROBE RESET exactFixture=1");
+
+IF
+ObjectTimerFinished((CHARACTER)_OldFirst, "AESN_MERGE_PROBE_RESET_VERIFY")
+AND
+DB_AESN_MergeProbeResetPending(_OldFirst, _OldSecond, _NewFirst, _NewSecond, _HostFaction)
+THEN
+DB_AESN_MergeProbeFailure("ExactProductionCleanupIncomplete");
+DebugLog("AESN_MERGE_PROBE RESET_FAIL exactProductionCleanupIncomplete=1");
+
+PROC
+PROC_AESN_ResetOptionalChainActors((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeChainSetupPending(_, _, _ChainFirst, _ChainSecond, _HostFaction)
+THEN
+RealtimeObjectTimerCancel(_ChainFirst, "AESN_MERGE_CHAIN_START_COMBAT");
+RealtimeObjectTimerCancel(_ChainFirst, "AESN_MERGE_CHAIN_JOIN");
+RealtimeObjectTimerCancel(_ChainFirst, "AESN_MERGE_CHAIN_SWITCH_TIMEOUT");
+PROC_SetInvulnerable(_ChainFirst, 0);
+PROC_SetInvulnerable(_ChainSecond, 0);
+ClearIndividualRelation(_ChainFirst, _HostFaction);
+LeaveCombat(_ChainFirst);
+LeaveCombat(_ChainSecond);
+
+PROC
+PROC_AESN_ResetOptionalChainActors((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeChainJoinPending(_MoveFirst, _, _)
+THEN
+RealtimeObjectTimerCancel(_MoveFirst, "AESN_MERGE_CHAIN_JOIN");
+RealtimeObjectTimerCancel(_MoveFirst, "AESN_MERGE_CHAIN_SWITCH_TIMEOUT");
+
+PROC
+PROC_AESN_ResetMergeProbeCombats((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeProbePairCombat(_Label, _Combat)
+THEN
+DB_AESN_CombatRetired(_Combat);
+PROC_AESN_NarrativeCleanupOwnedFacts(_Combat);
+NOT DB_AESN_MergeProbePairCombat(_Label, _Combat);
+
+PROC
+PROC_AESN_ResetMergeProbeFacts((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeProbeFixture(_OldCombat, _NewCombat, _OldFirst, _OldSecond, _NewFirst, _NewSecond)
+THEN
+NOT DB_AESN_MergeProbeFixture(_OldCombat, _NewCombat, _OldFirst, _OldSecond, _NewFirst, _NewSecond);
+
+PROC
+PROC_AESN_ResetMergeProbeFacts((GUIDSTRING)_Owner)
+THEN
+PROC_AESN_ResetMergeChainFacts(_Owner);
+
+PROC
+PROC_AESN_ResetMergeChainFacts((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeChainSetupPending(_FirstDiscarded, _SurvivingCombat, _ChainFirst, _ChainSecond, _HostFaction)
+THEN
+NOT DB_AESN_MergeChainSetupPending(_FirstDiscarded, _SurvivingCombat, _ChainFirst, _ChainSecond, _HostFaction);
+PROC_SetOnStage(_ChainFirst, 0);
+PROC_SetOnStage(_ChainSecond, 0);
+
+PROC
+PROC_AESN_ResetMergeChainFacts((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeChainFixture(_FirstDiscarded, _SurvivingCombat, _ThirdCombat, _ChainFirst, _ChainSecond)
+THEN
+NOT DB_AESN_MergeChainFixture(_FirstDiscarded, _SurvivingCombat, _ThirdCombat, _ChainFirst, _ChainSecond);
+
+PROC
+PROC_AESN_ResetMergeChainFacts((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeChainJoinPending(_MoveFirst, _MoveSecond, _ChainSecond)
+THEN
+NOT DB_AESN_MergeChainJoinPending(_MoveFirst, _MoveSecond, _ChainSecond);
+
+PROC
+PROC_AESN_ResetMergeChainFacts((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeChainSwitched(_Object, _SecondDiscarded, _FinalCombat)
+THEN
+NOT DB_AESN_MergeChainSwitched(_Object, _SecondDiscarded, _FinalCombat);
+
+PROC
+PROC_AESN_ResetMergeChainFacts((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeChainMarked(_FirstDiscarded, _SecondDiscarded, _FinalCombat)
+THEN
+NOT DB_AESN_MergeChainMarked(_FirstDiscarded, _SecondDiscarded, _FinalCombat);
+
+PROC
+PROC_AESN_ResetMergeChainFacts((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeChainPass(_FirstDiscarded, _SecondDiscarded, _FinalCombat)
+THEN
+NOT DB_AESN_MergeChainPass(_FirstDiscarded, _SecondDiscarded, _FinalCombat);
+
+PROC
+PROC_AESN_ResetMergeProbeFacts((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeProbeJoinPending(_OldFirst, _NewSecond)
+THEN
+NOT DB_AESN_MergeProbeJoinPending(_OldFirst, _NewSecond);
+
+PROC
+PROC_AESN_ResetMergeProbeFacts((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeProbeSwitched(_Object, _DiscardedCombat, _SurvivingCombat)
+THEN
+NOT DB_AESN_MergeProbeSwitched(_Object, _DiscardedCombat, _SurvivingCombat);
+
+PROC
+PROC_AESN_ResetMergeProbeFacts((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeProbeOldEnded(_DiscardedCombat, _SurvivingCombat, _Order)
+THEN
+NOT DB_AESN_MergeProbeOldEnded(_DiscardedCombat, _SurvivingCombat, _Order);
+
+PROC
+PROC_AESN_ResetMergeProbeFacts((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeProbeMarked(_DiscardedCombat, _SurvivingCombat)
+THEN
+NOT DB_AESN_MergeProbeMarked(_DiscardedCombat, _SurvivingCombat);
+
+PROC
+PROC_AESN_ResetMergeProbeFacts((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeProbePass(_DiscardedCombat, _SurvivingCombat)
+THEN
+NOT DB_AESN_MergeProbePass(_DiscardedCombat, _SurvivingCombat);
+
+PROC
+PROC_AESN_ResetMergeProbeFacts((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeEqualProductionPass(_DiscardedCombat, _SurvivingCombat)
+THEN
+NOT DB_AESN_MergeEqualProductionPass(_DiscardedCombat, _SurvivingCombat);
+
+PROC
+PROC_AESN_ResetMergeProbeFacts((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeMismatchPrepared(_OldCombat, _NewCombat, _OldFirst, _NewFirst)
+THEN
+NOT DB_AESN_MergeMismatchPrepared(_OldCombat, _NewCombat, _OldFirst, _NewFirst);
+
+PROC
+PROC_AESN_ResetMergeProbeFacts((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeMismatchPreparePass(_OldCombat, _NewCombat)
+THEN
+NOT DB_AESN_MergeMismatchPreparePass(_OldCombat, _NewCombat);
+
+PROC
+PROC_AESN_ResetMergeProbeFacts((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeMismatchVerifyStarted(_DiscardedCombat, _SurvivingCombat)
+THEN
+NOT DB_AESN_MergeMismatchVerifyStarted(_DiscardedCombat, _SurvivingCombat);
+
+PROC
+PROC_AESN_ResetMergeProbeFacts((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeMismatchVerifyPending(_DiscardedCombat, _SurvivingCombat, _OldFirst, _NewFirst)
+THEN
+NOT DB_AESN_MergeMismatchVerifyPending(_DiscardedCombat, _SurvivingCombat, _OldFirst, _NewFirst);
+
+PROC
+PROC_AESN_ResetMergeProbeFacts((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeMismatchPass(_DiscardedCombat, _SurvivingCombat)
+THEN
+NOT DB_AESN_MergeMismatchPass(_DiscardedCombat, _SurvivingCombat);
+
+PROC
+PROC_AESN_ResetMergeProbeFacts((GUIDSTRING)_Owner)
+AND
+DB_AESN_MergeProbeFailure(_Reason)
+THEN
+NOT DB_AESN_MergeProbeFailure(_Reason);
+
+EXITSECTION
+
+ENDEXITSECTION

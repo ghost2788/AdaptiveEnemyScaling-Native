@@ -1,0 +1,96 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_ActionPairTarget((CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_ActionPairApplied((CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+KBSECTION
+
+// CAP-07 additive-action probe. It changes no total resource values directly
+// and applies only the two fork-owned statuses to the managed host fixture.
+// ReCon command: oe AESN_TEST_APPLY_ACTION_PAIR
+IF
+TextEvent("AESN_TEST_APPLY_ACTION_PAIR")
+AND
+GetHostCharacter(_Target)
+AND
+NOT DB_AESN_ActionPairTarget(_)
+AND
+HasActiveStatus(_Target, "AESN_EXTRA_ACTION_1", 0)
+AND
+HasActiveStatus(_Target, "AESN_EXTRA_BONUS_ACTION_1", 0)
+THEN
+DB_AESN_ActionPairTarget((CHARACTER)_Target);
+ApplyStatus(_Target, "AESN_EXTRA_ACTION_1", -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+ApplyStatus(_Target, "AESN_EXTRA_BONUS_ACTION_1", -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+
+IF
+StatusApplied((CHARACTER)_Target, "AESN_EXTRA_ACTION_1", _, _)
+AND
+DB_AESN_ActionPairTarget(_Target)
+THEN
+PROC_AESN_ActionPairTryFinalizeApply(_Target);
+
+IF
+StatusApplied((CHARACTER)_Target, "AESN_EXTRA_BONUS_ACTION_1", _, _)
+AND
+DB_AESN_ActionPairTarget(_Target)
+THEN
+PROC_AESN_ActionPairTryFinalizeApply(_Target);
+
+PROC
+PROC_AESN_ActionPairTryFinalizeApply((CHARACTER)_Target)
+AND
+DB_AESN_ActionPairTarget(_Target)
+AND
+NOT DB_AESN_ActionPairApplied(_Target)
+AND
+HasActiveStatus(_Target, "AESN_EXTRA_ACTION_1", 1)
+AND
+HasActiveStatus(_Target, "AESN_EXTRA_BONUS_ACTION_1", 1)
+THEN
+DB_AESN_ActionPairApplied(_Target);
+DebugLog("AESN_ACTION_PAIR APPLY additiveAction=1,additiveBonusAction=1");
+
+// ReCon command: oe AESN_TEST_REMOVE_ACTION_PAIR
+IF
+TextEvent("AESN_TEST_REMOVE_ACTION_PAIR")
+AND
+GetHostCharacter(_Target)
+AND
+DB_AESN_ActionPairTarget(_Target)
+THEN
+RemoveStatus(_Target, "AESN_EXTRA_ACTION_1", NULL_00000000-0000-0000-0000-000000000000);
+RemoveStatus(_Target, "AESN_EXTRA_BONUS_ACTION_1", NULL_00000000-0000-0000-0000-000000000000);
+
+IF
+StatusRemoved((CHARACTER)_Target, "AESN_EXTRA_ACTION_1", _, _)
+AND
+DB_AESN_ActionPairTarget(_Target)
+THEN
+PROC_AESN_ActionPairTryFinalizeRemove(_Target);
+
+IF
+StatusRemoved((CHARACTER)_Target, "AESN_EXTRA_BONUS_ACTION_1", _, _)
+AND
+DB_AESN_ActionPairTarget(_Target)
+THEN
+PROC_AESN_ActionPairTryFinalizeRemove(_Target);
+
+PROC
+PROC_AESN_ActionPairTryFinalizeRemove((CHARACTER)_Target)
+AND
+DB_AESN_ActionPairTarget(_Target)
+AND
+DB_AESN_ActionPairApplied(_Target)
+AND
+HasActiveStatus(_Target, "AESN_EXTRA_ACTION_1", 0)
+AND
+HasActiveStatus(_Target, "AESN_EXTRA_BONUS_ACTION_1", 0)
+THEN
+NOT DB_AESN_ActionPairApplied(_Target);
+NOT DB_AESN_ActionPairTarget(_Target);
+DebugLog("AESN_ACTION_PAIR REMOVE additiveAction=1,additiveBonusAction=1");
+
+EXITSECTION
+
+ENDEXITSECTION

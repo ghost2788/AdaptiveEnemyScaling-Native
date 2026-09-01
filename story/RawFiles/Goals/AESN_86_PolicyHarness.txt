@@ -1,0 +1,224 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+DB_AESN_PolicyHarnessCase(1, 1, 1, 1, 125, 0, 0, 0);
+DB_AESN_PolicyHarnessCase(2, 1, 2, 1, 145, 0, 0, 0);
+DB_AESN_PolicyHarnessCase(3, 1, 3, 1, 165, 0, 0, 1);
+DB_AESN_PolicyHarnessCase(4, 1, 4, 1, 185, 0, 0, 2);
+DB_AESN_PolicyHarnessCase(5, 1, 5, 1, 205, 1, 0, 3);
+DB_AESN_PolicyHarnessCase(6, 1, 6, 1, 225, 2, 1, 4);
+DB_AESN_PolicyHarnessCase(7, 1, 7, 1, 245, 3, 1, 5);
+DB_AESN_PolicyHarnessCase(8, 1, 8, 1, 265, 4, 2, 6);
+DB_AESN_PolicyHarnessCase(9, 1, 9, 1, 285, 5, 2, 6);
+DB_AESN_PolicyHarnessCase(10, 1, 10, 1, 305, 6, 3, 6);
+DB_AESN_PolicyHarnessCase(11, 1, 11, 1, 325, 6, 3, 6);
+DB_AESN_PolicyHarnessCase(12, 1, 12, 1, 345, 6, 4, 6);
+DB_AESN_PolicyHarnessCase(13, 4, 1, 1, 125, 0, 0, 0);
+DB_AESN_PolicyHarnessCase(14, 4, 2, 1, 145, 0, 0, 0);
+DB_AESN_PolicyHarnessCase(15, 4, 3, 1, 165, 0, 0, 1);
+DB_AESN_PolicyHarnessCase(16, 4, 4, 1, 185, 0, 0, 2);
+DB_AESN_PolicyHarnessCase(17, 4, 5, 1, 205, 1, 0, 3);
+DB_AESN_PolicyHarnessCase(18, 4, 6, 1, 225, 2, 1, 4);
+DB_AESN_PolicyHarnessCase(19, 4, 7, 1, 245, 3, 1, 5);
+DB_AESN_PolicyHarnessCase(20, 4, 8, 1, 265, 4, 2, 6);
+DB_AESN_PolicyHarnessCase(21, 4, 9, 1, 285, 5, 2, 6);
+DB_AESN_PolicyHarnessCase(22, 4, 10, 1, 305, 6, 3, 6);
+DB_AESN_PolicyHarnessCase(23, 4, 11, 1, 325, 6, 3, 6);
+DB_AESN_PolicyHarnessCase(24, 4, 12, 1, 345, 6, 4, 6);
+DB_AESN_PolicyHarnessCase(25, 5, 1, 2, 150, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(26, 5, 2, 2, 170, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(27, 5, 3, 2, 190, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(28, 5, 4, 2, 210, 1, 0, 2);
+DB_AESN_PolicyHarnessCase(29, 5, 5, 2, 230, 2, 0, 3);
+DB_AESN_PolicyHarnessCase(30, 5, 6, 2, 250, 3, 1, 4);
+DB_AESN_PolicyHarnessCase(31, 5, 7, 2, 270, 4, 1, 5);
+DB_AESN_PolicyHarnessCase(32, 5, 8, 2, 290, 5, 2, 6);
+DB_AESN_PolicyHarnessCase(33, 5, 9, 2, 310, 6, 2, 6);
+DB_AESN_PolicyHarnessCase(34, 5, 10, 2, 330, 6, 3, 6);
+DB_AESN_PolicyHarnessCase(35, 5, 11, 2, 350, 6, 3, 6);
+DB_AESN_PolicyHarnessCase(36, 5, 12, 2, 370, 6, 4, 6);
+DB_AESN_PolicyHarnessCase(37, 8, 1, 2, 150, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(38, 8, 2, 2, 170, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(39, 8, 3, 2, 190, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(40, 8, 4, 2, 210, 1, 0, 2);
+DB_AESN_PolicyHarnessCase(41, 8, 5, 2, 230, 2, 0, 3);
+DB_AESN_PolicyHarnessCase(42, 8, 6, 2, 250, 3, 1, 4);
+DB_AESN_PolicyHarnessCase(43, 8, 7, 2, 270, 4, 1, 5);
+DB_AESN_PolicyHarnessCase(44, 8, 8, 2, 290, 5, 2, 6);
+DB_AESN_PolicyHarnessCase(45, 8, 9, 2, 310, 6, 2, 6);
+DB_AESN_PolicyHarnessCase(46, 8, 10, 2, 330, 6, 3, 6);
+DB_AESN_PolicyHarnessCase(47, 8, 11, 2, 350, 6, 3, 6);
+DB_AESN_PolicyHarnessCase(48, 8, 12, 2, 370, 6, 4, 6);
+DB_AESN_PolicyHarnessCase(49, 9, 1, 3, 180, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(50, 9, 2, 3, 200, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(51, 9, 3, 3, 220, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(52, 9, 4, 3, 240, 1, 0, 2);
+DB_AESN_PolicyHarnessCase(53, 9, 5, 3, 260, 2, 0, 3);
+DB_AESN_PolicyHarnessCase(54, 9, 6, 3, 280, 3, 1, 4);
+DB_AESN_PolicyHarnessCase(55, 9, 7, 3, 300, 4, 1, 5);
+DB_AESN_PolicyHarnessCase(56, 9, 8, 3, 320, 5, 2, 6);
+DB_AESN_PolicyHarnessCase(57, 9, 9, 3, 340, 6, 2, 6);
+DB_AESN_PolicyHarnessCase(58, 9, 10, 3, 360, 6, 3, 6);
+DB_AESN_PolicyHarnessCase(59, 9, 11, 3, 380, 6, 3, 6);
+DB_AESN_PolicyHarnessCase(60, 9, 12, 3, 400, 6, 4, 6);
+DB_AESN_PolicyHarnessCase(61, 12, 1, 3, 180, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(62, 12, 2, 3, 200, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(63, 12, 3, 3, 220, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(64, 12, 4, 3, 240, 1, 0, 2);
+DB_AESN_PolicyHarnessCase(65, 12, 5, 3, 260, 2, 0, 3);
+DB_AESN_PolicyHarnessCase(66, 12, 6, 3, 280, 3, 1, 4);
+DB_AESN_PolicyHarnessCase(67, 12, 7, 3, 300, 4, 1, 5);
+DB_AESN_PolicyHarnessCase(68, 12, 8, 3, 320, 5, 2, 6);
+DB_AESN_PolicyHarnessCase(69, 12, 9, 3, 340, 6, 2, 6);
+DB_AESN_PolicyHarnessCase(70, 12, 10, 3, 360, 6, 3, 6);
+DB_AESN_PolicyHarnessCase(71, 12, 11, 3, 380, 6, 3, 6);
+DB_AESN_PolicyHarnessCase(72, 12, 12, 3, 400, 6, 4, 6);
+DB_AESN_PolicyHarnessCase(73, 13, 1, 4, 220, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(74, 13, 2, 4, 240, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(75, 13, 3, 4, 260, 1, 1, 1);
+DB_AESN_PolicyHarnessCase(76, 13, 4, 4, 280, 1, 1, 2);
+DB_AESN_PolicyHarnessCase(77, 13, 5, 4, 300, 2, 1, 3);
+DB_AESN_PolicyHarnessCase(78, 13, 6, 4, 320, 3, 2, 4);
+DB_AESN_PolicyHarnessCase(79, 13, 7, 4, 340, 4, 2, 5);
+DB_AESN_PolicyHarnessCase(80, 13, 8, 4, 360, 5, 3, 6);
+DB_AESN_PolicyHarnessCase(81, 13, 9, 4, 380, 6, 3, 6);
+DB_AESN_PolicyHarnessCase(82, 13, 10, 4, 400, 6, 4, 6);
+DB_AESN_PolicyHarnessCase(83, 13, 11, 4, 420, 6, 4, 6);
+DB_AESN_PolicyHarnessCase(84, 13, 12, 4, 440, 6, 5, 6);
+DB_AESN_PolicyHarnessCase(85, 16, 1, 4, 220, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(86, 16, 2, 4, 240, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(87, 16, 3, 4, 260, 1, 1, 1);
+DB_AESN_PolicyHarnessCase(88, 16, 4, 4, 280, 1, 1, 2);
+DB_AESN_PolicyHarnessCase(89, 16, 5, 4, 300, 2, 1, 3);
+DB_AESN_PolicyHarnessCase(90, 16, 6, 4, 320, 3, 2, 4);
+DB_AESN_PolicyHarnessCase(91, 16, 7, 4, 340, 4, 2, 5);
+DB_AESN_PolicyHarnessCase(92, 16, 8, 4, 360, 5, 3, 6);
+DB_AESN_PolicyHarnessCase(93, 16, 9, 4, 380, 6, 3, 6);
+DB_AESN_PolicyHarnessCase(94, 16, 10, 4, 400, 6, 4, 6);
+DB_AESN_PolicyHarnessCase(95, 16, 11, 4, 420, 6, 4, 6);
+DB_AESN_PolicyHarnessCase(96, 16, 12, 4, 440, 6, 5, 6);
+DB_AESN_PolicyHarnessCase(97, 17, 1, 5, 260, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(98, 17, 2, 5, 280, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(99, 17, 3, 5, 300, 1, 1, 1);
+DB_AESN_PolicyHarnessCase(100, 17, 4, 5, 320, 2, 1, 2);
+DB_AESN_PolicyHarnessCase(101, 17, 5, 5, 340, 3, 1, 3);
+DB_AESN_PolicyHarnessCase(102, 17, 6, 5, 360, 4, 2, 4);
+DB_AESN_PolicyHarnessCase(103, 17, 7, 5, 380, 5, 2, 5);
+DB_AESN_PolicyHarnessCase(104, 17, 8, 5, 400, 6, 3, 6);
+DB_AESN_PolicyHarnessCase(105, 17, 9, 5, 420, 6, 3, 6);
+DB_AESN_PolicyHarnessCase(106, 17, 10, 5, 440, 6, 4, 6);
+DB_AESN_PolicyHarnessCase(107, 17, 11, 5, 460, 6, 4, 6);
+DB_AESN_PolicyHarnessCase(108, 17, 12, 5, 480, 6, 5, 6);
+DB_AESN_PolicyHarnessCase(109, 18, 1, 5, 260, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(110, 18, 2, 5, 280, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(111, 18, 3, 5, 300, 1, 1, 1);
+DB_AESN_PolicyHarnessCase(112, 18, 4, 5, 320, 2, 1, 2);
+DB_AESN_PolicyHarnessCase(113, 18, 5, 5, 340, 3, 1, 3);
+DB_AESN_PolicyHarnessCase(114, 18, 6, 5, 360, 4, 2, 4);
+DB_AESN_PolicyHarnessCase(115, 18, 7, 5, 380, 5, 2, 5);
+DB_AESN_PolicyHarnessCase(116, 18, 8, 5, 400, 6, 3, 6);
+DB_AESN_PolicyHarnessCase(117, 18, 9, 5, 420, 6, 3, 6);
+DB_AESN_PolicyHarnessCase(118, 18, 10, 5, 440, 6, 4, 6);
+DB_AESN_PolicyHarnessCase(119, 18, 11, 5, 460, 6, 4, 6);
+DB_AESN_PolicyHarnessCase(120, 18, 12, 5, 480, 6, 5, 6);
+DB_AESN_PolicyHarnessCase(121, 19, 1, 6, 300, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(122, 19, 2, 6, 320, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(123, 19, 3, 6, 340, 1, 1, 1);
+DB_AESN_PolicyHarnessCase(124, 19, 4, 6, 360, 2, 2, 2);
+DB_AESN_PolicyHarnessCase(125, 19, 5, 6, 380, 3, 2, 3);
+DB_AESN_PolicyHarnessCase(126, 19, 6, 6, 400, 4, 3, 4);
+DB_AESN_PolicyHarnessCase(127, 19, 7, 6, 420, 5, 3, 5);
+DB_AESN_PolicyHarnessCase(128, 19, 8, 6, 440, 6, 4, 6);
+DB_AESN_PolicyHarnessCase(129, 19, 9, 6, 460, 6, 4, 6);
+DB_AESN_PolicyHarnessCase(130, 19, 10, 6, 480, 6, 5, 6);
+DB_AESN_PolicyHarnessCase(131, 19, 11, 6, 500, 6, 5, 6);
+DB_AESN_PolicyHarnessCase(132, 19, 12, 6, 520, 6, 6, 6);
+DB_AESN_PolicyHarnessCase(133, 20, 1, 6, 300, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(134, 20, 2, 6, 320, 1, 0, 1);
+DB_AESN_PolicyHarnessCase(135, 20, 3, 6, 340, 1, 1, 1);
+DB_AESN_PolicyHarnessCase(136, 20, 4, 6, 360, 2, 2, 2);
+DB_AESN_PolicyHarnessCase(137, 20, 5, 6, 380, 3, 2, 3);
+DB_AESN_PolicyHarnessCase(138, 20, 6, 6, 400, 4, 3, 4);
+DB_AESN_PolicyHarnessCase(139, 20, 7, 6, 420, 5, 3, 5);
+DB_AESN_PolicyHarnessCase(140, 20, 8, 6, 440, 6, 4, 6);
+DB_AESN_PolicyHarnessCase(141, 20, 9, 6, 460, 6, 4, 6);
+DB_AESN_PolicyHarnessCase(142, 20, 10, 6, 480, 6, 5, 6);
+DB_AESN_PolicyHarnessCase(143, 20, 11, 6, 500, 6, 5, 6);
+DB_AESN_PolicyHarnessCase(144, 20, 12, 6, 520, 6, 6, 6);
+NOT DB_AESN_PolicyHarnessActive((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, 0);
+KBSECTION
+
+// Repository-only Story matrix. Production synchronization excludes this goal.
+// One command runs every approved level boundary against every party size 1-12
+// through the production snapshot procedures, using the host GUID as an inert
+// synthetic combat key.
+IF
+TextEvent("AESN_TEST_SCHEMA2_POLICY_MATRIX")
+AND
+GetHostCharacter((CHARACTER)_Host)
+AND
+NOT DB_AESN_PolicyHarnessActive(_, _)
+THEN
+DB_AESN_PolicyHarnessActive((GUIDSTRING)_Host, 1);
+PROC_AESN_RunPolicyHarnessCase((GUIDSTRING)_Host, 1);
+
+PROC
+PROC_AESN_RunPolicyHarnessCase((GUIDSTRING)_Combat, (INTEGER)_Index)
+AND
+DB_AESN_PolicyHarnessCase(_Index, _Level, _Size, _ExpectedTier, _ExpectedHpPercent, _ExpectedActionBudget, _ExpectedBonusBudget, _ExpectedRecipientCap)
+AND
+IntegerProduct(_Level, _Size, _LevelSum)
+AND
+NOT DB_AESN_RosterAggregate(_Combat, _, _)
+AND
+NOT DB_AESN_CombatSnapshotV2(_Combat, _, _, _, _, _, _, _, _, _, _, _)
+THEN
+DB_AESN_RosterAggregate(_Combat, _Size, _LevelSum);
+PROC_AESN_FinalizeSnapshot(_Combat);
+RealtimeObjectTimerLaunch((CHARACTER)_Combat, "AESN_POLICY_HARNESS_TIMEOUT", 1000);
+
+IF
+DB_AESN_PolicyHarnessActive(_Combat, _Index)
+AND
+DB_AESN_PolicyHarnessCase(_Index, _Level, _Size, _ExpectedTier, _ExpectedHpPercent, _ExpectedActionBudget, _ExpectedBonusBudget, _ExpectedRecipientCap)
+AND
+IntegerProduct(_Level, _Size, _LevelSum)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _Size, _Size, _LevelSum, _Level, _ExpectedTier, _ExpectedHpPercent, _ExpectedActionBudget, _ExpectedBonusBudget, _ExpectedRecipientCap, "Supported")
+AND
+_Index < 144
+AND
+IntegerSum(_Index, 1, _NextIndex)
+THEN
+RealtimeObjectTimerCancel((CHARACTER)_Combat, "AESN_POLICY_HARNESS_TIMEOUT");
+NOT DB_AESN_PolicyHarnessActive(_Combat, _Index);
+PROC_AESN_DeleteCombatOwnedFacts(_Combat);
+DB_AESN_PolicyHarnessActive(_Combat, _NextIndex);
+PROC_AESN_RunPolicyHarnessCase(_Combat, _NextIndex);
+
+IF
+DB_AESN_PolicyHarnessActive(_Combat, 144)
+AND
+DB_AESN_PolicyHarnessCase(144, _Level, _Size, _ExpectedTier, _ExpectedHpPercent, _ExpectedActionBudget, _ExpectedBonusBudget, _ExpectedRecipientCap)
+AND
+IntegerProduct(_Level, _Size, _LevelSum)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _Size, _Size, _LevelSum, _Level, _ExpectedTier, _ExpectedHpPercent, _ExpectedActionBudget, _ExpectedBonusBudget, _ExpectedRecipientCap, "Supported")
+THEN
+RealtimeObjectTimerCancel((CHARACTER)_Combat, "AESN_POLICY_HARNESS_TIMEOUT");
+NOT DB_AESN_PolicyHarnessActive(_Combat, 144);
+PROC_AESN_DeleteCombatOwnedFacts(_Combat);
+DebugLog("AESN_POLICY_HARNESS PASS cases=144");
+
+IF
+ObjectTimerFinished((CHARACTER)_Combat, "AESN_POLICY_HARNESS_TIMEOUT")
+AND
+DB_AESN_PolicyHarnessActive(_Combat, _Index)
+THEN
+NOT DB_AESN_PolicyHarnessActive(_Combat, _Index);
+PROC_AESN_DeleteCombatOwnedFacts(_Combat);
+DebugLog("AESN_POLICY_HARNESS FAIL snapshot mismatch or missing row");
+
+EXITSECTION
+
+ENDEXITSECTION

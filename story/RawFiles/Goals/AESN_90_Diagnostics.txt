@@ -1,0 +1,100 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_RosterDiagnostic((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "", "");
+NOT DB_AESN_TransformationDiagnostic((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+KBSECTION
+
+// Diagnostic-only observations. None of these rules can create eligibility.
+IF
+DB_AESN_RosterBuildOpen((GUIDSTRING)_Combat)
+AND
+DB_PartOfTheTeam((CHARACTER)_Member)
+THEN
+DB_AESN_RosterDiagnostic(_Combat, _Member, "PartOfTheTeam", "Observed");
+
+IF
+DB_AESN_RosterBuildOpen((GUIDSTRING)_Combat)
+AND
+DB_PartyMembers((CHARACTER)_Member)
+AND
+IsPlayer(_Member, _IsPlayer)
+THEN
+DB_AESN_RosterDiagnosticFlag(_Combat, _Member, "IsPlayer", _IsPlayer);
+
+IF
+DB_AESN_RosterBuildOpen((GUIDSTRING)_Combat)
+AND
+DB_PartyMembers((CHARACTER)_Member)
+AND
+GetFaction(_Member, _Faction)
+THEN
+DB_AESN_RosterDiagnosticFaction(_Combat, _Member, "Faction", _Faction);
+
+IF
+ObjectTransformed((CHARACTER)_Member, _ToTemplate)
+AND
+DB_PartyMembers(_Member)
+THEN
+DB_AESN_TransformationDiagnostic(_Member, _ToTemplate);
+
+
+IF
+DB_AESN_RosterDiagnostic(_, (CHARACTER)_Member, _Key, _Value)
+AND
+ConcatenateGUID("AESN_CAP03 DIAGNOSTIC member=", _Member, _Message1)
+AND
+Concatenate(_Message1, ",key=", _Message2)
+AND
+Concatenate(_Message2, _Key, _Message3)
+AND
+Concatenate(_Message3, ",value=", _Message4)
+AND
+Concatenate(_Message4, _Value, _Message)
+THEN
+DebugLog(_Message);
+
+IF
+DB_AESN_RosterDiagnosticFlag(_, (CHARACTER)_Member, _Key, _Value)
+AND
+ConcatenateGUID("AESN_CAP03 DIAGNOSTIC member=", _Member, _Message1)
+AND
+Concatenate(_Message1, ",key=", _Message2)
+AND
+Concatenate(_Message2, _Key, _Message3)
+AND
+Concatenate(_Message3, ",value=", _Message4)
+AND
+ConcatenateInteger(_Message4, _Value, _Message)
+THEN
+DebugLog(_Message);
+
+IF
+DB_AESN_RosterDiagnosticFaction(_, (CHARACTER)_Member, _Key, _Value)
+AND
+ConcatenateGUID("AESN_CAP03 DIAGNOSTIC member=", _Member, _Message1)
+AND
+Concatenate(_Message1, ",key=", _Message2)
+AND
+Concatenate(_Message2, _Key, _Message3)
+AND
+Concatenate(_Message3, ",value=", _Message4)
+AND
+ConcatenateGUID(_Message4, _Value, _Message)
+THEN
+DebugLog(_Message);
+
+IF
+DB_AESN_TransformationDiagnostic((CHARACTER)_Member, _ToTemplate)
+AND
+ConcatenateGUID("AESN_CAP03 TRANSFORMED member=", _Member, _Message1)
+AND
+Concatenate(_Message1, ",toTemplate=", _Message2)
+AND
+ConcatenateGUID(_Message2, _ToTemplate, _Message)
+THEN
+DebugLog(_Message);
+
+EXITSECTION
+
+ENDEXITSECTION

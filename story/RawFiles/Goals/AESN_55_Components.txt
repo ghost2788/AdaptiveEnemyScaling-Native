@@ -1,0 +1,307 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_ComponentApplication((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, "");
+NOT DB_AESN_ComponentStarted((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_EnemyComponent((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "", "");
+NOT DB_AESN_ComponentPendingApply((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "", "");
+NOT DB_AESN_ComponentPendingRemove((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "", "");
+KBSECTION
+
+// Hardened application starts only after exact HP commit. The frozen schema-2
+// tier selects exactly one visible, mutually exclusive status. Relentless is
+// deliberately absent from this production path until its runtime proof gate
+// is satisfied.
+IF
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _, _, _)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _HardenedTier, _, _, _, _, "Supported")
+AND
+NOT DB_AESN_ComponentStarted(_Combat, _Enemy)
+AND
+NOT DB_AESN_MergeInProgress(_, _Combat)
+THEN
+DB_AESN_ComponentStarted(_Combat, _Enemy);
+DB_AESN_ComponentApplication(_Combat, _Enemy, 1, "ApplyingStat");
+PROC_AESN_ApplyHardenedStatus(_Combat, _Enemy, _HardenedTier);
+
+PROC
+PROC_AESN_ApplyHardenedStatus((GUIDSTRING)_Combat, (CHARACTER)_Enemy, (INTEGER)_HardenedTier)
+AND
+_HardenedTier == 1
+THEN
+DB_AESN_ComponentPendingApply(_Combat, _Enemy, "Stat", "AESN_HARDENED_FOE_01");
+ApplyStatus(_Enemy, "AESN_HARDENED_FOE_01", -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+RealtimeObjectTimerLaunch(_Enemy, "AESN_COMPONENT_APPLY_TIMEOUT", 1000);
+
+PROC
+PROC_AESN_ApplyHardenedStatus((GUIDSTRING)_Combat, (CHARACTER)_Enemy, (INTEGER)_HardenedTier)
+AND
+_HardenedTier == 2
+THEN
+DB_AESN_ComponentPendingApply(_Combat, _Enemy, "Stat", "AESN_HARDENED_FOE_02");
+ApplyStatus(_Enemy, "AESN_HARDENED_FOE_02", -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+RealtimeObjectTimerLaunch(_Enemy, "AESN_COMPONENT_APPLY_TIMEOUT", 1000);
+
+PROC
+PROC_AESN_ApplyHardenedStatus((GUIDSTRING)_Combat, (CHARACTER)_Enemy, (INTEGER)_HardenedTier)
+AND
+_HardenedTier == 3
+THEN
+DB_AESN_ComponentPendingApply(_Combat, _Enemy, "Stat", "AESN_HARDENED_FOE_03");
+ApplyStatus(_Enemy, "AESN_HARDENED_FOE_03", -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+RealtimeObjectTimerLaunch(_Enemy, "AESN_COMPONENT_APPLY_TIMEOUT", 1000);
+
+PROC
+PROC_AESN_ApplyHardenedStatus((GUIDSTRING)_Combat, (CHARACTER)_Enemy, (INTEGER)_HardenedTier)
+AND
+_HardenedTier == 4
+THEN
+DB_AESN_ComponentPendingApply(_Combat, _Enemy, "Stat", "AESN_HARDENED_FOE_04");
+ApplyStatus(_Enemy, "AESN_HARDENED_FOE_04", -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+RealtimeObjectTimerLaunch(_Enemy, "AESN_COMPONENT_APPLY_TIMEOUT", 1000);
+
+PROC
+PROC_AESN_ApplyHardenedStatus((GUIDSTRING)_Combat, (CHARACTER)_Enemy, (INTEGER)_HardenedTier)
+AND
+_HardenedTier == 5
+THEN
+DB_AESN_ComponentPendingApply(_Combat, _Enemy, "Stat", "AESN_HARDENED_FOE_05");
+ApplyStatus(_Enemy, "AESN_HARDENED_FOE_05", -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+RealtimeObjectTimerLaunch(_Enemy, "AESN_COMPONENT_APPLY_TIMEOUT", 1000);
+
+PROC
+PROC_AESN_ApplyHardenedStatus((GUIDSTRING)_Combat, (CHARACTER)_Enemy, (INTEGER)_HardenedTier)
+AND
+_HardenedTier == 6
+THEN
+DB_AESN_ComponentPendingApply(_Combat, _Enemy, "Stat", "AESN_HARDENED_FOE_06");
+ApplyStatus(_Enemy, "AESN_HARDENED_FOE_06", -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+RealtimeObjectTimerLaunch(_Enemy, "AESN_COMPONENT_APPLY_TIMEOUT", 1000);
+
+PROC
+PROC_AESN_SetComponentState((GUIDSTRING)_Combat, (CHARACTER)_Enemy, (STRING)_OldState, (STRING)_NewState)
+AND
+DB_AESN_ComponentApplication(_Combat, _Enemy, _Version, _OldState)
+THEN
+NOT DB_AESN_ComponentApplication(_Combat, _Enemy, _Version, _OldState);
+DB_AESN_ComponentApplication(_Combat, _Enemy, _Version, _NewState);
+
+IF
+StatusApplied((CHARACTER)_Enemy, _Status, _, _)
+AND
+DB_AESN_ComponentPendingApply(_Combat, _Enemy, "Stat", _Status)
+AND
+DB_AESN_ComponentApplication(_Combat, _Enemy, 1, "ApplyingStat")
+THEN
+RealtimeObjectTimerCancel(_Enemy, "AESN_COMPONENT_APPLY_TIMEOUT");
+NOT DB_AESN_ComponentPendingApply(_Combat, _Enemy, "Stat", _Status);
+DB_AESN_EnemyComponent(_Combat, _Enemy, "Stat", _Status);
+PROC_AESN_SetComponentState(_Combat, _Enemy, "ApplyingStat", "FullyCommitted");
+DebugLog("AESN_COMPONENTS COMMIT hardened=1,relentless=0,proofGate=closed");
+
+IF
+StatusAttemptFailed((CHARACTER)_Enemy, _Status, _, _)
+AND
+DB_AESN_ComponentPendingApply(_Combat, _Enemy, _Kind, _Status)
+THEN
+RealtimeObjectTimerCancel(_Enemy, "AESN_COMPONENT_APPLY_TIMEOUT");
+NOT DB_AESN_ComponentPendingApply(_Combat, _Enemy, _Kind, _Status);
+DB_AESN_HpFailure(_Combat, _Enemy, "ComponentStatusAttemptFailed");
+PROC_AESN_SetAnyComponentStateFailed(_Combat, _Enemy);
+PROC_AESN_BeginComponentFailureCleanup(_Combat, _Enemy);
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_COMPONENT_APPLY_TIMEOUT")
+AND
+DB_AESN_ComponentPendingApply(_Combat, _Enemy, _Kind, _Status)
+THEN
+NOT DB_AESN_ComponentPendingApply(_Combat, _Enemy, _Kind, _Status);
+DB_AESN_HpFailure(_Combat, _Enemy, "ComponentApplyTimeout");
+PROC_AESN_SetAnyComponentStateFailed(_Combat, _Enemy);
+PROC_AESN_BeginComponentFailureCleanup(_Combat, _Enemy);
+
+PROC
+PROC_AESN_SetAnyComponentStateFailed((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_ComponentApplication(_Combat, _Enemy, _Version, _State)
+THEN
+NOT DB_AESN_ComponentApplication(_Combat, _Enemy, _Version, _State);
+DB_AESN_ComponentApplication(_Combat, _Enemy, _Version, "Failed");
+
+PROC
+PROC_AESN_BeginComponentFailureCleanup((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
+THEN
+PROC_AESN_CleanupEnemy(_Enemy, _Combat);
+
+// Canonical merge replanning removes components through the same exact
+// acknowledgement path but hands off to HP replan removal instead of ordinary
+// cleanup. The captured percentage remains untouched throughout this phase.
+PROC
+PROC_AESN_BeginComponentReplan((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_ComponentApplication(_Combat, _Enemy, 1, "FullyCommitted")
+AND
+DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
+AND
+DB_AESN_HpReplan(_Combat, _Enemy, 1, "RemovingComponents", _)
+THEN
+PROC_AESN_SetComponentState(_Combat, _Enemy, "FullyCommitted", "ReplanningComponents");
+PROC_AESN_RemoveNextComponent(_Combat, _Enemy);
+
+PROC
+PROC_AESN_BeginComponentFailureCleanup((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
+AND
+DB_AESN_ComponentApplication(_Combat, _Enemy, _Version, "Failed")
+THEN
+NOT DB_AESN_ComponentApplication(_Combat, _Enemy, _Version, "Failed");
+PROC_AESN_CleanupEnemy(_Enemy, _Combat);
+
+// Public cleanup dispatch: remove only recorded component statuses first. When
+// none remain, re-dispatch to the HP cleanup rule in AESN_50_Applications.
+PROC
+PROC_AESN_CleanupEnemy((CHARACTER)_Enemy, (GUIDSTRING)_Combat)
+AND
+DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
+AND
+NOT DB_AESN_ComponentPendingRemove(_Combat, _Enemy, _, _)
+THEN
+PROC_AESN_SetAnyComponentStateCleaning(_Combat, _Enemy);
+PROC_AESN_RemoveNextComponent(_Combat, _Enemy);
+
+PROC
+PROC_AESN_SetAnyComponentStateCleaning((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_ComponentApplication(_Combat, _Enemy, _Version, _State)
+THEN
+NOT DB_AESN_ComponentApplication(_Combat, _Enemy, _Version, _State);
+DB_AESN_ComponentApplication(_Combat, _Enemy, _Version, "CleaningComponents");
+
+PROC
+PROC_AESN_RemoveNextComponent((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyComponent(_Combat, _Enemy, "Relentless", _Status)
+AND
+NOT DB_AESN_ComponentPendingRemove(_Combat, _Enemy, _, _)
+THEN
+DB_AESN_ComponentPendingRemove(_Combat, _Enemy, "Relentless", _Status);
+RemoveStatus(_Enemy, _Status, NULL_00000000-0000-0000-0000-000000000000);
+RealtimeObjectTimerLaunch(_Enemy, "AESN_COMPONENT_REMOVE_TIMEOUT", 1000);
+
+PROC
+PROC_AESN_RemoveNextComponent((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _Enemy, "Relentless", _)
+AND
+DB_AESN_EnemyComponent(_Combat, _Enemy, "Bonus", _Status)
+AND
+NOT DB_AESN_ComponentPendingRemove(_Combat, _Enemy, _, _)
+THEN
+DB_AESN_ComponentPendingRemove(_Combat, _Enemy, "Bonus", _Status);
+RemoveStatus(_Enemy, _Status, NULL_00000000-0000-0000-0000-000000000000);
+RealtimeObjectTimerLaunch(_Enemy, "AESN_COMPONENT_REMOVE_TIMEOUT", 1000);
+
+PROC
+PROC_AESN_RemoveNextComponent((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _Enemy, "Relentless", _)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _Enemy, "Bonus", _)
+AND
+DB_AESN_EnemyComponent(_Combat, _Enemy, "Action", _Status)
+AND
+NOT DB_AESN_ComponentPendingRemove(_Combat, _Enemy, _, _)
+THEN
+DB_AESN_ComponentPendingRemove(_Combat, _Enemy, "Action", _Status);
+RemoveStatus(_Enemy, _Status, NULL_00000000-0000-0000-0000-000000000000);
+RealtimeObjectTimerLaunch(_Enemy, "AESN_COMPONENT_REMOVE_TIMEOUT", 1000);
+
+PROC
+PROC_AESN_RemoveNextComponent((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _Enemy, "Relentless", _)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _Enemy, "Bonus", _)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _Enemy, "Action", _)
+AND
+DB_AESN_EnemyComponent(_Combat, _Enemy, "Stat", _Status)
+AND
+NOT DB_AESN_ComponentPendingRemove(_Combat, _Enemy, _, _)
+THEN
+DB_AESN_ComponentPendingRemove(_Combat, _Enemy, "Stat", _Status);
+RemoveStatus(_Enemy, _Status, NULL_00000000-0000-0000-0000-000000000000);
+RealtimeObjectTimerLaunch(_Enemy, "AESN_COMPONENT_REMOVE_TIMEOUT", 1000);
+
+PROC
+PROC_AESN_RemoveNextComponent((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
+AND
+DB_AESN_ComponentApplication(_Combat, _Enemy, 1, "ReplanningComponents")
+AND
+DB_AESN_HpReplan(_Combat, _Enemy, 1, "RemovingComponents", _)
+THEN
+NOT DB_AESN_ComponentApplication(_Combat, _Enemy, 1, "ReplanningComponents");
+PROC_AESN_BeginHpReplanRemoval(_Combat, _Enemy);
+
+PROC
+PROC_AESN_RemoveNextComponent((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
+AND
+DB_AESN_ComponentApplication(_Combat, _Enemy, _Version, _State)
+AND
+_State != "ReplanningComponents"
+THEN
+NOT DB_AESN_ComponentApplication(_Combat, _Enemy, _Version, _State);
+DebugLog("AESN_COMPONENTS CLEANUP exactOwnedStatuses=1");
+PROC_AESN_CleanupEnemy(_Enemy, _Combat);
+
+IF
+DB_AESN_ComponentApplication(_Combat, _Enemy, 1, "FullyCommitted")
+AND
+DB_AESN_HpReplan(_Combat, _Enemy, 1, "ApplyingNew", _CapturedPercentage)
+AND
+DB_AESN_MergeReplanRequired(_Combat, _Enemy)
+THEN
+NOT DB_AESN_MergeReplanRequired(_Combat, _Enemy);
+NOT DB_AESN_HpReplan(_Combat, _Enemy, 1, "ApplyingNew", _CapturedPercentage);
+DebugLog("AESN_MERGE REPLAN_COMPLETE percentageWrite=1");
+
+IF
+StatusRemoved((CHARACTER)_Enemy, _Status, _, _)
+AND
+DB_AESN_ComponentPendingRemove(_Combat, _Enemy, _Kind, _Status)
+AND
+DB_AESN_EnemyComponent(_Combat, _Enemy, _Kind, _Status)
+THEN
+RealtimeObjectTimerCancel(_Enemy, "AESN_COMPONENT_REMOVE_TIMEOUT");
+NOT DB_AESN_ComponentPendingRemove(_Combat, _Enemy, _Kind, _Status);
+NOT DB_AESN_EnemyComponent(_Combat, _Enemy, _Kind, _Status);
+PROC_AESN_RemoveNextComponent(_Combat, _Enemy);
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_COMPONENT_REMOVE_TIMEOUT")
+AND
+DB_AESN_ComponentPendingRemove(_Combat, _Enemy, _Kind, _Status)
+THEN
+NOT DB_AESN_ComponentPendingRemove(_Combat, _Enemy, _Kind, _Status);
+DB_AESN_HpFailure(_Combat, _Enemy, "ComponentRemoveTimeout");
+PROC_AESN_SetAnyComponentStateCleanupFailed(_Combat, _Enemy);
+
+PROC
+PROC_AESN_SetAnyComponentStateCleanupFailed((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_ComponentApplication(_Combat, _Enemy, _Version, _State)
+THEN
+NOT DB_AESN_ComponentApplication(_Combat, _Enemy, _Version, _State);
+DB_AESN_ComponentApplication(_Combat, _Enemy, _Version, "CleanupFailed");
+
+EXITSECTION
+
+ENDEXITSECTION

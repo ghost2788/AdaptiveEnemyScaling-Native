@@ -1,0 +1,93 @@
+[
+  {
+    "id": "solo_supported",
+    "operation": "policy_plan",
+    "baseMaximum": 100,
+    "current": 50,
+    "eligibleSize": 1,
+    "averageLevel": 7,
+    "alive": true,
+    "targetMaximum": 150,
+    "delta": 50,
+    "bits": [32, 16, 2],
+    "restoredCurrent": 75,
+    "outcome": "planned"
+  },
+  {
+    "id": "three_member_supported",
+    "operation": "policy_plan",
+    "baseMaximum": 100,
+    "current": 50,
+    "eligibleSize": 3,
+    "averageLevel": 6,
+    "alive": true,
+    "targetMaximum": 190,
+    "delta": 90,
+    "bits": [64, 16, 8, 2],
+    "restoredCurrent": 95,
+    "outcome": "planned"
+  },
+  {
+    "id": "zero_delta",
+    "operation": "target_plan",
+    "baseMaximum": 100,
+    "current": 50,
+    "targetMaximum": 100,
+    "alive": true,
+    "delta": 0,
+    "bits": [],
+    "restoredCurrent": 50,
+    "outcome": "no_change"
+  },
+  {
+    "id": "negative_delta",
+    "operation": "target_plan",
+    "baseMaximum": 100,
+    "current": 50,
+    "targetMaximum": 99,
+    "alive": true,
+    "error": "HP delta must be between 0 and 65535"
+  },
+  {
+    "id": "maximum_delta",
+    "operation": "target_plan",
+    "baseMaximum": 100,
+    "current": 50,
+    "targetMaximum": 65635,
+    "alive": true,
+    "delta": 65535,
+    "bits": [32768, 16384, 8192, 4096, 2048, 1024, 512, 256, 128, 64, 32, 16, 8, 4, 2, 1],
+    "restoredCurrent": 32818,
+    "outcome": "planned"
+  },
+  {
+    "id": "overflow_delta",
+    "operation": "target_plan",
+    "baseMaximum": 100,
+    "current": 50,
+    "targetMaximum": 65636,
+    "alive": true,
+    "error": "HP delta must be between 0 and 65535"
+  },
+  {
+    "id": "dead_at_entry",
+    "operation": "target_plan",
+    "baseMaximum": 100,
+    "current": 0,
+    "targetMaximum": 150,
+    "alive": false,
+    "delta": 0,
+    "bits": [],
+    "restoredCurrent": 0,
+    "outcome": "skip_dead"
+  },
+  {
+    "id": "cleanup_after_damage",
+    "operation": "cleanup",
+    "scaledMaximum": 190,
+    "current": 40,
+    "baseMaximum": 100,
+    "alive": true,
+    "restoredCurrent": 21
+  }
+]

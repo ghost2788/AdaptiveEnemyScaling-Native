@@ -1,0 +1,626 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_MergedCombat((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_CombatAlias((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeInProgress((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergePolicyMismatch((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, 0, 0, 0, 0, 0, 0);
+NOT DB_AESN_MergeReplanRequired((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_CombatCleanupRequested((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+KBSECTION
+
+// Mark-before-migrate is the ownership barrier. CombatEnded for _OldCombat can
+// arrive immediately after the last native SwitchedCombat event, so both
+// persistent ownership facts are inserted before any migration procedure runs.
+IF
+SwitchedCombat(_Object, _OldCombat, _NewCombat)
+AND
+_OldCombat != _NewCombat
+AND
+NOT DB_AESN_MergedCombat(_OldCombat, _)
+THEN
+DB_AESN_MergedCombat(_OldCombat, _NewCombat);
+DB_AESN_CombatAlias(_OldCombat, _NewCombat);
+DB_AESN_MergeInProgress(_OldCombat, _NewCombat);
+DB_AESN_CombatRetired(_OldCombat);
+PROC_AESN_FlattenCombatAliases(_OldCombat, _NewCombat);
+PROC_AESN_MergeCombat(_OldCombat, _NewCombat);
+
+// A later merge rewrites every earlier alias directly to the last survivor.
+// Resolution therefore remains one lookup even for an arbitrary merge chain.
+PROC
+PROC_AESN_FlattenCombatAliases((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_CombatAlias(_SourceCombat, _OldCombat)
+AND
+_SourceCombat != _OldCombat
+THEN
+NOT DB_AESN_CombatAlias(_SourceCombat, _OldCombat);
+DB_AESN_CombatAlias(_SourceCombat, _NewCombat);
+
+PROC
+PROC_AESN_FlattenCombatAliases((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_MergedCombat(_SourceCombat, _OldCombat)
+AND
+_SourceCombat != _OldCombat
+THEN
+NOT DB_AESN_MergedCombat(_SourceCombat, _OldCombat);
+DB_AESN_MergedCombat(_SourceCombat, _NewCombat);
+
+QRY
+QRY_AESN_ResolveCombatOwner((GUIDSTRING)_Combat, (GUIDSTRING)_Owner)
+AND
+DB_AESN_CombatAlias(_Combat, _Owner)
+THEN
+DB_NOOP(1);
+
+// Reconcile the immutable policy first, then migrate component and HP state
+// before eligibility facts. That ordering prevents a migrated eligible row
+// from starting a second plan before its existing transaction is present.
+PROC
+PROC_AESN_MergeCombat((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+THEN
+PROC_AESN_ReconcileMergePolicy(_OldCombat, _NewCombat);
+PROC_AESN_MigrateRelentlessState(_OldCombat, _NewCombat);
+PROC_AESN_MigrateComponentState(_OldCombat, _NewCombat);
+PROC_AESN_MigrateHpState(_OldCombat, _NewCombat);
+PROC_AESN_MigrateCombatState(_OldCombat, _NewCombat);
+PROC_AESN_MigrateRosterState(_OldCombat, _NewCombat);
+PROC_AESN_QueueCanonicalMergeReplans(_OldCombat, _NewCombat);
+NOT DB_AESN_MergeInProgress(_OldCombat, _NewCombat);
+DebugLog("AESN_MERGE MIGRATION_COMPLETE markBeforeMigrate=1");
+
+// Old-only schema-2 snapshots are adopted exactly. Equal snapshots keep the
+// survivor's row. A mismatch chooses observed size and floored average
+// independently, then recomputes every derived schema-2 policy field.
+PROC
+PROC_AESN_ReconcileMergePolicy((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_CombatSnapshotV2(_OldCombat, _Version, _EligibleSize, _EffectiveSize, _Sum, _Average, _Tier, _TargetHpPercent, _ActionBudget, _BonusActionBudget, _RecipientCap, _State)
+AND
+NOT DB_AESN_CombatSnapshotV2(_NewCombat, _, _, _, _, _, _, _, _, _, _, _)
+THEN
+DB_AESN_CombatSnapshotV2(_NewCombat, _Version, _EligibleSize, _EffectiveSize, _Sum, _Average, _Tier, _TargetHpPercent, _ActionBudget, _BonusActionBudget, _RecipientCap, _State);
+NOT DB_AESN_CombatSnapshotV2(_OldCombat, _Version, _EligibleSize, _EffectiveSize, _Sum, _Average, _Tier, _TargetHpPercent, _ActionBudget, _BonusActionBudget, _RecipientCap, _State);
+
+PROC
+PROC_AESN_ReconcileMergePolicy((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_CombatSnapshotV2(_OldCombat, _Version, _EligibleSize, _EffectiveSize, _Sum, _Average, _Tier, _TargetHpPercent, _ActionBudget, _BonusActionBudget, _RecipientCap, _State)
+AND
+DB_AESN_CombatSnapshotV2(_NewCombat, _Version, _EligibleSize, _EffectiveSize, _Sum, _Average, _Tier, _TargetHpPercent, _ActionBudget, _BonusActionBudget, _RecipientCap, _State)
+THEN
+NOT DB_AESN_CombatSnapshotV2(_OldCombat, _Version, _EligibleSize, _EffectiveSize, _Sum, _Average, _Tier, _TargetHpPercent, _ActionBudget, _BonusActionBudget, _RecipientCap, _State);
+DebugLog("AESN_MERGE POLICY_EQUAL canonicalReplan=0");
+
+PROC
+PROC_AESN_ReconcileMergePolicy((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+QRY_AESN_MergeSnapshotsDiffer(_OldCombat, _NewCombat)
+AND
+DB_AESN_CombatSnapshotV2(_OldCombat, _, _OldSize, _, _, _OldAverage, _, _, _, _, _, _)
+AND
+DB_AESN_CombatSnapshotV2(_NewCombat, _, _NewSize, _, _, _NewAverage, _, _, _, _, _, _)
+THEN
+PROC_AESN_SelectCanonicalMergePolicy(_OldCombat, _NewCombat, _OldSize, _OldAverage, _NewSize, _NewAverage);
+
+QRY
+QRY_AESN_MergeSnapshotsDiffer((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_CombatSnapshotV2(_OldCombat, _OldVersion, _, _, _, _, _, _, _, _, _, _)
+AND
+DB_AESN_CombatSnapshotV2(_NewCombat, _NewVersion, _, _, _, _, _, _, _, _, _, _)
+AND
+_OldVersion != _NewVersion
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_MergeSnapshotsDiffer((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_CombatSnapshotV2(_OldCombat, _, _OldSize, _, _, _, _, _, _, _, _, _)
+AND
+DB_AESN_CombatSnapshotV2(_NewCombat, _, _NewSize, _, _, _, _, _, _, _, _, _)
+AND
+_OldSize != _NewSize
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_MergeSnapshotsDiffer((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_CombatSnapshotV2(_OldCombat, _, _, _, _, _OldAverage, _, _, _, _, _, _)
+AND
+DB_AESN_CombatSnapshotV2(_NewCombat, _, _, _, _, _NewAverage, _, _, _, _, _, _)
+AND
+_OldAverage != _NewAverage
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_SelectCanonicalMergePolicy((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (INTEGER)_OldSize, (INTEGER)_OldAverage, (INTEGER)_NewSize, (INTEGER)_NewAverage)
+AND
+_OldAverage >= _NewAverage
+AND
+_OldSize >= _NewSize
+THEN
+PROC_AESN_BuildCanonicalMergePolicy(_OldCombat, _NewCombat, _OldSize, _OldAverage, _NewSize, _NewAverage, _OldSize, _OldAverage);
+
+PROC
+PROC_AESN_SelectCanonicalMergePolicy((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (INTEGER)_OldSize, (INTEGER)_OldAverage, (INTEGER)_NewSize, (INTEGER)_NewAverage)
+AND
+_OldAverage >= _NewAverage
+AND
+_NewSize > _OldSize
+THEN
+PROC_AESN_BuildCanonicalMergePolicy(_OldCombat, _NewCombat, _OldSize, _OldAverage, _NewSize, _NewAverage, _NewSize, _OldAverage);
+
+PROC
+PROC_AESN_SelectCanonicalMergePolicy((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (INTEGER)_OldSize, (INTEGER)_OldAverage, (INTEGER)_NewSize, (INTEGER)_NewAverage)
+AND
+_NewAverage > _OldAverage
+AND
+_OldSize >= _NewSize
+THEN
+PROC_AESN_BuildCanonicalMergePolicy(_OldCombat, _NewCombat, _OldSize, _OldAverage, _NewSize, _NewAverage, _OldSize, _NewAverage);
+
+PROC
+PROC_AESN_SelectCanonicalMergePolicy((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (INTEGER)_OldSize, (INTEGER)_OldAverage, (INTEGER)_NewSize, (INTEGER)_NewAverage)
+AND
+_NewAverage > _OldAverage
+AND
+_NewSize > _OldSize
+THEN
+PROC_AESN_BuildCanonicalMergePolicy(_OldCombat, _NewCombat, _OldSize, _OldAverage, _NewSize, _NewAverage, _NewSize, _NewAverage);
+
+PROC
+PROC_AESN_BuildCanonicalMergePolicy((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (INTEGER)_OldSize, (INTEGER)_OldAverage, (INTEGER)_NewSize, (INTEGER)_NewAverage, (INTEGER)_CanonicalSize, (INTEGER)_CanonicalAverage)
+AND
+_CanonicalSize <= 12
+AND
+IntegerProduct(_CanonicalAverage, _CanonicalSize, _CanonicalSum)
+THEN
+PROC_AESN_CommitCanonicalMergePolicy(_OldCombat, _NewCombat, _OldSize, _OldAverage, _NewSize, _NewAverage, _CanonicalSize, _CanonicalSize, _CanonicalSum, _CanonicalAverage);
+
+PROC
+PROC_AESN_BuildCanonicalMergePolicy((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (INTEGER)_OldSize, (INTEGER)_OldAverage, (INTEGER)_NewSize, (INTEGER)_NewAverage, (INTEGER)_CanonicalSize, (INTEGER)_CanonicalAverage)
+AND
+_CanonicalSize > 12
+AND
+IntegerProduct(_CanonicalAverage, _CanonicalSize, _CanonicalSum)
+THEN
+PROC_AESN_CommitCanonicalMergePolicy(_OldCombat, _NewCombat, _OldSize, _OldAverage, _NewSize, _NewAverage, _CanonicalSize, 12, _CanonicalSum, _CanonicalAverage);
+
+PROC
+PROC_AESN_CommitCanonicalMergePolicy((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (INTEGER)_OldSize, (INTEGER)_OldAverage, (INTEGER)_NewSize, (INTEGER)_NewAverage, (INTEGER)_CanonicalSize, (INTEGER)_CanonicalEffectiveSize, (INTEGER)_CanonicalSum, (INTEGER)_CanonicalAverage)
+THEN
+PROC_AESN_DeleteMergeSnapshot(_OldCombat);
+PROC_AESN_DeleteMergeSnapshot(_NewCombat);
+PROC_AESN_SelectHardenedPolicy(_NewCombat, _CanonicalSize, _CanonicalEffectiveSize, _CanonicalSum, _CanonicalAverage);
+DB_AESN_MergePolicyMismatch(_OldCombat, _NewCombat, _OldAverage, _OldSize, _NewAverage, _NewSize, _CanonicalAverage, _CanonicalSize);
+DebugLog("AESN_MERGE POLICY_MISMATCH canonicalIndependentMaxima=1");
+
+PROC
+PROC_AESN_DeleteMergeSnapshot((GUIDSTRING)_Combat)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, _Version, _EligibleSize, _EffectiveSize, _Sum, _Average, _Tier, _TargetHpPercent, _ActionBudget, _BonusActionBudget, _RecipientCap, _State)
+THEN
+NOT DB_AESN_CombatSnapshotV2(_Combat, _Version, _EligibleSize, _EffectiveSize, _Sum, _Average, _Tier, _TargetHpPercent, _ActionBudget, _BonusActionBudget, _RecipientCap, _State);
+
+// Relentless ownership and spent budget are persistent combat state. Merges
+// preserve every recipient and sum spent counters; an over-budget merged state
+// is allowed but can never allocate a replacement.
+PROC
+PROC_AESN_MigrateRelentlessState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_RelentlessLedger(_OldCombat, 2, _OldActionBudget, _OldBonusBudget, _OldCap, _OldActionSpent, _OldBonusSpent, _OldRecipientSpent)
+AND
+NOT DB_AESN_RelentlessLedger(_NewCombat, _, _, _, _, _, _, _)
+AND
+DB_AESN_CombatSnapshotV2(_NewCombat, 2, _, _, _, _, _, _, _NewActionBudget, _NewBonusBudget, _NewCap, "Supported")
+THEN
+NOT DB_AESN_RelentlessLedger(_OldCombat, 2, _OldActionBudget, _OldBonusBudget, _OldCap, _OldActionSpent, _OldBonusSpent, _OldRecipientSpent);
+DB_AESN_RelentlessLedger(_NewCombat, 2, _NewActionBudget, _NewBonusBudget, _NewCap, _OldActionSpent, _OldBonusSpent, _OldRecipientSpent);
+
+PROC
+PROC_AESN_MigrateRelentlessState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_RelentlessLedger(_OldCombat, 2, _OldActionBudget, _OldBonusBudget, _OldCap, _OldActionSpent, _OldBonusSpent, _OldRecipientSpent)
+AND
+DB_AESN_RelentlessLedger(_NewCombat, 2, _PriorActionBudget, _PriorBonusBudget, _PriorCap, _NewActionSpent, _NewBonusSpent, _NewRecipientSpent)
+AND
+DB_AESN_CombatSnapshotV2(_NewCombat, 2, _, _, _, _, _, _, _CanonicalActionBudget, _CanonicalBonusBudget, _CanonicalCap, "Supported")
+AND
+IntegerSum(_OldActionSpent, _NewActionSpent, _CombinedActionSpent)
+AND
+IntegerSum(_OldBonusSpent, _NewBonusSpent, _CombinedBonusSpent)
+AND
+IntegerSum(_OldRecipientSpent, _NewRecipientSpent, _CombinedRecipientSpent)
+THEN
+NOT DB_AESN_RelentlessLedger(_OldCombat, 2, _OldActionBudget, _OldBonusBudget, _OldCap, _OldActionSpent, _OldBonusSpent, _OldRecipientSpent);
+NOT DB_AESN_RelentlessLedger(_NewCombat, 2, _PriorActionBudget, _PriorBonusBudget, _PriorCap, _NewActionSpent, _NewBonusSpent, _NewRecipientSpent);
+DB_AESN_RelentlessLedger(_NewCombat, 2, _CanonicalActionBudget, _CanonicalBonusBudget, _CanonicalCap, _CombinedActionSpent, _CombinedBonusSpent, _CombinedRecipientSpent);
+
+PROC
+PROC_AESN_MigrateRelentlessState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_RelentlessRecipient(_OldCombat, _Enemy, _Tier)
+AND
+NOT DB_AESN_RelentlessRecipient(_NewCombat, _Enemy, _)
+THEN
+NOT DB_AESN_RelentlessRecipient(_OldCombat, _Enemy, _Tier);
+DB_AESN_RelentlessRecipient(_NewCombat, _Enemy, _Tier);
+
+PROC
+PROC_AESN_MigrateRelentlessState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_RelentlessRecipient(_OldCombat, _Enemy, _Tier)
+AND
+DB_AESN_RelentlessRecipient(_NewCombat, _Enemy, _)
+THEN
+NOT DB_AESN_RelentlessRecipient(_OldCombat, _Enemy, _Tier);
+
+PROC
+PROC_AESN_MigrateRelentlessState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_RelentlessApplication(_OldCombat, _Enemy, _Tier, _Status, _State)
+AND
+NOT DB_AESN_RelentlessApplication(_NewCombat, _Enemy, _, _, _)
+THEN
+NOT DB_AESN_RelentlessApplication(_OldCombat, _Enemy, _Tier, _Status, _State);
+DB_AESN_RelentlessApplication(_NewCombat, _Enemy, _Tier, _Status, _State);
+
+PROC
+PROC_AESN_MigrateRelentlessState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_RelentlessApplication(_OldCombat, _Enemy, _Tier, _Status, _State)
+AND
+DB_AESN_RelentlessApplication(_NewCombat, _Enemy, _, _, _)
+THEN
+NOT DB_AESN_RelentlessApplication(_OldCombat, _Enemy, _Tier, _Status, _State);
+
+PROC
+PROC_AESN_MigrateRelentlessState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_RelentlessRejected(_OldCombat, _Enemy, _Reason)
+AND
+NOT DB_AESN_RelentlessRejected(_NewCombat, _Enemy, _)
+THEN
+NOT DB_AESN_RelentlessRejected(_OldCombat, _Enemy, _Reason);
+DB_AESN_RelentlessRejected(_NewCombat, _Enemy, _Reason);
+
+PROC
+PROC_AESN_MigrateRelentlessState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_RelentlessRejected(_OldCombat, _Enemy, _Reason)
+AND
+DB_AESN_RelentlessRejected(_NewCombat, _Enemy, _)
+THEN
+NOT DB_AESN_RelentlessRejected(_OldCombat, _Enemy, _Reason);
+
+// Roster and snapshot-owned facts.
+PROC
+PROC_AESN_MigrateRosterState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_RosterBuildOpen(_OldCombat)
+THEN NOT DB_AESN_RosterBuildOpen(_OldCombat); DB_AESN_RosterBuildOpen(_NewCombat);
+
+PROC
+PROC_AESN_MigrateRosterState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_RosterAggregate(_OldCombat, _Size, _Sum)
+THEN NOT DB_AESN_RosterAggregate(_OldCombat, _Size, _Sum); DB_AESN_RosterAggregate(_NewCombat, _Size, _Sum);
+
+PROC
+PROC_AESN_MigrateRosterState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_SnapshotMember(_OldCombat, _Member, _Level)
+AND NOT DB_AESN_SnapshotMember(_NewCombat, _Member, _)
+THEN NOT DB_AESN_SnapshotMember(_OldCombat, _Member, _Level); DB_AESN_SnapshotMember(_NewCombat, _Member, _Level);
+
+PROC
+PROC_AESN_MigrateRosterState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_SnapshotMember(_OldCombat, _Member, _Level)
+AND DB_AESN_SnapshotMember(_NewCombat, _Member, _)
+THEN NOT DB_AESN_SnapshotMember(_OldCombat, _Member, _Level);
+
+PROC
+PROC_AESN_MigrateRosterState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_SnapshotFinalizeTimer(_Timer, _OldCombat)
+THEN NOT DB_AESN_SnapshotFinalizeTimer(_Timer, _OldCombat); DB_AESN_SnapshotFinalizeTimer(_Timer, _NewCombat);
+
+PROC
+PROC_AESN_MigrateRosterState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_RosterExclusion(_OldCombat, _Member, _Reason)
+THEN NOT DB_AESN_RosterExclusion(_OldCombat, _Member, _Reason); DB_AESN_RosterExclusion(_NewCombat, _Member, _Reason);
+
+PROC
+PROC_AESN_MigrateRosterState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_SnapshotFailure(_OldCombat, _Reason)
+THEN NOT DB_AESN_SnapshotFailure(_OldCombat, _Reason); DB_AESN_SnapshotFailure(_NewCombat, _Reason);
+
+// Combat dispatch, participants, and hostile classification.
+PROC
+PROC_AESN_MigrateCombatState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_CombatDispatchPending(_OldCombat, _Timer)
+THEN NOT DB_AESN_CombatDispatchPending(_OldCombat, _Timer); DB_AESN_CombatDispatchPending(_NewCombat, _Timer);
+
+PROC
+PROC_AESN_MigrateCombatState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_CombatDispatched(_OldCombat)
+THEN NOT DB_AESN_CombatDispatched(_OldCombat); DB_AESN_CombatDispatched(_NewCombat);
+
+PROC
+PROC_AESN_MigrateCombatState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_CombatParticipant(_OldCombat, _Member)
+THEN NOT DB_AESN_CombatParticipant(_OldCombat, _Member); DB_AESN_CombatParticipant(_NewCombat, _Member);
+
+PROC
+PROC_AESN_MigrateCombatState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_EnemyConsidered(_OldCombat, _Enemy)
+THEN NOT DB_AESN_EnemyConsidered(_OldCombat, _Enemy); DB_AESN_EnemyConsidered(_NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MigrateCombatState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_EnemyEligible(_OldCombat, _Enemy)
+THEN NOT DB_AESN_EnemyEligible(_OldCombat, _Enemy); DB_AESN_EnemyEligible(_NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MigrateCombatState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_EnemyRejected(_OldCombat, _Enemy, _Reason)
+THEN NOT DB_AESN_EnemyRejected(_OldCombat, _Enemy, _Reason); DB_AESN_EnemyRejected(_NewCombat, _Enemy, _Reason);
+
+// HP planning, acknowledgement, application, removal, and cleanup state.
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_HpTransaction(_OldCombat, _Enemy, _Version, _State, _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum)
+THEN NOT DB_AESN_HpTransaction(_OldCombat, _Enemy, _Version, _State, _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum); DB_AESN_HpTransaction(_NewCombat, _Enemy, _Version, _State, _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_HpDesiredBit(_OldCombat, _Enemy, _Bit, _Status)
+THEN NOT DB_AESN_HpDesiredBit(_OldCombat, _Enemy, _Bit, _Status); DB_AESN_HpDesiredBit(_NewCombat, _Enemy, _Bit, _Status);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_HpPlanQueued(_OldCombat, _Enemy)
+THEN NOT DB_AESN_HpPlanQueued(_OldCombat, _Enemy); DB_AESN_HpPlanQueued(_NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_HpFailure(_OldCombat, _Enemy, _Reason)
+THEN NOT DB_AESN_HpFailure(_OldCombat, _Enemy, _Reason); DB_AESN_HpFailure(_NewCombat, _Enemy, _Reason);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_HpPendingApply(_OldCombat, _Enemy, _Index, _Bit, _Status)
+THEN NOT DB_AESN_HpPendingApply(_OldCombat, _Enemy, _Index, _Bit, _Status); DB_AESN_HpPendingApply(_NewCombat, _Enemy, _Index, _Bit, _Status);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_EnemyHpBit(_OldCombat, _Enemy, _Bit, _Status)
+THEN NOT DB_AESN_EnemyHpBit(_OldCombat, _Enemy, _Bit, _Status); DB_AESN_EnemyHpBit(_NewCombat, _Enemy, _Bit, _Status);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_HpPendingRemove(_OldCombat, _Enemy, _Index, _Bit, _Status, _Mode)
+THEN NOT DB_AESN_HpPendingRemove(_OldCombat, _Enemy, _Index, _Bit, _Status, _Mode); DB_AESN_HpPendingRemove(_NewCombat, _Enemy, _Index, _Bit, _Status, _Mode);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_HpCleanup(_OldCombat, _Enemy, _Current, _Maximum, _Percentage)
+THEN NOT DB_AESN_HpCleanup(_OldCombat, _Enemy, _Current, _Maximum, _Percentage); DB_AESN_HpCleanup(_NewCombat, _Enemy, _Current, _Maximum, _Percentage);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_HpApplicationHold(_OldCombat, _Enemy)
+THEN NOT DB_AESN_HpApplicationHold(_OldCombat, _Enemy); DB_AESN_HpApplicationHold(_NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_HpReplan(_OldCombat, _Enemy, _Version, _State, _CapturedPercentage)
+THEN NOT DB_AESN_HpReplan(_OldCombat, _Enemy, _Version, _State, _CapturedPercentage); DB_AESN_HpReplan(_NewCombat, _Enemy, _Version, _State, _CapturedPercentage);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_MergeReplanRequired(_OldCombat, _Enemy)
+THEN NOT DB_AESN_MergeReplanRequired(_OldCombat, _Enemy); DB_AESN_MergeReplanRequired(_NewCombat, _Enemy);
+
+// Stat/action/bonus component state, including outstanding acknowledgements.
+PROC
+PROC_AESN_MigrateComponentState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_ComponentApplication(_OldCombat, _Enemy, _Version, _State)
+THEN NOT DB_AESN_ComponentApplication(_OldCombat, _Enemy, _Version, _State); DB_AESN_ComponentApplication(_NewCombat, _Enemy, _Version, _State);
+
+PROC
+PROC_AESN_MigrateComponentState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_ComponentStarted(_OldCombat, _Enemy)
+THEN NOT DB_AESN_ComponentStarted(_OldCombat, _Enemy); DB_AESN_ComponentStarted(_NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MigrateComponentState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_EnemyComponent(_OldCombat, _Enemy, _Kind, _Status)
+THEN NOT DB_AESN_EnemyComponent(_OldCombat, _Enemy, _Kind, _Status); DB_AESN_EnemyComponent(_NewCombat, _Enemy, _Kind, _Status);
+
+PROC
+PROC_AESN_MigrateComponentState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_ComponentPendingApply(_OldCombat, _Enemy, _Kind, _Status)
+THEN NOT DB_AESN_ComponentPendingApply(_OldCombat, _Enemy, _Kind, _Status); DB_AESN_ComponentPendingApply(_NewCombat, _Enemy, _Kind, _Status);
+
+PROC
+PROC_AESN_MigrateComponentState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_ComponentPendingRemove(_OldCombat, _Enemy, _Kind, _Status)
+THEN NOT DB_AESN_ComponentPendingRemove(_OldCombat, _Enemy, _Kind, _Status); DB_AESN_ComponentPendingRemove(_NewCombat, _Enemy, _Kind, _Status);
+
+PROC
+PROC_AESN_QueueCanonicalMergeReplans((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_MergePolicyMismatch(_OldCombat, _NewCombat, _, _, _, _, _, _)
+AND
+DB_AESN_HpTransaction(_NewCombat, _Enemy, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_MergeReplanRequired(_NewCombat, _Enemy)
+THEN
+DB_AESN_MergeReplanRequired(_NewCombat, _Enemy);
+
+// Discarded CombatEnded is deliberately a no-op. The alias and merged marker
+// remain until the final surviving owner ends and completes exact cleanup.
+IF
+CombatEnded(_DiscardedCombat)
+AND
+DB_AESN_MergedCombat(_DiscardedCombat, _)
+THEN
+DebugLog("AESN_MERGE CLEANUP_SUPPRESSED discardedOwner=1");
+
+IF
+CombatEnded(_SurvivingCombat)
+AND
+NOT DB_AESN_MergedCombat(_SurvivingCombat, _)
+AND
+NOT DB_AESN_CombatCleanupRequested(_SurvivingCombat)
+THEN
+PROC_AESN_RequestCombatCleanup(_SurvivingCombat);
+
+PROC
+PROC_AESN_RequestCombatCleanup((GUIDSTRING)_SurvivingCombat)
+THEN
+DB_AESN_CombatCleanupRequested(_SurvivingCombat);
+PROC_AESN_DispatchCombatEnemyCleanup(_SurvivingCombat);
+
+PROC
+PROC_AESN_DispatchCombatEnemyCleanup((GUIDSTRING)_Combat)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
+THEN
+PROC_AESN_CleanupEnemy(_Enemy, _Combat);
+
+IF
+DB_AESN_CombatCleanupRequested(_Combat)
+AND
+NOT DB_AESN_HpTransaction(_Combat, _, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _, _, _)
+THEN
+PROC_AESN_FinalizeCombatCleanup(_Combat);
+
+PROC
+PROC_AESN_FinalizeCombatCleanup((GUIDSTRING)_Combat)
+THEN
+NOT DB_AESN_CombatCleanupRequested(_Combat);
+PROC_AESN_DeleteCombatOwnedFacts(_Combat);
+PROC_AESN_DeleteResolvedAliases(_Combat);
+DebugLog("AESN_MERGE FINAL_CLEANUP survivingOwner=1");
+
+PROC
+PROC_AESN_DeleteResolvedAliases((GUIDSTRING)_Combat)
+AND DB_AESN_CombatAlias(_Source, _Combat)
+THEN NOT DB_AESN_CombatAlias(_Source, _Combat);
+
+PROC
+PROC_AESN_DeleteResolvedAliases((GUIDSTRING)_Combat)
+AND DB_AESN_MergedCombat(_Source, _Combat)
+THEN NOT DB_AESN_MergedCombat(_Source, _Combat);
+
+PROC
+PROC_AESN_DeleteResolvedAliases((GUIDSTRING)_Combat)
+AND DB_AESN_MergePolicyMismatch(_Source, _Combat, _OldAverage, _OldSize, _NewAverage, _NewSize, _CanonicalAverage, _CanonicalSize)
+THEN NOT DB_AESN_MergePolicyMismatch(_Source, _Combat, _OldAverage, _OldSize, _NewAverage, _NewSize, _CanonicalAverage, _CanonicalSize);
+
+// Final cleanup removes only bookkeeping after exact per-enemy status cleanup.
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+AND DB_AESN_RosterBuildOpen(_Combat)
+THEN NOT DB_AESN_RosterBuildOpen(_Combat);
+
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+AND DB_AESN_RosterAggregate(_Combat, _Size, _Sum)
+THEN NOT DB_AESN_RosterAggregate(_Combat, _Size, _Sum);
+
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+AND DB_AESN_SnapshotFinalizeTimer(_Timer, _Combat)
+THEN NOT DB_AESN_SnapshotFinalizeTimer(_Timer, _Combat);
+
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+AND DB_AESN_SnapshotMember(_Combat, _Member, _Level)
+THEN NOT DB_AESN_SnapshotMember(_Combat, _Member, _Level);
+
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+AND DB_AESN_CombatParticipant(_Combat, _Member)
+THEN NOT DB_AESN_CombatParticipant(_Combat, _Member);
+
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+AND DB_AESN_EnemyConsidered(_Combat, _Enemy)
+THEN NOT DB_AESN_EnemyConsidered(_Combat, _Enemy);
+
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+AND DB_AESN_EnemyEligible(_Combat, _Enemy)
+THEN NOT DB_AESN_EnemyEligible(_Combat, _Enemy);
+
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+AND DB_AESN_EnemyRejected(_Combat, _Enemy, _Reason)
+THEN NOT DB_AESN_EnemyRejected(_Combat, _Enemy, _Reason);
+
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+AND DB_AESN_CombatSnapshotV2(_Combat, _Version, _EligibleSize, _EffectiveSize, _Sum, _Average, _Tier, _TargetHpPercent, _ActionBudget, _BonusActionBudget, _RecipientCap, _State)
+THEN NOT DB_AESN_CombatSnapshotV2(_Combat, _Version, _EligibleSize, _EffectiveSize, _Sum, _Average, _Tier, _TargetHpPercent, _ActionBudget, _BonusActionBudget, _RecipientCap, _State);
+
+// Legacy schema-1 snapshot cleanup remains for migration only.
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+AND DB_AESN_CombatSnapshot(_Combat, _Version, _Size, _Sum, _Average, _LevelPercent, _PartyPercent, _State)
+THEN NOT DB_AESN_CombatSnapshot(_Combat, _Version, _Size, _Sum, _Average, _LevelPercent, _PartyPercent, _State);
+
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+AND DB_AESN_SnapshotFailure(_Combat, _Reason)
+THEN NOT DB_AESN_SnapshotFailure(_Combat, _Reason);
+
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+AND DB_AESN_RosterExclusion(_Combat, _Member, _Reason)
+THEN NOT DB_AESN_RosterExclusion(_Combat, _Member, _Reason);
+
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+AND DB_AESN_HpFailure(_Combat, _Enemy, _Reason)
+THEN NOT DB_AESN_HpFailure(_Combat, _Enemy, _Reason);
+
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+AND DB_AESN_MergeReplanRequired(_Combat, _Enemy)
+THEN NOT DB_AESN_MergeReplanRequired(_Combat, _Enemy);
+
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+AND DB_AESN_RelentlessLedger(_Combat, _Version, _ActionBudget, _BonusBudget, _Cap, _ActionSpent, _BonusSpent, _RecipientSpent)
+THEN NOT DB_AESN_RelentlessLedger(_Combat, _Version, _ActionBudget, _BonusBudget, _Cap, _ActionSpent, _BonusSpent, _RecipientSpent);
+
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+AND DB_AESN_RelentlessRecipient(_Combat, _Enemy, _Tier)
+THEN NOT DB_AESN_RelentlessRecipient(_Combat, _Enemy, _Tier);
+
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+AND DB_AESN_RelentlessApplication(_Combat, _Enemy, _Tier, _Status, _State)
+THEN NOT DB_AESN_RelentlessApplication(_Combat, _Enemy, _Tier, _Status, _State);
+
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+AND DB_AESN_RelentlessRejected(_Combat, _Enemy, _Reason)
+THEN NOT DB_AESN_RelentlessRejected(_Combat, _Enemy, _Reason);
+
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+AND DB_AESN_CombatDispatched(_Combat)
+THEN NOT DB_AESN_CombatDispatched(_Combat);
+
+EXITSECTION
+
+ENDEXITSECTION

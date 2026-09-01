@@ -1,0 +1,244 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+// Schema 2 stores all immutable combat policy outputs. EligibleSize is the
+// observed permanent roster; EffectiveSize is capped at twelve.
+NOT DB_AESN_CombatSnapshotV2((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "");
+NOT DB_AESN_SnapshotFailure((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_HardenedPolicyBand(0, 0, 0, 0, 0, 0, 0, 0);
+// Min level, max level, Hardened tier, solo HP percent, attack/save/DC,
+// AC, base Action budget, base Bonus-Action budget.
+DB_AESN_HardenedPolicyBand(1, 4, 1, 125, 1, 0, 0, 0);
+DB_AESN_HardenedPolicyBand(5, 8, 2, 150, 2, 1, 1, 0);
+DB_AESN_HardenedPolicyBand(9, 12, 3, 180, 3, 1, 1, 0);
+DB_AESN_HardenedPolicyBand(13, 16, 4, 220, 4, 2, 1, 1);
+DB_AESN_HardenedPolicyBand(17, 18, 5, 260, 5, 2, 2, 1);
+DB_AESN_HardenedPolicyBand(19, 2147483647, 6, 300, 6, 3, 2, 2);
+KBSECTION
+
+// Existing saves retain completed goal initialization state, so policy rows
+// introduced by a later Story build are not supplied by INITSECTION. Reinsert
+// the exact static rows on every load (database insertion is idempotent), then
+// resume any combat whose roster was counted before the policy table existed.
+IF
+SavegameLoaded()
+THEN
+DB_AESN_HardenedPolicyBand(1, 4, 1, 125, 1, 0, 0, 0);
+DB_AESN_HardenedPolicyBand(5, 8, 2, 150, 2, 1, 1, 0);
+DB_AESN_HardenedPolicyBand(9, 12, 3, 180, 3, 1, 1, 0);
+DB_AESN_HardenedPolicyBand(13, 16, 4, 220, 4, 2, 1, 1);
+DB_AESN_HardenedPolicyBand(17, 18, 5, 260, 5, 2, 2, 1);
+DB_AESN_HardenedPolicyBand(19, 2147483647, 6, 300, 6, 3, 2, 2);
+PROC_AESN_ResumeIncompleteSnapshots();
+
+PROC
+PROC_AESN_ResumeIncompleteSnapshots()
+AND
+DB_AESN_RosterAggregate(_Combat, _EligibleSize, _LevelSum)
+AND
+NOT DB_AESN_CombatSnapshotV2(_Combat, _, _, _, _, _, _, _, _, _, _, _)
+THEN
+PROC_AESN_FinalizeSnapshot(_Combat);
+
+PROC
+PROC_AESN_FinalizeSnapshot((GUIDSTRING)_Combat)
+AND
+DB_AESN_RosterAggregate(_Combat, _EligibleSize, _LevelSum)
+AND
+_EligibleSize > 0
+AND
+_EligibleSize <= 12
+AND
+IntegerDivide(_LevelSum, _EligibleSize, _AverageLevel)
+THEN
+PROC_AESN_SelectHardenedPolicy(_Combat, _EligibleSize, _EligibleSize, _LevelSum, _AverageLevel);
+
+PROC
+PROC_AESN_FinalizeSnapshot((GUIDSTRING)_Combat)
+AND
+DB_AESN_RosterAggregate(_Combat, _EligibleSize, _LevelSum)
+AND
+_EligibleSize > 12
+AND
+IntegerDivide(_LevelSum, _EligibleSize, _AverageLevel)
+THEN
+DB_AESN_SnapshotFailure(_Combat, "PartySizeClampedAbove12");
+PROC_AESN_SelectHardenedPolicy(_Combat, _EligibleSize, 12, _LevelSum, _AverageLevel);
+
+PROC
+PROC_AESN_FinalizeSnapshot((GUIDSTRING)_Combat)
+AND
+DB_AESN_RosterAggregate(_Combat, 0, 0)
+THEN
+DB_AESN_SnapshotFailure(_Combat, "EmptyEligibleRoster");
+
+// One data-driven rule selects the mutually exclusive level band. The final
+// row deliberately keeps tier VI for any level above twenty.
+PROC
+PROC_AESN_SelectHardenedPolicy((GUIDSTRING)_Combat, (INTEGER)_EligibleSize, (INTEGER)_EffectiveSize, (INTEGER)_LevelSum, (INTEGER)_AverageLevel)
+AND
+DB_AESN_HardenedPolicyBand(_MinLevel, _MaxLevel, _HardenedTier, _SoloHpPercent, _AttackBonus, _AcBonus, _BaseActionBudget, _BaseBonusActionBudget)
+AND
+_AverageLevel >= _MinLevel
+AND
+_AverageLevel <= _MaxLevel
+THEN
+PROC_AESN_BuildSchema2Snapshot(_Combat, _EligibleSize, _EffectiveSize, _LevelSum, _AverageLevel, _HardenedTier, _SoloHpPercent, _BaseActionBudget, _BaseBonusActionBudget);
+
+// HP is one total percentage of the pre-AESN maximum. This deliberately adds
+// twenty percentage points per permanent party member after the first.
+PROC
+PROC_AESN_BuildSchema2Snapshot((GUIDSTRING)_Combat, (INTEGER)_EligibleSize, (INTEGER)_EffectiveSize, (INTEGER)_LevelSum, (INTEGER)_AverageLevel, (INTEGER)_HardenedTier, (INTEGER)_SoloHpPercent, (INTEGER)_BaseActionBudget, (INTEGER)_BaseBonusActionBudget)
+AND
+IntegerSubtract(_EffectiveSize, 1, _PartyMinusOne)
+AND
+IntegerProduct(_PartyMinusOne, 20, _PartyBonus)
+AND
+IntegerSum(_SoloHpPercent, _PartyBonus, _TargetHpPercent)
+THEN
+PROC_AESN_BuildRelentlessBudget(_Combat, _EligibleSize, _EffectiveSize, _LevelSum, _AverageLevel, _HardenedTier, _TargetHpPercent, _BaseActionBudget, _BaseBonusActionBudget);
+
+// Solo and duo are intentionally special: tier I has no recipient, while all
+// later tiers have exactly one Relentless-I-sized budget and never tier II.
+PROC
+PROC_AESN_BuildRelentlessBudget((GUIDSTRING)_Combat, (INTEGER)_EligibleSize, (INTEGER)_EffectiveSize, (INTEGER)_LevelSum, (INTEGER)_AverageLevel, (INTEGER)_HardenedTier, (INTEGER)_TargetHpPercent, (INTEGER)_BaseActionBudget, (INTEGER)_BaseBonusActionBudget)
+AND
+_EffectiveSize <= 2
+AND
+_HardenedTier == 1
+THEN
+PROC_AESN_RecordSchema2Snapshot(_Combat, _EligibleSize, _EffectiveSize, _LevelSum, _AverageLevel, _HardenedTier, _TargetHpPercent, 0, 0, 0);
+
+PROC
+PROC_AESN_BuildRelentlessBudget((GUIDSTRING)_Combat, (INTEGER)_EligibleSize, (INTEGER)_EffectiveSize, (INTEGER)_LevelSum, (INTEGER)_AverageLevel, (INTEGER)_HardenedTier, (INTEGER)_TargetHpPercent, (INTEGER)_BaseActionBudget, (INTEGER)_BaseBonusActionBudget)
+AND
+_EffectiveSize <= 2
+AND
+_HardenedTier >= 2
+THEN
+PROC_AESN_RecordSchema2Snapshot(_Combat, _EligibleSize, _EffectiveSize, _LevelSum, _AverageLevel, _HardenedTier, _TargetHpPercent, 1, 0, 1);
+
+// Three or four members add no size budget. The recipient ceiling is size-2.
+PROC
+PROC_AESN_BuildRelentlessBudget((GUIDSTRING)_Combat, (INTEGER)_EligibleSize, (INTEGER)_EffectiveSize, (INTEGER)_LevelSum, (INTEGER)_AverageLevel, (INTEGER)_HardenedTier, (INTEGER)_TargetHpPercent, (INTEGER)_BaseActionBudget, (INTEGER)_BaseBonusActionBudget)
+AND
+_EffectiveSize >= 3
+AND
+_EffectiveSize <= 4
+AND
+IntegerSubtract(_EffectiveSize, 2, _RecipientCap)
+THEN
+PROC_AESN_BoundRelentlessBudget(_Combat, _EligibleSize, _EffectiveSize, _LevelSum, _AverageLevel, _HardenedTier, _TargetHpPercent, _BaseActionBudget, _BaseBonusActionBudget, _RecipientCap);
+
+// Above four, every extra member adds one Action point and every second extra
+// member adds one Bonus-Action point. The recipient ceiling never exceeds six.
+PROC
+PROC_AESN_BuildRelentlessBudget((GUIDSTRING)_Combat, (INTEGER)_EligibleSize, (INTEGER)_EffectiveSize, (INTEGER)_LevelSum, (INTEGER)_AverageLevel, (INTEGER)_HardenedTier, (INTEGER)_TargetHpPercent, (INTEGER)_BaseActionBudget, (INTEGER)_BaseBonusActionBudget)
+AND
+_EffectiveSize > 4
+AND
+IntegerSubtract(_EffectiveSize, 4, _ExtraMembers)
+AND
+IntegerDivide(_ExtraMembers, 2, _ExtraBonusBudget)
+AND
+IntegerSum(_BaseActionBudget, _ExtraMembers, _RawActionBudget)
+AND
+IntegerSum(_BaseBonusActionBudget, _ExtraBonusBudget, _RawBonusActionBudget)
+AND
+IntegerSubtract(_EffectiveSize, 2, _UncappedRecipients)
+AND
+_UncappedRecipients <= 6
+THEN
+PROC_AESN_BoundRelentlessBudget(_Combat, _EligibleSize, _EffectiveSize, _LevelSum, _AverageLevel, _HardenedTier, _TargetHpPercent, _RawActionBudget, _RawBonusActionBudget, _UncappedRecipients);
+
+PROC
+PROC_AESN_BuildRelentlessBudget((GUIDSTRING)_Combat, (INTEGER)_EligibleSize, (INTEGER)_EffectiveSize, (INTEGER)_LevelSum, (INTEGER)_AverageLevel, (INTEGER)_HardenedTier, (INTEGER)_TargetHpPercent, (INTEGER)_BaseActionBudget, (INTEGER)_BaseBonusActionBudget)
+AND
+_EffectiveSize > 4
+AND
+IntegerSubtract(_EffectiveSize, 4, _ExtraMembers)
+AND
+IntegerDivide(_ExtraMembers, 2, _ExtraBonusBudget)
+AND
+IntegerSum(_BaseActionBudget, _ExtraMembers, _RawActionBudget)
+AND
+IntegerSum(_BaseBonusActionBudget, _ExtraBonusBudget, _RawBonusActionBudget)
+AND
+IntegerSubtract(_EffectiveSize, 2, _UncappedRecipients)
+AND
+_UncappedRecipients > 6
+THEN
+PROC_AESN_BoundRelentlessBudget(_Combat, _EligibleSize, _EffectiveSize, _LevelSum, _AverageLevel, _HardenedTier, _TargetHpPercent, _RawActionBudget, _RawBonusActionBudget, 6);
+
+PROC
+PROC_AESN_BoundRelentlessBudget((GUIDSTRING)_Combat, (INTEGER)_EligibleSize, (INTEGER)_EffectiveSize, (INTEGER)_LevelSum, (INTEGER)_AverageLevel, (INTEGER)_HardenedTier, (INTEGER)_TargetHpPercent, (INTEGER)_RawActionBudget, (INTEGER)_RawBonusActionBudget, (INTEGER)_RecipientCap)
+AND
+_RawActionBudget <= _RecipientCap
+THEN
+PROC_AESN_RecordSchema2Snapshot(_Combat, _EligibleSize, _EffectiveSize, _LevelSum, _AverageLevel, _HardenedTier, _TargetHpPercent, _RawActionBudget, _RawBonusActionBudget, _RecipientCap);
+
+PROC
+PROC_AESN_BoundRelentlessBudget((GUIDSTRING)_Combat, (INTEGER)_EligibleSize, (INTEGER)_EffectiveSize, (INTEGER)_LevelSum, (INTEGER)_AverageLevel, (INTEGER)_HardenedTier, (INTEGER)_TargetHpPercent, (INTEGER)_RawActionBudget, (INTEGER)_RawBonusActionBudget, (INTEGER)_RecipientCap)
+AND
+_RawActionBudget > _RecipientCap
+AND
+_RawBonusActionBudget <= _RecipientCap
+THEN
+PROC_AESN_RecordSchema2Snapshot(_Combat, _EligibleSize, _EffectiveSize, _LevelSum, _AverageLevel, _HardenedTier, _TargetHpPercent, _RecipientCap, _RawBonusActionBudget, _RecipientCap);
+
+PROC
+PROC_AESN_BoundRelentlessBudget((GUIDSTRING)_Combat, (INTEGER)_EligibleSize, (INTEGER)_EffectiveSize, (INTEGER)_LevelSum, (INTEGER)_AverageLevel, (INTEGER)_HardenedTier, (INTEGER)_TargetHpPercent, (INTEGER)_RawActionBudget, (INTEGER)_RawBonusActionBudget, (INTEGER)_RecipientCap)
+AND
+_RawActionBudget > _RecipientCap
+AND
+_RawBonusActionBudget > _RecipientCap
+THEN
+PROC_AESN_RecordSchema2Snapshot(_Combat, _EligibleSize, _EffectiveSize, _LevelSum, _AverageLevel, _HardenedTier, _TargetHpPercent, _RecipientCap, _RecipientCap, _RecipientCap);
+
+PROC
+PROC_AESN_RecordSchema2Snapshot((GUIDSTRING)_Combat, (INTEGER)_EligibleSize, (INTEGER)_EffectiveSize, (INTEGER)_LevelSum, (INTEGER)_AverageLevel, (INTEGER)_HardenedTier, (INTEGER)_TargetHpPercent, (INTEGER)_ActionBudget, (INTEGER)_BonusActionBudget, (INTEGER)_RecipientCap)
+AND
+DB_AESN_SchemaVersion(2)
+AND
+NOT DB_AESN_CombatSnapshotV2(_Combat, _, _, _, _, _, _, _, _, _, _, _)
+THEN
+DB_AESN_CombatSnapshotV2(_Combat, 2, _EligibleSize, _EffectiveSize, _LevelSum, _AverageLevel, _HardenedTier, _TargetHpPercent, _ActionBudget, _BonusActionBudget, _RecipientCap, "Supported");
+
+IF
+DB_AESN_CombatSnapshotV2(_Combat, 2, _EligibleSize, _EffectiveSize, _LevelSum, _AverageLevel, _HardenedTier, _TargetHpPercent, _ActionBudget, _BonusActionBudget, _RecipientCap, "Supported")
+AND
+ConcatenateInteger("AESN_POLICY schema=2,size=", _EligibleSize, _Message1)
+AND
+Concatenate(_Message1, ",effectiveSize=", _Message2)
+AND
+ConcatenateInteger(_Message2, _EffectiveSize, _Message3)
+AND
+Concatenate(_Message3, ",average=", _Message4)
+AND
+ConcatenateInteger(_Message4, _AverageLevel, _Message5)
+AND
+Concatenate(_Message5, ",tier=", _Message6)
+AND
+ConcatenateInteger(_Message6, _HardenedTier, _Message7)
+AND
+Concatenate(_Message7, ",hpPercent=", _Message8)
+AND
+ConcatenateInteger(_Message8, _TargetHpPercent, _Message9)
+AND
+Concatenate(_Message9, ",actionBudget=", _Message10)
+AND
+ConcatenateInteger(_Message10, _ActionBudget, _Message11)
+AND
+Concatenate(_Message11, ",bonusBudget=", _Message12)
+AND
+ConcatenateInteger(_Message12, _BonusActionBudget, _Message13)
+AND
+Concatenate(_Message13, ",recipientCap=", _Message14)
+AND
+ConcatenateInteger(_Message14, _RecipientCap, _Message)
+THEN
+DebugLog(_Message);
+
+EXITSECTION
+
+ENDEXITSECTION

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<contentList date="01/09/2026 02:00">
+    <content contentuid="AESNHpSourceName" version="1">Adaptive Enemy Scaling</content>
+    <content contentuid="AESNHardenedFoe01Name" version="1">Hardened I</content>
+    <content contentuid="AESNHardenedFoe01Description" version="1">Tempered by the strength arrayed against it, this foe strikes more keenly and stands more firmly against harm.&lt;br&gt;&lt;br&gt;&lt;b&gt;Effects:&lt;/b&gt; Increased maximum HP; +1 to Attack Rolls, Saving Throws, and Spell Save DC.</content>
+    <content contentuid="AESNHardenedFoe02Name" version="1">Hardened II</content>
+    <content contentuid="AESNHardenedFoe02Description" version="1">Battle-tested and resolute, this foe bears greater punishment while pressing every attack with practiced force.&lt;br&gt;&lt;br&gt;&lt;b&gt;Effects:&lt;/b&gt; Increased maximum HP; +2 to Attack Rolls, Saving Throws, and Spell Save DC; +1 Armour Class.</content>
+    <content contentuid="AESNHardenedFoe03Name" version="1">Hardened III</content>
+    <content contentuid="AESNHardenedFoe03Description" version="1">Forged in peril, this foe&apos;s heightened defences and attack power make it a dangerous adversary.&lt;br&gt;&lt;br&gt;&lt;b&gt;Effects:&lt;/b&gt; Increased maximum HP; +3 to Attack Rolls, Saving Throws, and Spell Save DC; +1 Armour Class.</content>
+    <content contentuid="AESNHardenedFoe04Name" version="1">Hardened IV</content>
+    <content contentuid="AESNHardenedFoe04Description" version="1">Steeled against overwhelming odds, this foe possesses greatly increased endurance, defence, and attack power.&lt;br&gt;&lt;br&gt;&lt;b&gt;Effects:&lt;/b&gt; Increased maximum HP; +4 to Attack Rolls, Saving Throws, and Spell Save DC; +2 Armour Class.</content>
+    <content contentuid="AESNHardenedFoe05Name" version="1">Hardened V</content>
+    <content contentuid="AESNHardenedFoe05Description" version="1">A veteran of impossible battles, this foe&apos;s formidable endurance and power demand caution from even seasoned heroes.&lt;br&gt;&lt;br&gt;&lt;b&gt;Effects:&lt;/b&gt; Increased maximum HP; +5 to Attack Rolls, Saving Throws, and Spell Save DC; +2 Armour Class.</content>
+    <content contentuid="AESNHardenedFoe06Name" version="1">Hardened VI</content>
+    <content contentuid="AESNHardenedFoe06Description" version="1">An indomitable terror, this foe has been tempered into a peerless bulwark of endurance, defence, and lethal precision.&lt;br&gt;&lt;br&gt;&lt;b&gt;Effects:&lt;/b&gt; Increased maximum HP; +6 to Attack Rolls, Saving Throws, and Spell Save DC; +3 Armour Class.</content>
+    <content contentuid="AESNRelentlessFoe01Name" version="1">Relentless I</content>
+    <content contentuid="AESNRelentlessFoe01Description" version="1">Seized by unnatural urgency, this foe moves and strikes again before its enemies can recover.&lt;br&gt;&lt;br&gt;&lt;b&gt;Effects:&lt;/b&gt; +1 Action.</content>
+    <content contentuid="AESNRelentlessFoe02Name" version="1">Relentless II</content>
+    <content contentuid="AESNRelentlessFoe02Description" version="1">Driven beyond its natural cadence, this foe turns every opening into another assault.&lt;br&gt;&lt;br&gt;&lt;b&gt;Effects:&lt;/b&gt; +1 Action and +1 Bonus Action.</content>
+</contentList>

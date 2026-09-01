@@ -1,0 +1,246 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_SaveLoadProbeArmed((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, 0, 0, 0);
+NOT DB_AESN_SaveLoadCheckOpen((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_SaveLoadObservedMaximum((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0);
+NOT DB_AESN_SaveLoadCombatActive((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0);
+NOT DB_AESN_SaveLoadFailure((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_SaveLoadResult((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+KBSECTION
+
+// CAP-06 is an observation-only capability proof. It intentionally contains
+// no status application/removal, HP write, cleanup, or transaction dispatch.
+// The persisted arm row is written only after production is fully committed.
+IF
+DB_AESN_ComponentApplication((GUIDSTRING)_Combat, (CHARACTER)_Enemy, 1, "FullyCommitted")
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _TargetMaximum, _Delta, _AppliedSum)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _, _, _, "Supported")
+AND
+GetMaxHitpoints(_Enemy, _TargetMaximum)
+AND
+_AppliedSum == _Delta
+AND
+NOT DB_AESN_SaveLoadProbeArmed(_Combat, _Enemy, _, _, _, _)
+THEN
+DB_AESN_SaveLoadProbeArmed(_Combat, _Enemy, 1, _TargetMaximum, _Delta, _AppliedSum);
+DebugLog("AESN_CAP06 ARMED fullyCommitted=1,schema=2");
+
+IF
+SavegameLoadStarted()
+THEN
+DebugLog("AESN_CAP06 LOAD_STARTED");
+
+// If the arm row survives, SavegameLoaded opens one delayed verification pass.
+IF
+SavegameLoaded()
+AND
+DB_AESN_SaveLoadProbeArmed((GUIDSTRING)_Combat, (CHARACTER)_Enemy, 1, _, _, _)
+AND
+NOT DB_AESN_SaveLoadCheckOpen(_Combat, _Enemy)
+AND
+NOT DB_AESN_SaveLoadResult(_Combat, _Enemy, _)
+THEN
+DB_AESN_SaveLoadCheckOpen(_Combat, _Enemy);
+RealtimeObjectTimerLaunch(_Enemy, "AESN_CAP06_RELOAD_FINALIZE", 500);
+DebugLog("AESN_CAP06 RELOAD_OBSERVED armPersisted=1");
+
+IF
+DB_AESN_SaveLoadCheckOpen((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+GetMaxHitpoints(_Enemy, _ObservedMaximum)
+AND
+NOT DB_AESN_SaveLoadObservedMaximum(_Combat, _Enemy, _)
+THEN
+DB_AESN_SaveLoadObservedMaximum(_Combat, _Enemy, _ObservedMaximum);
+
+IF
+DB_AESN_SaveLoadCheckOpen((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+CombatIsActive(_Combat, _IsActive)
+AND
+NOT DB_AESN_SaveLoadCombatActive(_Combat, _Enemy, _)
+THEN
+DB_AESN_SaveLoadCombatActive(_Combat, _Enemy, _IsActive);
+
+// Every persisted recorded HP bit and component must still be active.
+IF
+DB_AESN_SaveLoadCheckOpen((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyHpBit(_Combat, _Enemy, _, _Status)
+AND
+HasActiveStatus(_Enemy, _Status, 0)
+THEN
+DB_AESN_SaveLoadFailure(_Combat, _Enemy, "RecordedHpBitInactive");
+
+IF
+DB_AESN_SaveLoadCheckOpen((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyComponent(_Combat, _Enemy, _, _Status)
+AND
+HasActiveStatus(_Enemy, _Status, 0)
+THEN
+DB_AESN_SaveLoadFailure(_Combat, _Enemy, "RecordedComponentInactive");
+
+// No known fork-owned HP status may be active without its exact record.
+IF
+DB_AESN_SaveLoadCheckOpen((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpBitOrder(_, _, _Status)
+AND
+HasActiveStatus(_Enemy, _Status, 1)
+AND
+NOT DB_AESN_EnemyHpBit(_Combat, _Enemy, _, _Status)
+THEN
+DB_AESN_SaveLoadFailure(_Combat, _Enemy, "UnrecordedHpBitActive");
+
+IF
+DB_AESN_SaveLoadCheckOpen((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_ComponentStatusId(_Status)
+AND
+HasActiveStatus(_Enemy, _Status, 1)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _Enemy, _, _Status)
+THEN
+DB_AESN_SaveLoadFailure(_Combat, _Enemy, "UnrecordedComponentActive");
+
+// Missing or changed versioned identities fail closed at the delayed barrier.
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_CAP06_RELOAD_FINALIZE")
+AND
+DB_AESN_SaveLoadCheckOpen((GUIDSTRING)_Combat, _Enemy)
+AND
+NOT DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _, _, _, "Supported")
+THEN
+DB_AESN_SaveLoadFailure(_Combat, _Enemy, "SnapshotMissingOrUnsupported");
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_CAP06_RELOAD_FINALIZE")
+AND
+DB_AESN_SaveLoadCheckOpen((GUIDSTRING)_Combat, _Enemy)
+AND
+NOT DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _, _, _)
+THEN
+DB_AESN_SaveLoadFailure(_Combat, _Enemy, "CommittedTransactionMissing");
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_CAP06_RELOAD_FINALIZE")
+AND
+DB_AESN_SaveLoadCheckOpen((GUIDSTRING)_Combat, _Enemy)
+AND
+NOT DB_AESN_ComponentApplication(_Combat, _Enemy, 1, "FullyCommitted")
+THEN
+DB_AESN_SaveLoadFailure(_Combat, _Enemy, "CommittedComponentsMissing");
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_CAP06_RELOAD_FINALIZE")
+AND
+DB_AESN_SaveLoadCheckOpen((GUIDSTRING)_Combat, _Enemy)
+AND
+DB_AESN_SaveLoadProbeArmed(_Combat, _Enemy, 1, _TargetMaximum, _Delta, _AppliedSum)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _ObservedTarget, _ObservedDelta, _ObservedSum)
+AND
+_ObservedTarget != _TargetMaximum
+THEN
+DB_AESN_SaveLoadFailure(_Combat, _Enemy, "TransactionIdentityChanged");
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_CAP06_RELOAD_FINALIZE")
+AND
+DB_AESN_SaveLoadCheckOpen((GUIDSTRING)_Combat, _Enemy)
+AND
+DB_AESN_SaveLoadProbeArmed(_Combat, _Enemy, 1, _, _Delta, _)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _, _ObservedDelta, _)
+AND
+_ObservedDelta != _Delta
+THEN
+DB_AESN_SaveLoadFailure(_Combat, _Enemy, "TransactionIdentityChanged");
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_CAP06_RELOAD_FINALIZE")
+AND
+DB_AESN_SaveLoadCheckOpen((GUIDSTRING)_Combat, _Enemy)
+AND
+DB_AESN_SaveLoadProbeArmed(_Combat, _Enemy, 1, _, _, _AppliedSum)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _, _, _ObservedSum)
+AND
+_ObservedSum != _AppliedSum
+THEN
+DB_AESN_SaveLoadFailure(_Combat, _Enemy, "TransactionIdentityChanged");
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_CAP06_RELOAD_FINALIZE")
+AND
+DB_AESN_SaveLoadCheckOpen((GUIDSTRING)_Combat, _Enemy)
+AND
+DB_AESN_SaveLoadProbeArmed(_Combat, _Enemy, 1, _TargetMaximum, _, _)
+AND
+DB_AESN_SaveLoadObservedMaximum(_Combat, _Enemy, _ObservedMaximum)
+AND
+_ObservedMaximum != _TargetMaximum
+THEN
+DB_AESN_SaveLoadFailure(_Combat, _Enemy, "MaximumChangedOrDoubleApplied");
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_CAP06_RELOAD_FINALIZE")
+AND
+DB_AESN_SaveLoadCheckOpen((GUIDSTRING)_Combat, _Enemy)
+AND
+NOT DB_AESN_SaveLoadObservedMaximum(_Combat, _Enemy, _)
+THEN
+DB_AESN_SaveLoadFailure(_Combat, _Enemy, "MaximumUnavailable");
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_CAP06_RELOAD_FINALIZE")
+AND
+DB_AESN_SaveLoadCheckOpen((GUIDSTRING)_Combat, _Enemy)
+AND
+NOT DB_AESN_SaveLoadCombatActive(_Combat, _Enemy, 1)
+THEN
+DB_AESN_SaveLoadFailure(_Combat, _Enemy, "CombatInactiveAfterReload");
+
+// Pass requires every versioned identity and the unchanged live maximum. No
+// production apply entry point is called during or after this verification.
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_CAP06_RELOAD_FINALIZE")
+AND
+DB_AESN_SaveLoadCheckOpen((GUIDSTRING)_Combat, _Enemy)
+AND
+DB_AESN_SaveLoadProbeArmed(_Combat, _Enemy, 1, _TargetMaximum, _Delta, _AppliedSum)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _, _, _, "Supported")
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _TargetMaximum, _Delta, _AppliedSum)
+AND
+DB_AESN_ComponentApplication(_Combat, _Enemy, 1, "FullyCommitted")
+AND
+DB_AESN_SaveLoadObservedMaximum(_Combat, _Enemy, _TargetMaximum)
+AND
+DB_AESN_SaveLoadCombatActive(_Combat, _Enemy, 1)
+AND
+NOT DB_AESN_SaveLoadFailure(_Combat, _Enemy, _)
+THEN
+DB_AESN_SaveLoadResult(_Combat, _Enemy, "PASS");
+NOT DB_AESN_SaveLoadCheckOpen(_Combat, _Enemy);
+DebugLog("AESN_CAP06 RELOAD_PASS schema=2,transaction=HPCommitted,maximumUnchanged=1,doubleApply=0");
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_CAP06_RELOAD_FINALIZE")
+AND
+DB_AESN_SaveLoadCheckOpen((GUIDSTRING)_Combat, _Enemy)
+AND
+DB_AESN_SaveLoadFailure(_Combat, _Enemy, _Reason)
+THEN
+DB_AESN_SaveLoadResult(_Combat, _Enemy, "FAIL");
+NOT DB_AESN_SaveLoadCheckOpen(_Combat, _Enemy);
+DebugLog("AESN_CAP06 RELOAD_FAIL");
+
+EXITSECTION
+
+ENDEXITSECTION

@@ -1,0 +1,123 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_HpApplyFixture((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+KBSECTION
+
+// Isolated supported-policy application fixture. Production owns planning,
+// sequential status acknowledgement, percentage restoration, and cleanup.
+// ReCon command: oe AESN_TEST_APPLY_SUPPORTED_HP
+IF
+TextEvent("AESN_TEST_APPLY_SUPPORTED_HP")
+AND
+NOT DB_AESN_HpApplyFixture(_, _)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _Target)
+THEN
+SetCanFight((CHARACTER)_Target, 0);
+SetCanJoinCombat((CHARACTER)_Target, 0);
+DB_AESN_HpApplyFixture((GUIDSTRING)_Target, (CHARACTER)_Target);
+RealtimeObjectTimerLaunch((CHARACTER)_Target, "AESN_HP_APPLY_READY", 250);
+
+IF
+ObjectTimerFinished((CHARACTER)_Target, "AESN_HP_APPLY_READY")
+AND
+DB_AESN_HpApplyFixture(_Combat, _Target)
+AND
+GetHitpoints(_Target, 12)
+AND
+GetMaxHitpoints(_Target, 12)
+THEN
+DB_AESN_CombatSnapshotV2(_Combat, 2, 3, 3, 3, 1, 1, 165, 0, 0, 1, "Supported");
+PROC_AESN_PlanEnemy(_Target, _Combat);
+RealtimeObjectTimerLaunch(_Target, "AESN_HP_APPLY_VERIFY", 750);
+
+IF
+ObjectTimerFinished((CHARACTER)_Target, "AESN_HP_APPLY_VERIFY")
+AND
+DB_AESN_HpApplyFixture(_Combat, _Target)
+AND
+DB_AESN_HpTransaction(_Combat, _Target, 1, "HPCommitted", 12, 12, 100.0, 19, 7, 7)
+AND
+DB_AESN_ComponentApplication(_Combat, _Target, 1, "FullyCommitted")
+AND
+DB_AESN_EnemyComponent(_Combat, _Target, "Stat", "AESN_HARDENED_FOE_01")
+AND
+DB_AESN_EnemyHpBit(_Combat, _Target, 4, "AESN_HP_BIT_00004")
+AND
+DB_AESN_EnemyHpBit(_Combat, _Target, 2, "AESN_HP_BIT_00002")
+AND
+DB_AESN_EnemyHpBit(_Combat, _Target, 1, "AESN_HP_BIT_00001")
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00004", 1)
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00002", 1)
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00001", 1)
+AND
+HasActiveStatus(_Target, "AESN_HARDENED_FOE_01", 1)
+AND
+GetHitpoints(_Target, 19)
+AND
+GetMaxHitpoints(_Target, 19)
+AND
+GetHitpointsPercentage(_Target, 100.0)
+THEN
+DebugLog("AESN_HP_APPLY_HARNESS PASS before=12/12,target=19/19,percentage=100,bits=4|2|1,hardened=1,relentless=0,appliedSum=7");
+
+// ReCon command: oe AESN_TEST_CLEANUP_SUPPORTED_HP
+IF
+TextEvent("AESN_TEST_CLEANUP_SUPPORTED_HP")
+AND
+DB_AESN_HpApplyFixture(_Combat, _Target)
+AND
+DB_AESN_HpTransaction(_Combat, _Target, 1, "HPCommitted", _, _, _, _, _, _)
+THEN
+PROC_AESN_CleanupEnemy(_Target, _Combat);
+RealtimeObjectTimerLaunch(_Target, "AESN_HP_CLEANUP_VERIFY", 750);
+
+IF
+ObjectTimerFinished((CHARACTER)_Target, "AESN_HP_CLEANUP_VERIFY")
+AND
+DB_AESN_HpApplyFixture(_Combat, _Target)
+AND
+NOT DB_AESN_HpTransaction(_Combat, _Target, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_HpDesiredBit(_Combat, _Target, _, _)
+AND
+NOT DB_AESN_HpPlanQueued(_Combat, _Target)
+AND
+NOT DB_AESN_EnemyHpBit(_Combat, _Target, _, _)
+AND
+NOT DB_AESN_HpCleanup(_Combat, _Target, _, _, _)
+AND
+NOT DB_AESN_ComponentApplication(_Combat, _Target, _, _)
+AND
+NOT DB_AESN_ComponentStarted(_Combat, _Target)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _Target, _, _)
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00004", 0)
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00002", 0)
+AND
+HasActiveStatus(_Target, "AESN_HP_BIT_00001", 0)
+AND
+HasActiveStatus(_Target, "AESN_HARDENED_FOE_01", 0)
+AND
+GetHitpoints(_Target, 12)
+AND
+GetMaxHitpoints(_Target, 12)
+AND
+GetHitpointsPercentage(_Target, 100.0)
+THEN
+DB_AESN_CombatRetired(_Combat);
+NOT DB_AESN_CombatSnapshotV2(_Combat, 2, 3, 3, 3, 1, 1, 165, 0, 0, 1, "Supported");
+NOT DB_AESN_CombatDispatched(_Combat);
+NOT DB_AESN_HpApplyFixture(_Combat, _Target);
+PROC_SetOnStage(_Target, 0);
+DebugLog("AESN_HP_APPLY_HARNESS CLEANUP_PASS restored=12/12,percentage=100,exactBitsRemoved=4|2|1,hardened=0,relentless=0");
+
+EXITSECTION
+
+ENDEXITSECTION

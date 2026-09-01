@@ -1,0 +1,136 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_HpPlanFixture((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+KBSECTION
+
+// Isolated supported-policy planning fixture. The native target is known from
+// CAP-04/CAP-05 to initialize at 12/12. The harness supplies only a synthetic
+// immutable policy snapshot and calls the production planner; it never writes
+// a transaction or desired-bit fact and performs no mutation.
+// ReCon command: oe AESN_TEST_PLAN_SUPPORTED_HP
+IF
+TextEvent("AESN_TEST_PLAN_SUPPORTED_HP")
+AND
+NOT DB_AESN_HpPlanFixture(_, _)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _Target)
+THEN
+SetCanFight((CHARACTER)_Target, 0);
+SetCanJoinCombat((CHARACTER)_Target, 0);
+DB_AESN_HpPlanFixture((GUIDSTRING)_Target, (CHARACTER)_Target);
+RealtimeObjectTimerLaunch((CHARACTER)_Target, "AESN_HP_PLAN_READY", 250);
+
+IF
+ObjectTimerFinished((CHARACTER)_Target, "AESN_HP_PLAN_READY")
+AND
+DB_AESN_HpPlanFixture(_Combat, _Target)
+AND
+GetHitpoints(_Target, 12)
+AND
+GetMaxHitpoints(_Target, 12)
+THEN
+DB_AESN_CombatSnapshotV2(_Combat, 2, 3, 3, 3, 1, 1, 165, 0, 0, 1, "Supported");
+DB_AESN_HpApplicationHold(_Combat, _Target);
+PROC_AESN_PlanEnemy(_Target, _Combat);
+RealtimeObjectTimerLaunch(_Target, "AESN_HP_PLAN_VERIFY", 250);
+
+IF
+ObjectTimerFinished((CHARACTER)_Target, "AESN_HP_PLAN_VERIFY")
+AND
+DB_AESN_HpPlanFixture(_Combat, _Target)
+AND
+DB_AESN_HpTransaction(_Combat, _Target, 1, "Planned", 12, 12, _BeforePercentage, 19, 7, 0)
+AND
+DB_AESN_HpPlanQueued(_Combat, _Target)
+AND
+DB_AESN_HpDesiredBit(_Combat, _Target, 4, "AESN_HP_BIT_00004")
+AND
+DB_AESN_HpDesiredBit(_Combat, _Target, 2, "AESN_HP_BIT_00002")
+AND
+DB_AESN_HpDesiredBit(_Combat, _Target, 1, "AESN_HP_BIT_00001")
+AND
+NOT DB_AESN_HpDesiredBit(_Combat, _Target, 32768, _)
+AND
+NOT DB_AESN_HpDesiredBit(_Combat, _Target, 16384, _)
+AND
+NOT DB_AESN_HpDesiredBit(_Combat, _Target, 8192, _)
+AND
+NOT DB_AESN_HpDesiredBit(_Combat, _Target, 4096, _)
+AND
+NOT DB_AESN_HpDesiredBit(_Combat, _Target, 2048, _)
+AND
+NOT DB_AESN_HpDesiredBit(_Combat, _Target, 1024, _)
+AND
+NOT DB_AESN_HpDesiredBit(_Combat, _Target, 512, _)
+AND
+NOT DB_AESN_HpDesiredBit(_Combat, _Target, 256, _)
+AND
+NOT DB_AESN_HpDesiredBit(_Combat, _Target, 128, _)
+AND
+NOT DB_AESN_HpDesiredBit(_Combat, _Target, 64, _)
+AND
+NOT DB_AESN_HpDesiredBit(_Combat, _Target, 32, _)
+AND
+NOT DB_AESN_HpDesiredBit(_Combat, _Target, 16, _)
+AND
+NOT DB_AESN_HpDesiredBit(_Combat, _Target, 8, _)
+AND
+GetHitpoints(_Target, 12)
+AND
+GetMaxHitpoints(_Target, 12)
+THEN
+DebugLog("AESN_HP_PLAN_HARNESS PASS base=12,target=19,delta=7,bits=4|2|1,mutation=0");
+
+// ReCon command: oe AESN_TEST_RESET_SUPPORTED_HP_PLAN
+IF
+TextEvent("AESN_TEST_RESET_SUPPORTED_HP_PLAN")
+AND
+DB_AESN_HpPlanFixture(_Combat, _Target)
+THEN
+PROC_AESN_HpPlanHarnessCleanup(_Combat, _Target);
+NOT DB_AESN_HpApplicationHold(_Combat, _Target);
+NOT DB_AESN_HpPlanFixture(_Combat, _Target);
+PROC_SetOnStage(_Target, 0);
+DebugLog("AESN_HP_PLAN_HARNESS RESET exactOwnedFacts=1");
+
+PROC
+PROC_AESN_HpPlanHarnessCleanup((GUIDSTRING)_Combat, (CHARACTER)_Target)
+AND
+DB_AESN_HpTransaction(_Combat, _Target, _Version, _State, _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum)
+THEN
+NOT DB_AESN_HpTransaction(_Combat, _Target, _Version, _State, _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum);
+
+PROC
+PROC_AESN_HpPlanHarnessCleanup((GUIDSTRING)_Combat, (CHARACTER)_Target)
+AND
+DB_AESN_HpDesiredBit(_Combat, _Target, _Bit, _Status)
+THEN
+NOT DB_AESN_HpDesiredBit(_Combat, _Target, _Bit, _Status);
+
+PROC
+PROC_AESN_HpPlanHarnessCleanup((GUIDSTRING)_Combat, (CHARACTER)_Target)
+AND
+DB_AESN_HpPlanQueued(_Combat, _Target)
+THEN
+NOT DB_AESN_HpPlanQueued(_Combat, _Target);
+
+PROC
+PROC_AESN_HpPlanHarnessCleanup((GUIDSTRING)_Combat, (CHARACTER)_Target)
+AND
+DB_AESN_HpFailure(_Combat, _Target, _Reason)
+THEN
+NOT DB_AESN_HpFailure(_Combat, _Target, _Reason);
+
+PROC
+PROC_AESN_HpPlanHarnessCleanup((GUIDSTRING)_Combat, (CHARACTER)_Target)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, _Version, _EligibleSize, _EffectiveSize, _Sum, _Average, _Tier, _TargetHpPercent, _ActionBudget, _BonusBudget, _Cap, _State)
+THEN
+DB_AESN_CombatRetired(_Combat);
+NOT DB_AESN_CombatSnapshotV2(_Combat, _Version, _EligibleSize, _EffectiveSize, _Sum, _Average, _Tier, _TargetHpPercent, _ActionBudget, _BonusBudget, _Cap, _State);
+NOT DB_AESN_CombatDispatched(_Combat);
+
+EXITSECTION
+
+ENDEXITSECTION

@@ -1,6 +1,6 @@
 artifacts/
 analysis/
 .devspace/
+.superpowers/
 __pycache__/
 *.pyc
-

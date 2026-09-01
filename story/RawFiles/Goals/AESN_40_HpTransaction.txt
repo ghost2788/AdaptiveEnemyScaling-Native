@@ -1,0 +1,405 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_HpTransaction((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, "", 0, 0, 0.0, 0, 0, 0);
+NOT DB_AESN_HpDesiredBit((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, "");
+NOT DB_AESN_HpPlanQueued((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_HpFailure((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+KBSECTION
+
+// A production hostile is planned once against its immutable schema-2 policy
+// snapshot. Planning records one target and exact desired bits but performs no
+// mutation; acknowledgement-driven application is a separate state transition.
+IF
+DB_AESN_EnemyEligible(_Combat, _Enemy)
+AND
+NOT DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_HpFailure(_Combat, _Enemy, _)
+AND
+NOT DB_AESN_MergeInProgress(_, _Combat)
+THEN
+PROC_AESN_PlanEnemy(_Enemy, _Combat);
+
+PROC
+PROC_AESN_PlanEnemy((CHARACTER)_Enemy, (GUIDSTRING)_Combat)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _, _, _, "Supported")
+AND
+GetHitpoints(_Enemy, 0)
+AND
+NOT DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_HpFailure(_Combat, _Enemy, _)
+THEN
+DB_AESN_HpFailure(_Combat, _Enemy, "DeadAtEntry");
+
+PROC
+PROC_AESN_PlanEnemy((CHARACTER)_Enemy, (GUIDSTRING)_Combat)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _, _, _, "Supported")
+AND
+GetHitpoints(_Enemy, _BeforeCurrent)
+AND
+_BeforeCurrent > 0
+AND
+GetMaxHitpoints(_Enemy, _BeforeMaximum)
+AND
+_BeforeMaximum <= 0
+AND
+NOT DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_HpFailure(_Combat, _Enemy, _)
+THEN
+DB_AESN_HpFailure(_Combat, _Enemy, "UnsafeBaseMaximum");
+
+PROC
+PROC_AESN_PlanEnemy((CHARACTER)_Enemy, (GUIDSTRING)_Combat)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _, _, _, "Supported")
+AND
+GetHitpoints(_Enemy, _BeforeCurrent)
+AND
+_BeforeCurrent > 0
+AND
+GetMaxHitpoints(_Enemy, _BeforeMaximum)
+AND
+_BeforeMaximum > 4129776
+AND
+NOT DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_HpFailure(_Combat, _Enemy, _)
+THEN
+DB_AESN_HpFailure(_Combat, _Enemy, "UnsafeBaseMaximum");
+
+PROC
+PROC_AESN_PlanEnemy((CHARACTER)_Enemy, (GUIDSTRING)_Combat)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _TargetHpPercent, _, _, _, "Supported")
+AND
+GetHitpoints(_Enemy, _BeforeCurrent)
+AND
+_BeforeCurrent > 0
+AND
+GetMaxHitpoints(_Enemy, _BeforeMaximum)
+AND
+_BeforeMaximum > 0
+AND
+_BeforeMaximum <= 4129776
+AND
+IntegerProduct(_BeforeMaximum, _TargetHpPercent, _CombinedProduct)
+AND
+IntegerDivide(_CombinedProduct, 100, _TargetMaximum)
+AND
+IntegerSubtract(_TargetMaximum, _BeforeMaximum, _Delta)
+AND
+_Delta < 0
+AND
+NOT DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_HpFailure(_Combat, _Enemy, _)
+THEN
+DB_AESN_HpFailure(_Combat, _Enemy, "UnsafeDelta");
+
+PROC
+PROC_AESN_PlanEnemy((CHARACTER)_Enemy, (GUIDSTRING)_Combat)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _TargetHpPercent, _, _, _, "Supported")
+AND
+GetHitpoints(_Enemy, _BeforeCurrent)
+AND
+_BeforeCurrent > 0
+AND
+GetMaxHitpoints(_Enemy, _BeforeMaximum)
+AND
+_BeforeMaximum > 0
+AND
+_BeforeMaximum <= 4129776
+AND
+IntegerProduct(_BeforeMaximum, _TargetHpPercent, _CombinedProduct)
+AND
+IntegerDivide(_CombinedProduct, 100, _TargetMaximum)
+AND
+IntegerSubtract(_TargetMaximum, _BeforeMaximum, _Delta)
+AND
+_Delta > 65535
+AND
+NOT DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_HpFailure(_Combat, _Enemy, _)
+THEN
+DB_AESN_HpFailure(_Combat, _Enemy, "UnsafeDelta");
+
+PROC
+PROC_AESN_PlanEnemy((CHARACTER)_Enemy, (GUIDSTRING)_Combat)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _TargetHpPercent, _, _, _, "Supported")
+AND
+GetHitpoints(_Enemy, _BeforeCurrent)
+AND
+_BeforeCurrent > 0
+AND
+GetMaxHitpoints(_Enemy, _BeforeMaximum)
+AND
+_BeforeMaximum > 0
+AND
+_BeforeMaximum <= 4129776
+AND
+GetHitpointsPercentage(_Enemy, _BeforePercentage)
+AND
+IntegerProduct(_BeforeMaximum, _TargetHpPercent, _CombinedProduct)
+AND
+IntegerDivide(_CombinedProduct, 100, _TargetMaximum)
+AND
+IntegerSubtract(_TargetMaximum, _BeforeMaximum, _Delta)
+AND
+_Delta >= 0
+AND
+_Delta <= 65535
+AND
+NOT DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_HpFailure(_Combat, _Enemy, _)
+THEN
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "Planned", _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, 0);
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 32768, "AESN_HP_BIT_32768");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 16384, "AESN_HP_BIT_16384");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 8192, "AESN_HP_BIT_08192");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 4096, "AESN_HP_BIT_04096");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 2048, "AESN_HP_BIT_02048");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 1024, "AESN_HP_BIT_01024");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 512, "AESN_HP_BIT_00512");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 256, "AESN_HP_BIT_00256");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 128, "AESN_HP_BIT_00128");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 64, "AESN_HP_BIT_00064");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 32, "AESN_HP_BIT_00032");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 16, "AESN_HP_BIT_00016");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 8, "AESN_HP_BIT_00008");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 4, "AESN_HP_BIT_00004");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 2, "AESN_HP_BIT_00002");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 1, "AESN_HP_BIT_00001");
+DB_AESN_HpPlanQueued(_Combat, _Enemy);
+
+// Merge replanning starts only after old owned components and HP bits are gone.
+// It reuses the one percentage captured before removal instead of observing or
+// writing an intermediate percentage at the unscaled maximum.
+PROC
+PROC_AESN_PlanEnemyForReplan((CHARACTER)_Enemy, (GUIDSTRING)_Combat, (REAL)_CapturedPercentage)
+AND
+DB_AESN_HpReplan(_Combat, _Enemy, 1, "PlanningNew", _CapturedPercentage)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _, _, _, "Supported")
+AND
+GetHitpoints(_Enemy, 0)
+THEN
+PROC_AESN_AbortCanonicalReplan(_Combat, _Enemy, _CapturedPercentage, "DeadDuringReplan");
+
+PROC
+PROC_AESN_PlanEnemyForReplan((CHARACTER)_Enemy, (GUIDSTRING)_Combat, (REAL)_CapturedPercentage)
+AND
+DB_AESN_HpReplan(_Combat, _Enemy, 1, "PlanningNew", _CapturedPercentage)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _, _, _, "Supported")
+AND
+GetHitpoints(_Enemy, _BeforeCurrent)
+AND
+_BeforeCurrent > 0
+AND
+GetMaxHitpoints(_Enemy, _BeforeMaximum)
+AND
+_BeforeMaximum <= 0
+THEN
+PROC_AESN_AbortCanonicalReplan(_Combat, _Enemy, _CapturedPercentage, "UnsafeBaseMaximum");
+
+PROC
+PROC_AESN_PlanEnemyForReplan((CHARACTER)_Enemy, (GUIDSTRING)_Combat, (REAL)_CapturedPercentage)
+AND
+DB_AESN_HpReplan(_Combat, _Enemy, 1, "PlanningNew", _CapturedPercentage)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _, _, _, "Supported")
+AND
+GetHitpoints(_Enemy, _BeforeCurrent)
+AND
+_BeforeCurrent > 0
+AND
+GetMaxHitpoints(_Enemy, _BeforeMaximum)
+AND
+_BeforeMaximum > 4129776
+THEN
+PROC_AESN_AbortCanonicalReplan(_Combat, _Enemy, _CapturedPercentage, "UnsafeBaseMaximum");
+
+PROC
+PROC_AESN_PlanEnemyForReplan((CHARACTER)_Enemy, (GUIDSTRING)_Combat, (REAL)_CapturedPercentage)
+AND
+DB_AESN_HpReplan(_Combat, _Enemy, 1, "PlanningNew", _CapturedPercentage)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _TargetHpPercent, _, _, _, "Supported")
+AND
+GetHitpoints(_Enemy, _BeforeCurrent)
+AND
+_BeforeCurrent > 0
+AND
+GetMaxHitpoints(_Enemy, _BeforeMaximum)
+AND
+_BeforeMaximum > 0
+AND
+_BeforeMaximum <= 4129776
+AND
+IntegerProduct(_BeforeMaximum, _TargetHpPercent, _CombinedProduct)
+AND
+IntegerDivide(_CombinedProduct, 100, _TargetMaximum)
+AND
+IntegerSubtract(_TargetMaximum, _BeforeMaximum, _Delta)
+AND
+_Delta < 0
+THEN
+PROC_AESN_AbortCanonicalReplan(_Combat, _Enemy, _CapturedPercentage, "UnsafeDelta");
+
+PROC
+PROC_AESN_PlanEnemyForReplan((CHARACTER)_Enemy, (GUIDSTRING)_Combat, (REAL)_CapturedPercentage)
+AND
+DB_AESN_HpReplan(_Combat, _Enemy, 1, "PlanningNew", _CapturedPercentage)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _TargetHpPercent, _, _, _, "Supported")
+AND
+GetHitpoints(_Enemy, _BeforeCurrent)
+AND
+_BeforeCurrent > 0
+AND
+GetMaxHitpoints(_Enemy, _BeforeMaximum)
+AND
+_BeforeMaximum > 0
+AND
+_BeforeMaximum <= 4129776
+AND
+IntegerProduct(_BeforeMaximum, _TargetHpPercent, _CombinedProduct)
+AND
+IntegerDivide(_CombinedProduct, 100, _TargetMaximum)
+AND
+IntegerSubtract(_TargetMaximum, _BeforeMaximum, _Delta)
+AND
+_Delta > 65535
+THEN
+PROC_AESN_AbortCanonicalReplan(_Combat, _Enemy, _CapturedPercentage, "UnsafeDelta");
+
+PROC
+PROC_AESN_PlanEnemyForReplan((CHARACTER)_Enemy, (GUIDSTRING)_Combat, (REAL)_CapturedPercentage)
+AND
+DB_AESN_HpReplan(_Combat, _Enemy, 1, "PlanningNew", _CapturedPercentage)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _TargetHpPercent, _, _, _, "Supported")
+AND
+GetHitpoints(_Enemy, _BeforeCurrent)
+AND
+_BeforeCurrent > 0
+AND
+GetMaxHitpoints(_Enemy, _BeforeMaximum)
+AND
+_BeforeMaximum > 0
+AND
+_BeforeMaximum <= 4129776
+AND
+IntegerProduct(_BeforeMaximum, _TargetHpPercent, _CombinedProduct)
+AND
+IntegerDivide(_CombinedProduct, 100, _TargetMaximum)
+AND
+IntegerSubtract(_TargetMaximum, _BeforeMaximum, _Delta)
+AND
+_Delta >= 0
+AND
+_Delta <= 65535
+THEN
+PROC_AESN_SetHpReplanState(_Combat, _Enemy, "PlanningNew", "ApplyingNew");
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "Planned", _BeforeCurrent, _BeforeMaximum, _CapturedPercentage, _TargetMaximum, _Delta, 0);
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 32768, "AESN_HP_BIT_32768");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 16384, "AESN_HP_BIT_16384");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 8192, "AESN_HP_BIT_08192");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 4096, "AESN_HP_BIT_04096");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 2048, "AESN_HP_BIT_02048");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 1024, "AESN_HP_BIT_01024");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 512, "AESN_HP_BIT_00512");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 256, "AESN_HP_BIT_00256");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 128, "AESN_HP_BIT_00128");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 64, "AESN_HP_BIT_00064");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 32, "AESN_HP_BIT_00032");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 16, "AESN_HP_BIT_00016");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 8, "AESN_HP_BIT_00008");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 4, "AESN_HP_BIT_00004");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 2, "AESN_HP_BIT_00002");
+PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 1, "AESN_HP_BIT_00001");
+DB_AESN_HpPlanQueued(_Combat, _Enemy);
+DebugLog("AESN_MERGE REPLAN_NEW_PLAN percentageWrite=0");
+
+PROC
+PROC_AESN_AbortCanonicalReplan((GUIDSTRING)_Combat, (CHARACTER)_Enemy, (REAL)_CapturedPercentage, (STRING)_Reason)
+AND
+DB_AESN_HpReplan(_Combat, _Enemy, 1, "PlanningNew", _CapturedPercentage)
+THEN
+DB_AESN_HpFailure(_Combat, _Enemy, _Reason);
+NOT DB_AESN_HpReplan(_Combat, _Enemy, 1, "PlanningNew", _CapturedPercentage);
+NOT DB_AESN_MergeReplanRequired(_Combat, _Enemy);
+DebugLog("AESN_MERGE REPLAN_ABORTED percentageWrite=0");
+
+// Bit membership is computed independently by quotient parity. Because delta
+// is bounded to 0..65535, the 16 calls above form an exact binary registry.
+PROC
+PROC_AESN_QueueHpBit((GUIDSTRING)_Combat, (CHARACTER)_Enemy, (INTEGER)_Delta, (INTEGER)_Bit, (STRING)_Status)
+AND
+IntegerDivide(_Delta, _Bit, _Quotient)
+AND
+IntegerDivide(_Quotient, 2, _Half)
+AND
+IntegerProduct(_Half, 2, _Even)
+AND
+IntegerSubtract(_Quotient, _Even, 1)
+THEN
+DB_AESN_HpDesiredBit(_Combat, _Enemy, _Bit, _Status);
+
+IF
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "Planned", _, _, _, _TargetMaximum, _Delta, 0)
+AND
+DB_AESN_HpPlanQueued(_Combat, _Enemy)
+AND
+ConcatenateGUID("AESN_HP PLAN enemy=", _Enemy, _Message1)
+AND
+Concatenate(_Message1, ",target=", _Message2)
+AND
+ConcatenateInteger(_Message2, _TargetMaximum, _Message3)
+AND
+Concatenate(_Message3, ",delta=", _Message4)
+AND
+ConcatenateInteger(_Message4, _Delta, _Message5)
+AND
+Concatenate(_Message5, ",schema=1,state=Planned", _Message)
+THEN
+DebugLog(_Message);
+
+IF
+DB_AESN_HpDesiredBit(_Combat, _Enemy, _Bit, _Status)
+AND
+ConcatenateGUID("AESN_HP DESIRED enemy=", _Enemy, _Message1)
+AND
+Concatenate(_Message1, ",bit=", _Message2)
+AND
+ConcatenateInteger(_Message2, _Bit, _Message3)
+AND
+Concatenate(_Message3, ",status=", _Message4)
+AND
+Concatenate(_Message4, _Status, _Message)
+THEN
+DebugLog(_Message);
+
+IF
+DB_AESN_HpFailure(_Combat, _Enemy, _Reason)
+AND
+ConcatenateGUID("AESN_HP FAILURE enemy=", _Enemy, _Message1)
+AND
+Concatenate(_Message1, ",reason=", _Message2)
+AND
+Concatenate(_Message2, _Reason, _Message)
+THEN
+DebugLog(_Message);
+
+EXITSECTION
+
+ENDEXITSECTION

@@ -1,0 +1,346 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_NarrativeCombatFixture((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (FACTION)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_NarrativeLateFixture((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_NarrativeObservedCombatStarted((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_NarrativeObservedEntered((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_NarrativeStartVerified((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+KBSECTION
+
+// Native event-integration fixture for RT-15. It creates a real narrative
+// combat and characters, but never fabricates production roster, snapshot,
+// participant, or enemy-decision facts.
+// ReCon command: oe AESN_TEST_START_NARRATIVE_COMBAT
+IF
+TextEvent("AESN_TEST_START_NARRATIVE_COMBAT")
+AND
+GetHostCharacter(_Host)
+AND
+GetFaction(_Host, _HostFaction)
+AND
+NOT DB_AESN_NarrativeCombatFixture(_, _, _, _)
+AND
+CreateNarrativeCombat(_Combat)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _Initial)
+THEN
+PROC_AESN_SetupNarrativeCombat(_Combat, (CHARACTER)_Host, _HostFaction, (CHARACTER)_Initial);
+
+PROC
+PROC_AESN_SetupNarrativeCombat((GUIDSTRING)_Combat, (CHARACTER)_Host, (FACTION)_HostFaction, (CHARACTER)_Initial)
+THEN
+SetCanFight(_Initial, 0);
+DB_AESN_NarrativeCombatFixture(_Combat, _Host, _HostFaction, _Initial);
+SetIndividualRelation(_Initial, _HostFaction, 0);
+SetInNarrativeCombat(_Host, _Combat, 1);
+SetInNarrativeCombat(_Initial, _Combat, 1);
+
+// These observations can only be inserted by native combat events.
+IF
+CombatStarted(_Combat)
+AND
+DB_AESN_NarrativeCombatFixture(_Combat, _Host, _, _)
+AND
+NOT DB_AESN_NarrativeObservedCombatStarted(_Combat)
+THEN
+DB_AESN_NarrativeObservedCombatStarted(_Combat);
+RealtimeObjectTimerLaunch(_Host, "AESN_NARRATIVE_START_VERIFY", 500);
+DebugLog("AESN_NARRATIVE EVENT CombatStarted=1");
+
+IF
+EnteredCombat(_Object, _Combat)
+AND
+DB_AESN_NarrativeCombatFixture(_Combat, _, _, (CHARACTER)_Object)
+AND
+NOT DB_AESN_NarrativeObservedEntered(_Combat, (CHARACTER)_Object)
+THEN
+DB_AESN_NarrativeObservedEntered(_Combat, (CHARACTER)_Object);
+DebugLog("AESN_NARRATIVE EVENT initialEnteredCombat=1");
+
+IF
+EnteredCombat(_Object, _Combat)
+AND
+DB_AESN_NarrativeLateFixture(_Combat, (CHARACTER)_Object)
+AND
+NOT DB_AESN_NarrativeObservedEntered(_Combat, (CHARACTER)_Object)
+THEN
+DB_AESN_NarrativeObservedEntered(_Combat, (CHARACTER)_Object);
+DebugLog("AESN_NARRATIVE EVENT lateEnteredCombat=1");
+
+// The pass record requires production-created snapshot, participant, and
+// eligible-enemy facts in addition to both native start/entry observations.
+IF
+ObjectTimerFinished((CHARACTER)_Host, "AESN_NARRATIVE_START_VERIFY")
+AND
+DB_AESN_NarrativeCombatFixture(_Combat, _Host, _, _Initial)
+AND
+DB_AESN_NarrativeObservedCombatStarted(_Combat)
+AND
+DB_AESN_NarrativeObservedEntered(_Combat, _Initial)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _, _, _, _)
+AND
+DB_AESN_CombatParticipant(_Combat, _Host)
+AND
+DB_AESN_EnemyEligible(_Combat, _Initial)
+AND
+DB_AESN_EnemyConsidered(_Combat, _Initial)
+AND
+DB_Is_InCombat(_Host, _Combat)
+AND
+DB_Is_InCombat(_Initial, _Combat)
+THEN
+DB_AESN_NarrativeStartVerified(_Combat);
+DebugLog("AESN_NARRATIVE START_PASS nativeCombatStarted=1,initialEligible=1");
+
+// ReCon command: oe AESN_TEST_ADD_LATE_NARRATIVE_HOSTILE
+IF
+TextEvent("AESN_TEST_ADD_LATE_NARRATIVE_HOSTILE")
+AND
+DB_AESN_NarrativeCombatFixture(_Combat, _Host, _HostFaction, _)
+AND
+DB_AESN_NarrativeStartVerified(_Combat)
+AND
+NOT DB_AESN_NarrativeLateFixture(_Combat, _)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _Late)
+THEN
+PROC_AESN_AddLateNarrativeHostile(_Combat, _Host, _HostFaction, (CHARACTER)_Late);
+
+PROC
+PROC_AESN_AddLateNarrativeHostile((GUIDSTRING)_Combat, (CHARACTER)_Host, (FACTION)_HostFaction, (CHARACTER)_Late)
+THEN
+SetCanFight(_Late, 0);
+DB_AESN_NarrativeLateFixture(_Combat, _Late);
+SetIndividualRelation(_Late, _HostFaction, 0);
+SetInNarrativeCombat(_Late, _Combat, 1);
+RealtimeObjectTimerLaunch(_Host, "AESN_NARRATIVE_LATE_VERIFY", 500);
+
+IF
+ObjectTimerFinished((CHARACTER)_Host, "AESN_NARRATIVE_LATE_VERIFY")
+AND
+DB_AESN_NarrativeCombatFixture(_Combat, _Host, _, _)
+AND
+DB_AESN_NarrativeLateFixture(_Combat, _Late)
+AND
+DB_AESN_NarrativeObservedEntered(_Combat, _Late)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _, _, _, _)
+AND
+DB_AESN_CombatParticipant(_Combat, _Host)
+AND
+DB_AESN_EnemyEligible(_Combat, _Late)
+AND
+DB_AESN_EnemyConsidered(_Combat, _Late)
+AND
+DB_Is_InCombat(_Late, _Combat)
+THEN
+PROC_AESN_ConsiderEnemy(_Late, _Combat);
+PROC_AESN_ConsiderEnemy(_Late, _Combat);
+DebugLog("AESN_NARRATIVE LATE_PASS nativeEnteredCombat=1,lateEligible=1,duplicateSafe=1");
+
+// ReCon command: oe AESN_TEST_RESET_NARRATIVE_COMBAT
+IF
+TextEvent("AESN_TEST_RESET_NARRATIVE_COMBAT")
+AND
+DB_AESN_NarrativeCombatFixture(_Combat, _Host, _HostFaction, _Initial)
+THEN
+DB_AESN_CombatRetired(_Combat);
+PROC_AESN_NarrativeLeaveLate(_Combat, _HostFaction);
+SetInNarrativeCombat(_Initial, _Combat, 0);
+SetInNarrativeCombat(_Host, _Combat, 0);
+DestroyNarrativeCombat(_Combat);
+ClearIndividualRelation(_Initial, _HostFaction);
+PROC_AESN_NarrativeCleanupOwnedFacts(_Combat);
+NOT DB_AESN_NarrativeCombatFixture(_Combat, _Host, _HostFaction, _Initial);
+PROC_SetOnStage(_Initial, 0);
+DebugLog("AESN_NARRATIVE RESET nativeCombatDestroyed=1,exactOwnedFactsRequested=1");
+
+PROC
+PROC_AESN_NarrativeLeaveLate((GUIDSTRING)_Combat, (FACTION)_HostFaction)
+AND
+DB_AESN_NarrativeLateFixture(_Combat, _Late)
+THEN
+SetInNarrativeCombat(_Late, _Combat, 0);
+ClearIndividualRelation(_Late, _HostFaction);
+NOT DB_AESN_NarrativeLateFixture(_Combat, _Late);
+PROC_SetOnStage(_Late, 0);
+
+// Fixture-only exact cleanup. Native DB_Is_InCombat is left to
+// SetInNarrativeCombat/DestroyNarrativeCombat and is never edited directly.
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_CombatDispatchPending(_Combat, _Timer)
+THEN
+TimerCancel(_Timer);
+NOT DB_AESN_CombatDispatchPending(_Combat, _Timer);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_SnapshotFinalizeTimer(_Timer, _Combat)
+THEN
+TimerCancel(_Timer);
+NOT DB_AESN_SnapshotFinalizeTimer(_Timer, _Combat);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_RosterBuildOpen(_Combat)
+THEN
+NOT DB_AESN_RosterBuildOpen(_Combat);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_RosterAggregate(_Combat, _Size, _Sum)
+THEN
+NOT DB_AESN_RosterAggregate(_Combat, _Size, _Sum);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_SnapshotMember(_Combat, _Member, _Level)
+THEN
+NOT DB_AESN_SnapshotMember(_Combat, _Member, _Level);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_RosterExclusion(_Combat, _Member, _Reason)
+THEN
+NOT DB_AESN_RosterExclusion(_Combat, _Member, _Reason);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, _Version, _EligibleSize, _EffectiveSize, _Sum, _Average, _Tier, _TargetHpPercent, _ActionBudget, _BonusBudget, _Cap, _State)
+THEN
+NOT DB_AESN_CombatSnapshotV2(_Combat, _Version, _EligibleSize, _EffectiveSize, _Sum, _Average, _Tier, _TargetHpPercent, _ActionBudget, _BonusBudget, _Cap, _State);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_SnapshotFailure(_Combat, _Reason)
+THEN
+NOT DB_AESN_SnapshotFailure(_Combat, _Reason);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_CombatParticipant(_Combat, _Member)
+THEN
+NOT DB_AESN_CombatParticipant(_Combat, _Member);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_EnemyConsidered(_Combat, _Enemy)
+THEN
+NOT DB_AESN_EnemyConsidered(_Combat, _Enemy);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_EnemyEligible(_Combat, _Enemy)
+THEN
+NOT DB_AESN_EnemyEligible(_Combat, _Enemy);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_EnemyRejected(_Combat, _Enemy, _Reason)
+THEN
+NOT DB_AESN_EnemyRejected(_Combat, _Enemy, _Reason);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_NarrativeObservedEntered(_Combat, _Object)
+THEN
+NOT DB_AESN_NarrativeObservedEntered(_Combat, _Object);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_NarrativeObservedCombatStarted(_Combat)
+THEN
+NOT DB_AESN_NarrativeObservedCombatStarted(_Combat);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_NarrativeStartVerified(_Combat)
+THEN
+NOT DB_AESN_NarrativeStartVerified(_Combat);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, _Version, _State, _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum)
+THEN
+NOT DB_AESN_HpTransaction(_Combat, _Enemy, _Version, _State, _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_HpDesiredBit(_Combat, _Enemy, _Bit, _Status)
+THEN
+NOT DB_AESN_HpDesiredBit(_Combat, _Enemy, _Bit, _Status);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_HpPlanQueued(_Combat, _Enemy)
+THEN
+NOT DB_AESN_HpPlanQueued(_Combat, _Enemy);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_HpFailure(_Combat, _Enemy, _Reason)
+THEN
+NOT DB_AESN_HpFailure(_Combat, _Enemy, _Reason);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_ComponentStarted(_Combat, _Enemy)
+THEN
+NOT DB_AESN_ComponentStarted(_Combat, _Enemy);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_ComponentApplication(_Combat, _Enemy, _Version, _State)
+THEN
+NOT DB_AESN_ComponentApplication(_Combat, _Enemy, _Version, _State);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_EnemyComponent(_Combat, _Enemy, _Kind, _Status)
+THEN
+NOT DB_AESN_EnemyComponent(_Combat, _Enemy, _Kind, _Status);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_ComponentPendingApply(_Combat, _Enemy, _Kind, _Status)
+THEN
+RealtimeObjectTimerCancel(_Enemy, "AESN_COMPONENT_APPLY_TIMEOUT");
+NOT DB_AESN_ComponentPendingApply(_Combat, _Enemy, _Kind, _Status);
+
+PROC
+PROC_AESN_NarrativeCleanupOwnedFacts((GUIDSTRING)_Combat)
+AND
+DB_AESN_ComponentPendingRemove(_Combat, _Enemy, _Kind, _Status)
+THEN
+RealtimeObjectTimerCancel(_Enemy, "AESN_COMPONENT_REMOVE_TIMEOUT");
+NOT DB_AESN_ComponentPendingRemove(_Combat, _Enemy, _Kind, _Status);
+
+EXITSECTION
+
+ENDEXITSECTION

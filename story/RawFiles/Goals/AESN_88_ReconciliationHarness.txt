@@ -1,0 +1,291 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_ReconcileHarnessSetup((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (FACTION)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_ReconcileHarnessFixture((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (FACTION)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "", 0, 0, 0.0);
+NOT DB_AESN_ReconcileHarnessObserved((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_ReconcileHarnessResult("", "");
+KBSECTION
+
+// RT-20/RT-21 inject only persisted schema-2 facts around real narrative
+// combat ownership. Every mutation and recovery decision remains production-
+// owned by AESN_65_Reconciliation and the existing exact HP state machine.
+// ReCon command: oe AESN_TEST_RECONCILE_PENDING
+IF
+TextEvent("AESN_TEST_RECONCILE_PENDING")
+AND
+GetHostCharacter(_Host)
+AND
+GetFaction(_Host, _HostFaction)
+AND
+NOT DB_AESN_ReconcileHarnessSetup(_, _, _, _, _)
+AND
+CreateNarrativeCombat(_Combat)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _Enemy)
+THEN
+PROC_AESN_ClearReconcileHarnessResult("Pending");
+PROC_AESN_SetupPendingReconcileHarness(_Combat, (CHARACTER)_Host, _HostFaction, (CHARACTER)_Enemy);
+
+PROC
+PROC_AESN_SetupPendingReconcileHarness((GUIDSTRING)_Combat, (CHARACTER)_Host, (FACTION)_HostFaction, (CHARACTER)_Enemy)
+THEN
+SetCanFight(_Enemy, 0);
+DB_AESN_ReconcileHarnessSetup(_Combat, _Host, _HostFaction, _Enemy, "Pending");
+DB_AESN_CombatDispatched(_Combat);
+SetIndividualRelation(_Enemy, _HostFaction, 0);
+SetInNarrativeCombat(_Host, _Combat, 1);
+SetInNarrativeCombat(_Enemy, _Combat, 1);
+RealtimeObjectTimerLaunch(_Host, "AESN_RECON_HARNESS_PENDING_SEED", 500);
+
+IF
+ObjectTimerFinished((CHARACTER)_Host, "AESN_RECON_HARNESS_PENDING_SEED")
+AND
+DB_AESN_ReconcileHarnessSetup(_Combat, _Host, _HostFaction, _Enemy, "Pending")
+AND
+GetHitpoints(_Enemy, _BeforeCurrent)
+AND
+_BeforeCurrent > 0
+AND
+GetMaxHitpoints(_Enemy, _BeforeMaximum)
+AND
+GetHitpointsPercentage(_Enemy, _BeforePercentage)
+AND
+IntegerSum(_BeforeMaximum, 1, _TargetMaximum)
+THEN
+DB_AESN_ReconcileHarnessFixture(_Combat, _Host, _HostFaction, _Enemy, "Pending", _BeforeCurrent, _BeforeMaximum, _BeforePercentage);
+DB_AESN_CombatSnapshotV2(_Combat, 2, 1, 1, 5, 5, 2, 150, 1, 0, 1, "Supported");
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "Planned", _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, 1, 0);
+DB_AESN_HpApplicationHold(_Combat, _Enemy);
+PROC_AESN_OpenCombatReconciliation(_Combat);
+RealtimeObjectTimerLaunch(_Host, "AESN_RECON_HARNESS_PENDING_VERIFY", 1250);
+
+IF
+ObjectTimerFinished((CHARACTER)_Host, "AESN_RECON_HARNESS_PENDING_VERIFY")
+AND
+DB_AESN_ReconcileHarnessFixture(_Combat, _Host, _HostFaction, _Enemy, "Pending", _BeforeCurrent, _BeforeMaximum, _BeforePercentage)
+AND
+DB_AESN_ReconcileResult(_Combat, _Enemy, "ROLLED_BACK", "PendingApplication")
+AND
+NOT DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_EnemyHpBit(_Combat, _Enemy, _, _)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
+AND
+NOT DB_AESN_HpApplicationHold(_Combat, _Enemy)
+AND
+GetHitpoints(_Enemy, _BeforeCurrent)
+AND
+GetMaxHitpoints(_Enemy, _BeforeMaximum)
+AND
+HasActiveStatus(_Enemy, "AESN_HP_BIT_00001", 0)
+THEN
+DB_AESN_ReconcileHarnessResult("Pending", "PASS");
+DebugLog("AESN_RECONCILE_HARNESS PENDING_PASS action=rollback,appliedBits=0,percentageWrites=0,doubleApply=0");
+PROC_AESN_ResetReconcileHarness(_Combat, _Host, _HostFaction, _Enemy, "Pending");
+
+IF
+ObjectTimerFinished((CHARACTER)_Host, "AESN_RECON_HARNESS_PENDING_VERIFY")
+AND
+DB_AESN_ReconcileHarnessFixture(_Combat, _Host, _, _Enemy, "Pending", _, _, _)
+AND
+NOT DB_AESN_ReconcileHarnessResult("Pending", "PASS")
+THEN
+DB_AESN_ReconcileHarnessResult("Pending", "FAIL");
+DebugLog("AESN_RECONCILE_HARNESS PENDING_FAIL recoveryContractIncomplete=1");
+
+// The stale fixture destroys its native combat before inserting persisted
+// state. Production must observe CombatIsActive(...,0), preserve percentage
+// once through exact cleanup, and retire all combat-owned records.
+// ReCon command: oe AESN_TEST_RECONCILE_STALE
+IF
+TextEvent("AESN_TEST_RECONCILE_STALE")
+AND
+GetHostCharacter(_Host)
+AND
+GetFaction(_Host, _HostFaction)
+AND
+NOT DB_AESN_ReconcileHarnessSetup(_, _, _, _, _)
+AND
+CreateNarrativeCombat(_Combat)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _Enemy)
+THEN
+PROC_AESN_ClearReconcileHarnessResult("Stale");
+PROC_AESN_SetupStaleReconcileHarness(_Combat, (CHARACTER)_Host, _HostFaction, (CHARACTER)_Enemy);
+
+PROC
+PROC_AESN_SetupStaleReconcileHarness((GUIDSTRING)_Combat, (CHARACTER)_Host, (FACTION)_HostFaction, (CHARACTER)_Enemy)
+THEN
+SetCanFight(_Enemy, 0);
+DB_AESN_ReconcileHarnessSetup(_Combat, _Host, _HostFaction, _Enemy, "Stale");
+DB_AESN_CombatDispatched(_Combat);
+SetIndividualRelation(_Enemy, _HostFaction, 0);
+SetInNarrativeCombat(_Host, _Combat, 1);
+SetInNarrativeCombat(_Enemy, _Combat, 1);
+RealtimeObjectTimerLaunch(_Host, "AESN_RECON_HARNESS_STALE_RETIRE", 500);
+
+IF
+ObjectTimerFinished((CHARACTER)_Host, "AESN_RECON_HARNESS_STALE_RETIRE")
+AND
+DB_AESN_ReconcileHarnessSetup(_Combat, _Host, _HostFaction, _Enemy, "Stale")
+THEN
+SetInNarrativeCombat(_Enemy, _Combat, 0);
+SetInNarrativeCombat(_Host, _Combat, 0);
+DestroyNarrativeCombat(_Combat);
+ClearIndividualRelation(_Enemy, _HostFaction);
+
+IF
+CombatEnded(_Combat)
+AND
+DB_AESN_ReconcileHarnessSetup(_Combat, _Host, _, _, "Stale")
+THEN
+RealtimeObjectTimerLaunch(_Host, "AESN_RECON_HARNESS_STALE_SEED", 500);
+
+IF
+ObjectTimerFinished((CHARACTER)_Host, "AESN_RECON_HARNESS_STALE_SEED")
+AND
+DB_AESN_ReconcileHarnessSetup(_Combat, _Host, _HostFaction, _Enemy, "Stale")
+AND
+GetHitpoints(_Enemy, _BeforeCurrent)
+AND
+_BeforeCurrent > 0
+AND
+GetMaxHitpoints(_Enemy, _BeforeMaximum)
+AND
+GetHitpointsPercentage(_Enemy, _BeforePercentage)
+THEN
+DB_AESN_ReconcileHarnessFixture(_Combat, _Host, _HostFaction, _Enemy, "Stale", _BeforeCurrent, _BeforeMaximum, _BeforePercentage);
+DB_AESN_CombatSnapshotV2(_Combat, 2, 1, 1, 5, 5, 2, 150, 1, 0, 1, "Supported");
+DB_AESN_ComponentStarted(_Combat, _Enemy);
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _BeforeMaximum, 0, 0);
+DB_AESN_HpApplicationHold(_Combat, _Enemy);
+PROC_AESN_OpenCombatReconciliation(_Combat);
+RealtimeObjectTimerLaunch(_Host, "AESN_RECON_HARNESS_STALE_VERIFY", 1250);
+
+IF
+DB_AESN_ReconcileResult(_Combat, _Enemy, "CLEANUP", "InactiveCombat")
+AND
+DB_AESN_ReconcileHarnessSetup(_Combat, _, _, _Enemy, "Stale")
+AND
+NOT DB_AESN_ReconcileHarnessObserved(_Combat, _Enemy, "InactiveCombat")
+THEN
+DB_AESN_ReconcileHarnessObserved(_Combat, _Enemy, "InactiveCombat");
+
+IF
+ObjectTimerFinished((CHARACTER)_Host, "AESN_RECON_HARNESS_STALE_VERIFY")
+AND
+DB_AESN_ReconcileHarnessFixture(_Combat, _Host, _HostFaction, _Enemy, "Stale", _BeforeCurrent, _BeforeMaximum, _BeforePercentage)
+AND
+DB_AESN_ReconcileHarnessObserved(_Combat, _Enemy, "InactiveCombat")
+AND
+NOT DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_CombatSnapshotV2(_Combat, _, _, _, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_EnemyHpBit(_Combat, _Enemy, _, _)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
+AND
+NOT DB_AESN_ComponentStarted(_Combat, _Enemy)
+AND
+NOT DB_AESN_HpApplicationHold(_Combat, _Enemy)
+AND
+NOT DB_AESN_ReconcileResult(_Combat, _Enemy, _, _)
+AND
+GetHitpoints(_Enemy, _BeforeCurrent)
+AND
+GetMaxHitpoints(_Enemy, _BeforeMaximum)
+AND
+HasActiveStatus(_Enemy, "AESN_HP_BIT_00001", 0)
+THEN
+DB_AESN_ReconcileHarnessResult("Stale", "PASS");
+DebugLog("AESN_RECONCILE_HARNESS STALE_PASS action=cleanup,percentageWrites=1,exactOwnedBits=1");
+PROC_AESN_ResetReconcileHarness(_Combat, _Host, _HostFaction, _Enemy, "Stale");
+
+IF
+ObjectTimerFinished((CHARACTER)_Host, "AESN_RECON_HARNESS_STALE_VERIFY")
+AND
+DB_AESN_ReconcileHarnessFixture(_Combat, _Host, _, _Enemy, "Stale", _, _, _)
+AND
+NOT DB_AESN_ReconcileHarnessResult("Stale", "PASS")
+THEN
+DB_AESN_ReconcileHarnessResult("Stale", "FAIL");
+DebugLog("AESN_RECONCILE_HARNESS STALE_FAIL recoveryContractIncomplete=1");
+
+// ReCon command: oe AESN_TEST_RESET_RECONCILE_HARNESS
+IF
+TextEvent("AESN_TEST_RESET_RECONCILE_HARNESS")
+AND
+DB_AESN_ReconcileHarnessSetup(_Combat, _Host, _HostFaction, _Enemy, _Mode)
+THEN
+PROC_AESN_ResetReconcileHarness(_Combat, _Host, _HostFaction, _Enemy, _Mode);
+
+IF
+TextEvent("AESN_TEST_RESET_RECONCILE_HARNESS")
+THEN
+PROC_AESN_ClearReconcileHarnessResult("Pending");
+PROC_AESN_ClearReconcileHarnessResult("Stale");
+DebugLog("AESN_RECONCILE_HARNESS RESET exactFixtureOnly=1");
+
+PROC
+PROC_AESN_ClearReconcileHarnessResult((STRING)_Mode)
+AND
+DB_AESN_ReconcileHarnessResult(_Mode, _Result)
+THEN
+NOT DB_AESN_ReconcileHarnessResult(_Mode, _Result);
+
+PROC
+PROC_AESN_ResetReconcileHarness((GUIDSTRING)_Combat, (CHARACTER)_Host, (FACTION)_HostFaction, (CHARACTER)_Enemy, "Pending")
+THEN
+SetInNarrativeCombat(_Enemy, _Combat, 0);
+SetInNarrativeCombat(_Host, _Combat, 0);
+DestroyNarrativeCombat(_Combat);
+ClearIndividualRelation(_Enemy, _HostFaction);
+PROC_AESN_DeleteCombatOwnedFacts(_Combat);
+PROC_AESN_DeleteReconcileHarnessFacts(_Combat, _Host, _HostFaction, _Enemy, "Pending");
+PROC_SetOnStage(_Enemy, 0);
+
+PROC
+PROC_AESN_ResetReconcileHarness((GUIDSTRING)_Combat, (CHARACTER)_Host, (FACTION)_HostFaction, (CHARACTER)_Enemy, "Stale")
+THEN
+SetInNarrativeCombat(_Enemy, _Combat, 0);
+SetInNarrativeCombat(_Host, _Combat, 0);
+DestroyNarrativeCombat(_Combat);
+ClearIndividualRelation(_Enemy, _HostFaction);
+PROC_AESN_DeleteCombatOwnedFacts(_Combat);
+PROC_AESN_DeleteReconcileHarnessFacts(_Combat, _Host, _HostFaction, _Enemy, "Stale");
+PROC_SetOnStage(_Enemy, 0);
+
+PROC
+PROC_AESN_DeleteReconcileHarnessFacts((GUIDSTRING)_Combat, (CHARACTER)_Host, (FACTION)_HostFaction, (CHARACTER)_Enemy, (STRING)_Mode)
+AND
+DB_AESN_ReconcileHarnessSetup(_Combat, _Host, _HostFaction, _Enemy, _Mode)
+THEN
+NOT DB_AESN_ReconcileHarnessSetup(_Combat, _Host, _HostFaction, _Enemy, _Mode);
+
+PROC
+PROC_AESN_DeleteReconcileHarnessFacts((GUIDSTRING)_Combat, (CHARACTER)_Host, (FACTION)_HostFaction, (CHARACTER)_Enemy, (STRING)_Mode)
+AND
+DB_AESN_ReconcileHarnessFixture(_Combat, _Host, _HostFaction, _Enemy, _Mode, _BeforeCurrent, _BeforeMaximum, _BeforePercentage)
+THEN
+NOT DB_AESN_ReconcileHarnessFixture(_Combat, _Host, _HostFaction, _Enemy, _Mode, _BeforeCurrent, _BeforeMaximum, _BeforePercentage);
+
+PROC
+PROC_AESN_DeleteReconcileHarnessFacts((GUIDSTRING)_Combat, (CHARACTER)_Host, (FACTION)_HostFaction, (CHARACTER)_Enemy, (STRING)_Mode)
+AND
+DB_AESN_ReconcileHarnessObserved(_Combat, _Enemy, _Observation)
+THEN
+NOT DB_AESN_ReconcileHarnessObserved(_Combat, _Enemy, _Observation);
+
+PROC
+PROC_AESN_DeleteReconcileHarnessFacts((GUIDSTRING)_Combat, (CHARACTER)_Host, (FACTION)_HostFaction, (CHARACTER)_Enemy, (STRING)_Mode)
+AND
+DB_AESN_ReconcileResult(_Combat, _Enemy, _Action, _Reason)
+THEN
+NOT DB_AESN_ReconcileResult(_Combat, _Enemy, _Action, _Reason);
+
+EXITSECTION
+
+ENDEXITSECTION

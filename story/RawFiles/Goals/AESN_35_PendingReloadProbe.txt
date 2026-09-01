@@ -1,0 +1,189 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_PendingReloadTestEnabled(1);
+NOT DB_AESN_PendingReloadTestClaimed(1);
+NOT DB_AESN_PendingReloadTestArmed((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, 0, 0.0);
+NOT DB_AESN_PendingReloadTestNotice((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_PendingReloadVerifyOpen((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_PendingReloadFailure((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_PendingReloadResult((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+DB_AESN_ComponentStatusId("AESN_HARDENED_FOE_01");
+DB_AESN_ComponentStatusId("AESN_HARDENED_FOE_02");
+DB_AESN_ComponentStatusId("AESN_HARDENED_FOE_03");
+DB_AESN_ComponentStatusId("AESN_HARDENED_FOE_04");
+DB_AESN_ComponentStatusId("AESN_HARDENED_FOE_05");
+DB_AESN_ComponentStatusId("AESN_HARDENED_FOE_06");
+DB_AESN_ComponentStatusId("AESN_RELENTLESS_FOE_01");
+DB_AESN_ComponentStatusId("AESN_RELENTLESS_FOE_02");
+DB_AESN_ComponentStatusId("AESN_TIER_LEVEL_05_08");
+DB_AESN_ComponentStatusId("AESN_EXTRA_ACTION_1");
+DB_AESN_ComponentStatusId("AESN_EXTRA_BONUS_ACTION_1");
+KBSECTION
+
+// Dormant retail-only CAP-06 fixture. Tracked source never enables this fact.
+// The separately approved temporary test build inserts Enabled(1) only in its
+// Toolkit copy, then restores production source immediately after publishing.
+// Goal ordering places the hold between enemy eligibility and HP planning.
+IF
+DB_AESN_PendingReloadTestEnabled(1)
+AND
+DB_AESN_EnemyEligible(_Combat, _Enemy)
+AND
+NOT DB_AESN_PendingReloadTestClaimed(1)
+AND
+NOT DB_AESN_HpApplicationHold(_Combat, _Enemy)
+THEN
+DB_AESN_PendingReloadTestClaimed(1);
+DB_AESN_HpApplicationHold(_Combat, _Enemy);
+DebugLog("AESN_CAP06_PENDING CLAIMED holdBeforePlan=1");
+
+IF
+DB_AESN_PendingReloadTestEnabled(1)
+AND
+DB_AESN_PendingReloadTestClaimed(1)
+AND
+DB_AESN_HpApplicationHold(_Combat, _Enemy)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "Planned", _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _, _, 0)
+AND
+NOT DB_AESN_PendingReloadTestArmed(_Combat, _Enemy, _, _, _)
+THEN
+DB_AESN_PendingReloadTestArmed(_Combat, _Enemy, _BeforeCurrent, _BeforeMaximum, _BeforePercentage);
+DebugLog("AESN_CAP06_PENDING ARMED state=Planned,appliedBits=0");
+
+IF
+DB_AESN_PendingReloadTestArmed(_Combat, _Enemy, _, _, _)
+AND
+GetHostCharacter((CHARACTER)_Player)
+AND
+NOT DB_AESN_PendingReloadTestNotice(_Combat, _Player)
+THEN
+DB_AESN_PendingReloadTestNotice(_Combat, _Player);
+DebugLog("AESN_CAP06_PENDING armed; no production UI notification");
+
+IF
+SavegameLoadStarted()
+AND
+DB_AESN_PendingReloadTestArmed(_, _, _, _, _)
+THEN
+DebugLog("AESN_CAP06_PENDING LOAD_STARTED armedPersistedBeforeLoad=1");
+
+IF
+SavegameLoaded()
+AND
+DB_AESN_PendingReloadTestArmed(_Combat, _Enemy, _, _, _)
+THEN
+RealtimeObjectTimerLaunch(_Enemy, "AESN_CAP06_PENDING_INSPECT", 2000);
+DebugLog("AESN_CAP06_PENDING LOAD_OBSERVED armedPersisted=1");
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_CAP06_PENDING_INSPECT")
+AND
+DB_AESN_PendingReloadTestArmed(_Combat, _Enemy, _, _, _)
+AND
+NOT DB_AESN_PendingReloadVerifyOpen(_Combat, _Enemy)
+THEN
+DB_AESN_PendingReloadVerifyOpen(_Combat, _Enemy);
+RealtimeObjectTimerLaunch(_Enemy, "AESN_CAP06_PENDING_FINALIZE", 250);
+
+IF
+DB_AESN_PendingReloadVerifyOpen(_Combat, _Enemy)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
+THEN
+DB_AESN_PendingReloadFailure(_Combat, _Enemy, "TransactionRemained");
+
+IF
+DB_AESN_PendingReloadVerifyOpen(_Combat, _Enemy)
+AND
+DB_AESN_HpApplicationHold(_Combat, _Enemy)
+THEN
+DB_AESN_PendingReloadFailure(_Combat, _Enemy, "HoldRemained");
+
+IF
+DB_AESN_PendingReloadVerifyOpen(_Combat, _Enemy)
+AND
+DB_AESN_HpPlanQueued(_Combat, _Enemy)
+THEN
+DB_AESN_PendingReloadFailure(_Combat, _Enemy, "PlanQueueRemained");
+
+IF
+DB_AESN_PendingReloadVerifyOpen(_Combat, _Enemy)
+AND
+DB_AESN_EnemyHpBit(_Combat, _Enemy, _, _)
+THEN
+DB_AESN_PendingReloadFailure(_Combat, _Enemy, "RecordedHpBitRemained");
+
+IF
+DB_AESN_PendingReloadVerifyOpen(_Combat, _Enemy)
+AND
+DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
+THEN
+DB_AESN_PendingReloadFailure(_Combat, _Enemy, "RecordedComponentRemained");
+
+IF
+DB_AESN_PendingReloadVerifyOpen(_Combat, _Enemy)
+AND
+DB_AESN_HpBitOrder(_, _, _Status)
+AND
+HasActiveStatus(_Enemy, _Status, 1)
+THEN
+DB_AESN_PendingReloadFailure(_Combat, _Enemy, "UnrecordedHpBitActive");
+
+IF
+DB_AESN_PendingReloadVerifyOpen(_Combat, _Enemy)
+AND
+DB_AESN_ComponentStatusId(_Status)
+AND
+HasActiveStatus(_Enemy, _Status, 1)
+THEN
+DB_AESN_PendingReloadFailure(_Combat, _Enemy, "UnrecordedComponentActive");
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_CAP06_PENDING_FINALIZE")
+AND
+DB_AESN_PendingReloadVerifyOpen(_Combat, _Enemy)
+AND
+DB_AESN_PendingReloadTestArmed(_Combat, _Enemy, _BeforeCurrent, _BeforeMaximum, _BeforePercentage)
+AND
+DB_AESN_ReconcileResult(_Combat, _Enemy, "ROLLED_BACK", "PendingApplication")
+AND
+NOT DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_HpApplicationHold(_Combat, _Enemy)
+AND
+NOT DB_AESN_HpPlanQueued(_Combat, _Enemy)
+AND
+NOT DB_AESN_EnemyHpBit(_Combat, _Enemy, _, _)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
+AND
+GetHitpoints(_Enemy, _BeforeCurrent)
+AND
+GetMaxHitpoints(_Enemy, _BeforeMaximum)
+AND
+NOT DB_AESN_PendingReloadFailure(_Combat, _Enemy, _)
+THEN
+DB_AESN_PendingReloadResult(_Combat, _Enemy, "PASS");
+NOT DB_AESN_PendingReloadVerifyOpen(_Combat, _Enemy);
+NOT DB_AESN_PendingReloadTestEnabled(1);
+NOT DB_AESN_PendingReloadTestClaimed(1);
+DebugLog("AESN_CAP06_PENDING RELOAD_PASS state=ROLLED_BACK,appliedBits=0,percentageWrites=0,doubleApply=0");
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_CAP06_PENDING_FINALIZE")
+AND
+DB_AESN_PendingReloadVerifyOpen(_Combat, _Enemy)
+AND
+DB_AESN_PendingReloadFailure(_Combat, _Enemy, _Reason)
+AND
+NOT DB_AESN_PendingReloadResult(_Combat, _Enemy, _)
+THEN
+DB_AESN_PendingReloadResult(_Combat, _Enemy, "FAIL");
+NOT DB_AESN_PendingReloadVerifyOpen(_Combat, _Enemy);
+DebugLog("AESN_CAP06_PENDING RELOAD_FAIL identityOrCleanupMismatch=1");
+
+EXITSECTION
+
+ENDEXITSECTION

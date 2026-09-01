@@ -1,0 +1,135 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_RosterBuildOpen((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_RosterAggregate((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, 0, 0);
+NOT DB_AESN_SnapshotMember((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0);
+NOT DB_AESN_SnapshotFinalizeTimer("", (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_RosterExclusion((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+KBSECTION
+
+// DB_PartyMembers is the only positive candidate source. The query retains dead
+// or downed candidates and excludes summons, owned entities, and party followers.
+QRY
+QRY_AESN_IsEligibleRosterMember((CHARACTER)_Member)
+AND
+DB_PartyMembers(_Member)
+AND
+IsSummon(_Member, 0)
+AND
+NOT CharacterGetOwner(_Member, _)
+AND
+IsPartyFollower(_Member, 0)
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_BuildRoster((GUIDSTRING)_Combat)
+AND
+ConcatenateGUID("AESN_SNAPSHOT_FINALIZE_", _Combat, _Timer)
+AND
+NOT DB_AESN_RosterBuildOpen(_Combat)
+AND
+NOT DB_AESN_SnapshotFinalizeTimer(_, _Combat)
+AND
+NOT DB_AESN_RosterAggregate(_Combat, _, _)
+AND
+NOT DB_AESN_CombatSnapshotV2(_Combat, _, _, _, _, _, _, _, _, _, _, _)
+THEN
+DB_AESN_RosterAggregate(_Combat, 0, 0);
+DB_AESN_RosterBuildOpen(_Combat);
+DB_AESN_SnapshotFinalizeTimer(_Timer, _Combat);
+TimerLaunch(_Timer, 100);
+
+IF
+DB_AESN_RosterBuildOpen((GUIDSTRING)_Combat)
+AND
+DB_PartyMembers((CHARACTER)_Member)
+AND
+QRY_AESN_IsEligibleRosterMember(_Member)
+AND
+GetLevel(_Member, _Level)
+AND
+NOT DB_AESN_SnapshotMember(_Combat, _Member, _)
+THEN
+PROC_AESN_RecordEligibleMember(_Combat, _Member, _Level);
+
+PROC
+PROC_AESN_RecordEligibleMember((GUIDSTRING)_Combat, (CHARACTER)_Member, (INTEGER)_Level)
+AND
+DB_AESN_RosterAggregate(_Combat, _EligibleSize, _LevelSum)
+AND
+NOT DB_AESN_SnapshotMember(_Combat, _Member, _)
+AND
+IntegerSum(_EligibleSize, 1, _NextSize)
+AND
+IntegerSum(_LevelSum, _Level, _NextSum)
+THEN
+NOT DB_AESN_RosterAggregate(_Combat, _EligibleSize, _LevelSum);
+DB_AESN_RosterAggregate(_Combat, _NextSize, _NextSum);
+DB_AESN_SnapshotMember(_Combat, _Member, _Level);
+
+IF
+DB_AESN_SnapshotMember((GUIDSTRING)_Combat, (CHARACTER)_Member, _Level)
+AND
+ConcatenateGUID("AESN_ROSTER ELIGIBLE member=", _Member, _Message1)
+AND
+Concatenate(_Message1, ",level=", _Message2)
+AND
+ConcatenateInteger(_Message2, _Level, _Message3)
+AND
+Concatenate(_Message3, ",source=DB_PartyMembers", _Message)
+THEN
+DebugLog(_Message);
+
+// Exclusion evidence is diagnostic only and cannot insert a snapshot member.
+IF
+DB_AESN_RosterBuildOpen((GUIDSTRING)_Combat)
+AND
+DB_PartyMembers((CHARACTER)_Member)
+AND
+IsSummon(_Member, 1)
+THEN
+DB_AESN_RosterExclusion(_Combat, _Member, "Summon");
+
+IF
+DB_AESN_RosterBuildOpen((GUIDSTRING)_Combat)
+AND
+DB_PartyMembers((CHARACTER)_Member)
+AND
+CharacterGetOwner(_Member, _Owner)
+THEN
+DB_AESN_RosterExclusion(_Combat, _Member, "Owned");
+
+IF
+DB_AESN_RosterBuildOpen((GUIDSTRING)_Combat)
+AND
+DB_PartyMembers((CHARACTER)_Member)
+AND
+IsPartyFollower(_Member, 1)
+THEN
+DB_AESN_RosterExclusion(_Combat, _Member, "PartyFollower");
+
+IF
+DB_AESN_RosterExclusion((GUIDSTRING)_Combat, (CHARACTER)_Member, _Reason)
+AND
+ConcatenateGUID("AESN_ROSTER EXCLUDED member=", _Member, _Message1)
+AND
+Concatenate(_Message1, ",reason=", _Message2)
+AND
+Concatenate(_Message2, _Reason, _Message)
+THEN
+DebugLog(_Message);
+
+IF
+TimerFinished(_Timer)
+AND
+DB_AESN_SnapshotFinalizeTimer(_Timer, (GUIDSTRING)_Combat)
+THEN
+NOT DB_AESN_RosterBuildOpen(_Combat);
+NOT DB_AESN_SnapshotFinalizeTimer(_Timer, _Combat);
+PROC_AESN_FinalizeSnapshot(_Combat);
+
+EXITSECTION
+
+ENDEXITSECTION

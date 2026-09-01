@@ -1,0 +1,80 @@
+[
+  {
+    "id": "equal",
+    "snapshots": {
+      "old": {"eligibleSize": 3, "averageLevel": 6},
+      "new": {"eligibleSize": 3, "averageLevel": 6}
+    },
+    "enemies": {"old": ["enemy-old"], "new": ["enemy-new"]},
+    "merges": [["old", "new"]],
+    "expectedFinal": "new",
+    "expectedAverage": 6,
+    "expectedSize": 3,
+    "expectedMismatchCount": 0,
+    "discardedEnds": ["old"],
+    "expectedCleanup": ["enemy-new", "enemy-old"]
+  },
+  {
+    "id": "old-only",
+    "snapshots": {
+      "old": {"eligibleSize": 2, "averageLevel": 6}
+    },
+    "enemies": {"old": ["enemy-old"]},
+    "merges": [["old", "new"]],
+    "expectedFinal": "new",
+    "expectedAverage": 6,
+    "expectedSize": 2,
+    "expectedMismatchCount": 0,
+    "discardedEnds": ["old"],
+    "expectedCleanup": ["enemy-old"]
+  },
+  {
+    "id": "new-only",
+    "snapshots": {
+      "new": {"eligibleSize": 1, "averageLevel": 7}
+    },
+    "enemies": {"new": ["enemy-new"]},
+    "merges": [["old", "new"]],
+    "expectedFinal": "new",
+    "expectedAverage": 7,
+    "expectedSize": 1,
+    "expectedMismatchCount": 0,
+    "discardedEnds": ["old"],
+    "expectedCleanup": ["enemy-new"]
+  },
+  {
+    "id": "independent-maxima-mismatch",
+    "snapshots": {
+      "old": {"eligibleSize": 1, "averageLevel": 7},
+      "new": {"eligibleSize": 3, "averageLevel": 5}
+    },
+    "enemies": {"old": ["enemy-old"], "new": ["enemy-new"]},
+    "merges": [["old", "new"]],
+    "expectedFinal": "new",
+    "expectedAverage": 7,
+    "expectedSize": 3,
+    "expectedMismatchCount": 1,
+    "discardedEnds": ["old"],
+    "expectedCleanup": ["enemy-new", "enemy-old"]
+  },
+  {
+    "id": "three-combat-chain",
+    "snapshots": {
+      "a": {"eligibleSize": 1, "averageLevel": 6},
+      "b": {"eligibleSize": 1, "averageLevel": 6},
+      "c": {"eligibleSize": 1, "averageLevel": 6}
+    },
+    "enemies": {
+      "a": ["enemy-a"],
+      "b": ["enemy-b"],
+      "c": ["enemy-c"]
+    },
+    "merges": [["a", "b"], ["b", "c"]],
+    "expectedFinal": "c",
+    "expectedAverage": 6,
+    "expectedSize": 1,
+    "expectedMismatchCount": 0,
+    "discardedEnds": ["a", "b"],
+    "expectedCleanup": ["enemy-a", "enemy-b", "enemy-c"]
+  }
+]

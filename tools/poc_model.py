@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Any, Iterable, Mapping
 
 
 INT32_MAX = 2_147_483_647
@@ -14,15 +14,53 @@ class PolicyError(ValueError):
 @dataclass(frozen=True)
 class Policy:
     eligible_size: int
+    effective_size: int
     level_sum: int
     average_level: int
-    level_percent: int
-    party_percent: int
+    hardened_tier: int
+    target_hp_percent: int
+    attack_save_dc_bonus: int
+    ac_bonus: int
+    action_budget: int
+    bonus_action_budget: int
+    recipient_cap: int
     clamped: bool
 
     @property
     def supported(self) -> bool:
-        return self.level_percent > 0
+        return 1 <= self.hardened_tier <= 6
+
+    @property
+    def relentless_i_recipients(self) -> int:
+        return self.action_budget - self.bonus_action_budget
+
+    @property
+    def relentless_ii_recipients(self) -> int:
+        return self.bonus_action_budget
+
+
+@dataclass(frozen=True)
+class HpTransactionPlan:
+    target_maximum: int
+    delta: int
+    bits: tuple[int, ...]
+    restored_current: int
+    outcome: str
+
+
+@dataclass(frozen=True)
+class MergeResult:
+    aliases: dict[str, str]
+    snapshots: dict[str, Policy]
+    enemy_owners: dict[str, str]
+    mismatch_count: int
+
+
+@dataclass(frozen=True)
+class ReloadDecision:
+    action: str
+    reason: str
+    mutate: bool
 
 
 def _policy_from_summary(eligible_size: int, average_level: int) -> Policy:
@@ -31,15 +69,65 @@ def _policy_from_summary(eligible_size: int, average_level: int) -> Policy:
     if average_level <= 0:
         raise PolicyError("average level must be positive")
 
-    capped_size = min(eligible_size, 8)
+    effective_size = min(eligible_size, 12)
+    effective_level = min(average_level, 20)
+
+    if effective_level <= 4:
+        hardened_tier, base_hp_percent, stat_bonus, ac_bonus = (1, 125, 1, 0)
+        level_action_budget, level_bonus_budget = (0, 0)
+    elif effective_level <= 8:
+        hardened_tier, base_hp_percent, stat_bonus, ac_bonus = (2, 150, 2, 1)
+        level_action_budget, level_bonus_budget = (1, 0)
+    elif effective_level <= 12:
+        hardened_tier, base_hp_percent, stat_bonus, ac_bonus = (3, 180, 3, 1)
+        level_action_budget, level_bonus_budget = (1, 0)
+    elif effective_level <= 16:
+        hardened_tier, base_hp_percent, stat_bonus, ac_bonus = (4, 220, 4, 2)
+        level_action_budget, level_bonus_budget = (1, 1)
+    elif effective_level <= 18:
+        hardened_tier, base_hp_percent, stat_bonus, ac_bonus = (5, 260, 5, 2)
+        level_action_budget, level_bonus_budget = (2, 1)
+    else:
+        hardened_tier, base_hp_percent, stat_bonus, ac_bonus = (6, 300, 6, 3)
+        level_action_budget, level_bonus_budget = (2, 2)
+
+    target_hp_percent = base_hp_percent + 20 * (effective_size - 1)
+
+    if effective_size <= 2:
+        action_budget = 1 if hardened_tier >= 2 else 0
+        bonus_action_budget = 0
+        recipient_cap = action_budget
+    else:
+        size_above_four = max(0, effective_size - 4)
+        recipient_cap = min(6, effective_size - 2)
+        action_budget = min(
+            recipient_cap,
+            level_action_budget + size_above_four,
+        )
+        bonus_action_budget = min(
+            action_budget,
+            level_bonus_budget + size_above_four // 2,
+        )
+
     return Policy(
         eligible_size=eligible_size,
+        effective_size=effective_size,
         level_sum=eligible_size * average_level,
         average_level=average_level,
-        level_percent=115 if 5 <= average_level <= 8 else 0,
-        party_percent=100 + 20 * (capped_size - 1),
-        clamped=eligible_size > 8,
+        hardened_tier=hardened_tier,
+        target_hp_percent=target_hp_percent,
+        attack_save_dc_bonus=stat_bonus,
+        ac_bonus=ac_bonus,
+        action_budget=action_budget,
+        bonus_action_budget=bonus_action_budget,
+        recipient_cap=recipient_cap,
+        clamped=eligible_size > 12 or average_level > 20,
     )
+
+
+def policy_from_summary(eligible_size: int, average_level: int) -> Policy:
+    """Build the canonical policy when only persisted summary fields exist."""
+    return _policy_from_summary(eligible_size, average_level)
 
 
 def build_policy(levels: Iterable[int]) -> Policy:
@@ -54,10 +142,16 @@ def build_policy(levels: Iterable[int]) -> Policy:
     policy = _policy_from_summary(len(normalized), average_level)
     return Policy(
         eligible_size=policy.eligible_size,
+        effective_size=policy.effective_size,
         level_sum=level_sum,
         average_level=policy.average_level,
-        level_percent=policy.level_percent,
-        party_percent=policy.party_percent,
+        hardened_tier=policy.hardened_tier,
+        target_hp_percent=policy.target_hp_percent,
+        attack_save_dc_bonus=policy.attack_save_dc_bonus,
+        ac_bonus=policy.ac_bonus,
+        action_budget=policy.action_budget,
+        bonus_action_budget=policy.bonus_action_budget,
+        recipient_cap=policy.recipient_cap,
         clamped=policy.clamped,
     )
 
@@ -68,11 +162,11 @@ def target_maximum(base_maximum: int, policy: Policy) -> int:
     if not policy.supported:
         raise PolicyError("average level is outside the POC tier")
 
-    product = base_maximum * policy.level_percent * policy.party_percent
+    product = base_maximum * policy.target_hp_percent
     if product > INT32_MAX:
         raise PolicyError("maximum HP calculation exceeds signed 32-bit range")
 
-    target = product // 10_000
+    target = product // 100
     if target <= 0:
         raise PolicyError("calculated target maximum HP must be positive")
     return target
@@ -124,8 +218,158 @@ def restore_current(
     return max(1, min(restored, new_maximum))
 
 
+def plan_hp_target(
+    current: int,
+    base_maximum: int,
+    target: int,
+    *,
+    alive: bool,
+) -> HpTransactionPlan:
+    """Validate one immutable target and derive its exact fork-owned bit plan."""
+    values = (current, base_maximum, target)
+    if any(not isinstance(value, int) or isinstance(value, bool) for value in values):
+        raise PolicyError("HP values must be integers")
+    if current < 0:
+        raise PolicyError("current HP cannot be negative")
+    if base_maximum <= 0 or target <= 0:
+        raise PolicyError("maximum HP values must be positive")
+    if current > base_maximum:
+        raise PolicyError("current HP cannot exceed the captured maximum")
+
+    if not alive or current == 0:
+        return HpTransactionPlan(
+            target_maximum=target,
+            delta=0,
+            bits=(),
+            restored_current=0,
+            outcome="skip_dead",
+        )
+
+    delta = target - base_maximum
+    bits = tuple(decompose_delta(delta))
+    restored = restore_current(
+        current,
+        base_maximum,
+        target,
+        alive=True,
+    )
+    return HpTransactionPlan(
+        target_maximum=target,
+        delta=delta,
+        bits=bits,
+        restored_current=restored,
+        outcome="no_change" if delta == 0 else "planned",
+    )
+
+
 def canonical_merge_policy(left: Policy, right: Policy) -> Policy:
     return _policy_from_summary(
         max(left.eligible_size, right.eligible_size),
         max(left.average_level, right.average_level),
     )
+
+
+def resolve_combat_owner(aliases: Mapping[str, str], combat: str) -> str:
+    """Resolve a discarded combat through every alias to its final survivor."""
+    current = combat
+    visited: set[str] = set()
+    while current in aliases:
+        if current in visited:
+            raise PolicyError("combat alias cycle detected")
+        visited.add(current)
+        current = aliases[current]
+    return current
+
+
+def reconcile_merge_case(case: Mapping[str, Any]) -> MergeResult:
+    """Deterministic oracle for mark-before-migrate combat ownership."""
+    snapshots = {
+        combat: policy_from_summary(
+            int(summary["eligibleSize"]),
+            int(summary["averageLevel"]),
+        )
+        for combat, summary in case.get("snapshots", {}).items()
+    }
+    enemy_owners: dict[str, str] = {}
+    for combat, enemies in case.get("enemies", {}).items():
+        for enemy in enemies:
+            if enemy in enemy_owners:
+                raise PolicyError(f"enemy has multiple combat owners: {enemy}")
+            enemy_owners[str(enemy)] = str(combat)
+
+    aliases: dict[str, str] = {}
+    mismatch_count = 0
+    for raw_old, raw_new in case.get("merges", []):
+        old = resolve_combat_owner(aliases, str(raw_old))
+        new = resolve_combat_owner(aliases, str(raw_new))
+        if old == new:
+            continue
+
+        left = snapshots.get(old)
+        right = snapshots.get(new)
+        if left is not None and right is not None:
+            if (
+                left.eligible_size != right.eligible_size
+                or left.average_level != right.average_level
+            ):
+                mismatch_count += 1
+            canonical = canonical_merge_policy(left, right)
+        else:
+            canonical = left if left is not None else right
+
+        # Mark first. Cleanup sees the alias before any ownership row moves.
+        aliases[old] = new
+        snapshots.pop(old, None)
+        if canonical is not None:
+            snapshots[new] = canonical
+        for enemy, owner in tuple(enemy_owners.items()):
+            if resolve_combat_owner(aliases, owner) == new:
+                enemy_owners[enemy] = new
+
+    return MergeResult(
+        aliases=aliases,
+        snapshots=snapshots,
+        enemy_owners=enemy_owners,
+        mismatch_count=mismatch_count,
+    )
+
+
+def cleanup_commands(result: MergeResult, combat: str) -> tuple[str, ...]:
+    """Return unique final-owner cleanup targets; discarded ends are no-ops."""
+    if combat in result.aliases:
+        return ()
+    final = resolve_combat_owner(result.aliases, combat)
+    if final != combat:
+        return ()
+    return tuple(
+        sorted(
+            enemy
+            for enemy, owner in result.enemy_owners.items()
+            if resolve_combat_owner(result.aliases, owner) == final
+        )
+    )
+
+
+def reconcile_reload_state(
+    *,
+    combat_active: bool,
+    schema_version: int,
+    hp_state: str,
+    component_state: str | None,
+    identities_valid: bool,
+) -> ReloadDecision:
+    """Choose the sole allowed recovery path for one persisted application."""
+    if schema_version != 2:
+        return ReloadDecision("cleanup", "UnsupportedSchema", True)
+    if not identities_valid:
+        return ReloadDecision("cleanup", "IdentityMismatch", True)
+
+    fully_committed = (
+        hp_state == "HPCommitted"
+        and component_state == "FullyCommitted"
+    )
+    if not combat_active:
+        return ReloadDecision("cleanup", "InactiveCombat", True)
+    if fully_committed:
+        return ReloadDecision("retain", "ValidActiveCommit", False)
+    return ReloadDecision("rollback", "PendingApplication", True)

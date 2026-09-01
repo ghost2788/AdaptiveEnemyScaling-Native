@@ -361,6 +361,8 @@ git commit -m "feat: prove isolated native flat HP status"
 
 ### Task 5: Full Status Registry and Roster Capability Gate
 
+CAP-05 composition pre-gate observed 2026-08-31: **Verified locally.** The narrow independent `1|4|8` registry produced exact `+13` apply/cleanup transactions (`12/12 -> 25/25 -> 12/12`), distinct status acknowledgements, individual active/inactive queries, and one percentage restoration per transaction. The remaining status bits and CAP-03 roster work below are still open.
+
 **Files:**
 - Modify: `toolkit/Public/AdaptiveEnemyScalingNativePOC_a4567f52-1665-df50-b84c-3992f80fdb90/Stats/Generated/Data/Status_BOOST.txt`
 - Create: `story/RawFiles/Goals/AESN_10_Roster.txt`
@@ -375,7 +377,7 @@ git commit -m "feat: prove isolated native flat HP status"
 - Consumes: verified flat-HP status primitive; `build_policy` oracle.
 - Produces: sixteen HP statuses; `AESN_TIER_LEVEL_05_08`; additive action statuses; `PROC_AESN_BuildRoster`; `QRY_AESN_IsEligibleRosterMember`; finalized versioned snapshots.
 
-- [ ] **Step 1: Write failing status-registry and roster-source tests**
+- [x] **Step 1: Write failing status-registry and roster-source tests**
 
 `tests/validate_identities.py` must parse Story and Stats text and assert:
 
@@ -390,7 +392,7 @@ Run: `python tests\validate_identities.py`
 
 Expected: FAIL because the registry and roster goals are incomplete.
 
-- [ ] **Step 2: Expand the independently authored status registry**
+- [x] **Step 2: Expand the independently authored status registry**
 
 Add `AESN_HP_BIT_00002` through `AESN_HP_BIT_32768`, each with its own matching stack ID and `IncreaseMaxHP(<bit>);`. Add:
 
@@ -417,7 +419,7 @@ data "Boosts" "ActionResource(BonusActionPoint,1,0);"
 data "StatusPropertyFlags" "DisableOverhead;DisableCombatlog;DisablePortraitIndicator"
 ```
 
-- [ ] **Step 3: Implement the candidate and diagnostic separation**
+- [x] **Step 3: Implement the candidate and diagnostic separation**
 
 `AESN_10_Roster.txt` defines:
 
@@ -440,6 +442,8 @@ Use the editor harness to capture database observations for: solo avatar; three 
 Expected: avatar, active player avatars, active companion, and active hireling are included once; summon, familiar, and temporary follower are excluded; transformation does not duplicate identity.
 
 If the approved query set cannot meet those results, mark the roster claim **Rejected** and stop rather than unioning `DB_PartOfTheTeam`.
+
+Observed 2026-08-31: Story and the full Stats registry compile/load gates pass. The blank editor fixture verified the 100 ms event barrier and empty-roster failure-closed behavior. A managed Shadowheart fixture verified native `MakePlayer`, vanilla `DB_Players -> DB_PartyMembers` derivation, one positive eligible member, level capture, and `size=1,sum=1,average=1`. Incremental Gale ownership and registry probes then produced a verified two-member snapshot: both Shadowheart and Gale were eligible, neither had a gameplay owner, and the policy finalized `size=2,sum=2,average=1,partyPercent=120`. A prior combined fixture crashed on its first `SetLevel` call because the off-level Shadowheart origin lacked an Experience Component; no Gale or Astarion action executed. That command is retired and synthetic level mutation in this editor context is **Rejected**. Three-member, hireling, summon, familiar, follower, transformation, and supported-tier fixtures remain **Assumption/unsupported**; subsequent construction must proceed incrementally without `SetLevel`, and CAP-03 is still open.
 
 - [ ] **Step 5: Run validators and commit the verified roster/policy layer**
 

@@ -7,7 +7,258 @@ NOT DB_AESN_TestObservation("", (CHARACTER)NULL_00000000-0000-0000-0000-00000000
 NOT DB_AESN_TestSpawnedTarget((CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
 NOT DB_AESN_TestSpawnPendingReady((CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
 NOT DB_AESN_TestSpawnPendingDeath((CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_TestGrantedFamiliarSpell((CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_TestFamiliar((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_TestFollowerPending((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_TestFollower((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
 KBSECTION
+
+// Editor-only CAP-03 host fixture probe. The null owner asks the native
+// MakePlayer call to assign Shadowheart to the host user; this harness does
+// not write DB_PartyMembers itself.
+// ReCon command: oe AESN_TEST_MAKE_SHADOWHEART_HOST
+IF
+TextEvent("AESN_TEST_MAKE_SHADOWHEART_HOST")
+THEN
+MakePlayer((CHARACTER)S_Player_ShadowHeart_3ed74f06-3c60-42dc-83f6-f034cb47c679, NULL_00000000-0000-0000-0000-000000000000, 1);
+DB_Players((CHARACTER)S_Player_ShadowHeart_3ed74f06-3c60-42dc-83f6-f034cb47c679);
+
+// Editor-only CAP-03 post-crash isolation probe. Shadowheart must already be
+// the managed host fixture. This command performs only the native ownership
+// conversion; registration and Story database facts are deliberately absent.
+// ReCon command: oe AESN_TEST_MAKE_GALE_OWNED_PLAYER
+IF
+TextEvent("AESN_TEST_MAKE_GALE_OWNED_PLAYER")
+THEN
+MakePlayer((CHARACTER)S_Player_Gale_ad9af97d-75da-406a-ae13-7071c563f604, (CHARACTER)S_Player_ShadowHeart_3ed74f06-3c60-42dc-83f6-f034cb47c679, 1);
+
+// Editor-only CAP-03 registry probe. Run only after the Gale ownership probe.
+// This inserts the vanilla player-registry fact and leaves DB_PartyMembers to
+// vanilla Story derivation.
+// ReCon command: oe AESN_TEST_REGISTER_GALE_PLAYER_FACT
+IF
+TextEvent("AESN_TEST_REGISTER_GALE_PLAYER_FACT")
+THEN
+DB_Players((CHARACTER)S_Player_Gale_ad9af97d-75da-406a-ae13-7071c563f604);
+
+// Editor-only CAP-03 Astarion ownership probe. This repeats the verified
+// one-operation native conversion without registration or database writes.
+// ReCon command: oe AESN_TEST_MAKE_ASTARION_OWNED_PLAYER
+IF
+TextEvent("AESN_TEST_MAKE_ASTARION_OWNED_PLAYER")
+THEN
+MakePlayer((CHARACTER)S_Player_Astarion_c7c13742-bacd-460a-8f65-f864fe41f255, (CHARACTER)S_Player_ShadowHeart_3ed74f06-3c60-42dc-83f6-f034cb47c679, 1);
+
+// Editor-only CAP-03 Astarion registry probe. Vanilla Story alone must derive
+// DB_PartyMembers from this player-registry fact.
+// ReCon command: oe AESN_TEST_REGISTER_ASTARION_PLAYER_FACT
+IF
+TextEvent("AESN_TEST_REGISTER_ASTARION_PLAYER_FACT")
+THEN
+DB_Players((CHARACTER)S_Player_Astarion_c7c13742-bacd-460a-8f65-f864fe41f255);
+
+// Editor-only CAP-03 avatar-registry probe. Run after establishing the
+// Shadowheart host fixture. This inserts only the vanilla avatar fact required
+// by Larian's built-in hr_hire debug path; it does not invoke that path.
+// ReCon command: oe AESN_TEST_REGISTER_SHADOWHEART_AVATAR_FACT
+IF
+TextEvent("AESN_TEST_REGISTER_SHADOWHEART_AVATAR_FACT")
+THEN
+DB_Avatars((CHARACTER)S_Player_ShadowHeart_3ed74f06-3c60-42dc-83f6-f034cb47c679);
+
+// Editor-only CAP-03 genuine-familiar probe. This follows Larian's native
+// Scratch familiar spell path and never fabricates DB_PartyMembers. The spell
+// is granted only when absent and removed after an owned summon joins.
+// The reset command removes only this probe's known Scratch-spell fixture; it
+// exists to recover editor character state that can outlive a Story rebuild.
+// ReCon command: oe AESN_TEST_RESET_SCRATCH_FAMILIAR
+IF
+TextEvent("AESN_TEST_RESET_SCRATCH_FAMILIAR")
+AND
+GetHostCharacter(_Caster)
+AND
+HasSpell(_Caster, "Target_FindFamiliar_Dog", 1)
+THEN
+RemoveSpell(_Caster, "Target_FindFamiliar_Dog", 0);
+NOT DB_AESN_TestGrantedFamiliarSpell(_Caster);
+DebugLog("AESN_CAP03 FAMILIAR_RESET removedSpell=1");
+
+IF
+TextEvent("AESN_TEST_RESET_SCRATCH_FAMILIAR")
+AND
+GetHostCharacter(_Caster)
+AND
+HasSpell(_Caster, "Target_FindFamiliar_Dog", 0)
+THEN
+NOT DB_AESN_TestGrantedFamiliarSpell(_Caster);
+DebugLog("AESN_CAP03 FAMILIAR_RESET removedSpell=0");
+
+// ReCon command: oe AESN_TEST_SUMMON_SCRATCH_FAMILIAR
+IF
+TextEvent("AESN_TEST_SUMMON_SCRATCH_FAMILIAR")
+THEN
+DebugLog("AESN_CAP03 FAMILIAR_COMMAND_RECEIVED");
+
+IF
+TextEvent("AESN_TEST_SUMMON_SCRATCH_FAMILIAR")
+AND
+GetHostCharacter(_Caster)
+AND
+HasSpell(_Caster, "Target_FindFamiliar_Dog", 0)
+AND
+NOT DB_AESN_TestGrantedFamiliarSpell(_Caster)
+AND
+GetPosition(_Caster, _X, _Y, _Z)
+AND
+FindValidPosition(_X, _Y, _Z, 250.0, _Caster, 0, _StageX, _StageY, _StageZ)
+THEN
+DB_AESN_TestGrantedFamiliarSpell(_Caster);
+AddSpell(_Caster, "Target_FindFamiliar_Dog", 0, 0);
+TeleportToPosition(_Caster, _StageX, _StageY, _StageZ, "", 0, 0, 0, 0, 1);
+DebugLog("AESN_CAP03 FAMILIAR_HOST_STAGED");
+TimerLaunch("AESN_CAP03_CAST_FAMILIAR", 500);
+
+IF
+TimerFinished("AESN_CAP03_CAST_FAMILIAR")
+AND
+DB_AESN_TestGrantedFamiliarSpell(_Caster)
+AND
+GetPosition(_Caster, _X, _Y, _Z)
+AND
+RealSum(_X, 3.0, _CandidateX)
+AND
+FindValidPosition(_CandidateX, _Y, _Z, 8.0, _Caster, 0, _CastX, _CastY, _CastZ)
+THEN
+DebugLog("AESN_CAP03 FAMILIAR_CAST_REQUESTED");
+UseSpellAtPosition(_Caster, "Target_FindFamiliar_Dog", _CastX, _CastY, _CastZ);
+
+IF
+CastSpellFailed(_Caster, "Target_FindFamiliar_Dog", _, _, _)
+AND
+DB_AESN_TestGrantedFamiliarSpell((CHARACTER)_Caster)
+THEN
+DebugLog("AESN_CAP03 FAMILIAR_CAST_FAILED");
+RemoveSpell(_Caster, "Target_FindFamiliar_Dog", 0);
+NOT DB_AESN_TestGrantedFamiliarSpell((CHARACTER)_Caster);
+
+IF
+CharacterJoinedParty(_Summon)
+AND
+IsSummon(_Summon, 1)
+AND
+CharacterGetOwner(_Summon, _Owner)
+AND
+DB_AESN_TestGrantedFamiliarSpell(_Owner)
+THEN
+DB_AESN_TestFamiliar(_Summon, _Owner);
+RemoveSpell(_Owner, "Target_FindFamiliar_Dog", 0);
+NOT DB_AESN_TestGrantedFamiliarSpell(_Owner);
+DebugLog("AESN_CAP03 SUMMON familiar=1,ownerVerified=1");
+
+// Structured reader prevents an orphan database and independently revalidates
+// the exact engine-owned familiar pair recorded by the acknowledgement rule.
+IF
+DB_AESN_TestFamiliar((CHARACTER)_Summon, (CHARACTER)_Owner)
+AND
+IsSummon(_Summon, 1)
+AND
+CharacterGetOwner(_Summon, _Owner)
+THEN
+DebugLog("AESN_CAP03 SUMMON_RECORDED familiar=1,ownerVerified=1");
+
+// Editor-only CAP-03 temporary-follower probe. This creates an inert native
+// character, hands it to the engine's AddPartyFollower API, and leaves
+// DB_PartyMembers entirely to vanilla Story. Two entity timers separate
+// creation, ownership conversion, and verification.
+// ReCon command: oe AESN_TEST_ADD_TEMP_FOLLOWER
+IF
+TextEvent("AESN_TEST_ADD_TEMP_FOLLOWER")
+AND
+GetHostCharacter(_Leader)
+AND
+NOT DB_AESN_TestFollowerPending(_, _)
+AND
+NOT DB_AESN_TestFollower(_, _)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _Follower)
+THEN
+DB_AESN_TestFollowerPending((CHARACTER)_Follower, _Leader);
+SetCanFight((CHARACTER)_Follower, 0);
+SetCanJoinCombat((CHARACTER)_Follower, 0);
+RealtimeObjectTimerLaunch((CHARACTER)_Follower, "AESN_CAP03_FOLLOWER_READY", 250);
+
+IF
+ObjectTimerFinished((CHARACTER)_Follower, "AESN_CAP03_FOLLOWER_READY")
+AND
+DB_AESN_TestFollowerPending(_Follower, _Leader)
+THEN
+AddPartyFollower(_Follower, _Leader);
+RealtimeObjectTimerLaunch(_Follower, "AESN_CAP03_FOLLOWER_VERIFY", 250);
+
+IF
+ObjectTimerFinished((CHARACTER)_Follower, "AESN_CAP03_FOLLOWER_VERIFY")
+AND
+DB_AESN_TestFollowerPending(_Follower, _Leader)
+AND
+IsPartyFollower(_Follower, 1)
+AND
+CharacterGetOwner(_Follower, _Leader)
+THEN
+DB_AESN_TestFollower(_Follower, _Leader);
+NOT DB_AESN_TestFollowerPending(_Follower, _Leader);
+DebugLog("AESN_CAP03 FOLLOWER_RECORDED follower=1,ownerVerified=1");
+
+// Structured reader keeps the fixture database non-orphaned and revalidates
+// the exact engine-owned follower pair before the roster observation.
+IF
+DB_AESN_TestFollower((CHARACTER)_Follower, (CHARACTER)_Leader)
+AND
+IsPartyFollower(_Follower, 1)
+AND
+CharacterGetOwner(_Follower, _Leader)
+THEN
+DebugLog("AESN_CAP03 FOLLOWER_CURRENT follower=1,ownerVerified=1");
+
+// Use the freshly created follower as a unique test-only snapshot key. This
+// avoids collisions with earlier roster observations while production still
+// enumerates candidates exclusively from DB_PartyMembers.
+// ReCon command: oe AESN_TEST_FOLLOWER_ROSTER
+IF
+TextEvent("AESN_TEST_FOLLOWER_ROSTER")
+AND
+DB_AESN_TestFollower((CHARACTER)_Follower, _)
+THEN
+PROC_AESN_BuildRoster((GUIDSTRING)_Follower);
+
+// ReCon command: oe AESN_TEST_RESET_TEMP_FOLLOWER
+IF
+TextEvent("AESN_TEST_RESET_TEMP_FOLLOWER")
+AND
+DB_AESN_TestFollower(_Follower, _Leader)
+AND
+IsPartyFollower(_Follower, 1)
+THEN
+RemovePartyFollower(_Follower, _Leader);
+RealtimeObjectTimerLaunch(_Follower, "AESN_CAP03_FOLLOWER_REMOVE", 250);
+
+IF
+ObjectTimerFinished((CHARACTER)_Follower, "AESN_CAP03_FOLLOWER_REMOVE")
+AND
+DB_AESN_TestFollower(_Follower, _Leader)
+AND
+IsPartyFollower(_Follower, 0)
+THEN
+PROC_SetOnStage(_Follower, 0);
+NOT DB_AESN_TestFollower(_Follower, _Leader);
+DebugLog("AESN_CAP03 FOLLOWER_RESET removed=1");
+
+// Editor-only CAP-03 observation trigger. The training-dummy GUID is only a
+// stable snapshot key; roster candidates still come exclusively from DB_PartyMembers.
+// ReCon command: oe AESN_TEST_BUILD_ROSTER
+IF
+TextEvent("AESN_TEST_BUILD_ROSTER")
+THEN
+PROC_AESN_BuildRoster((GUIDSTRING)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7);
 
 // Editor-only CAP-04 triggers. ReCon command: oe AESN_TEST_APPLY_ONE_HP
 IF

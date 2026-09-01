@@ -1,0 +1,334 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_ReconcileCombatPending((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_ReconcileEnemyPending((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0);
+NOT DB_AESN_ReconcileFailure((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_ReconcileResult((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "", "");
+NOT DB_AESN_Schema1MigrationPending((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+KBSECTION
+
+// A schema-1 snapshot is never trusted as a production policy. Existing
+// transaction/component ownership is reconciled and removed first; only after
+// every owned effect is gone may an active combat take a fresh schema-2 roster
+// snapshot. This preserves the transactional HP rollback path.
+IF
+SavegameLoaded()
+AND
+DB_AESN_CombatSnapshot(_Combat, 1, _, _, _, _, _, _)
+AND
+NOT DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _, _, _, "Supported")
+AND
+NOT DB_AESN_Schema1MigrationPending(_Combat)
+THEN
+DB_AESN_Schema1MigrationPending(_Combat);
+DebugLog("AESN_MIGRATION schema1 detected; exact cleanup queued");
+
+// Persisted transactions are held before the delayed inspection barrier. The
+// reconciler never applies a status or writes HP: it may retain, invoke exact
+// owned cleanup, or invoke the existing acknowledgement-driven rollback.
+IF
+SavegameLoaded()
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_HpApplicationHold(_Combat, _Enemy)
+THEN
+DB_AESN_HpApplicationHold(_Combat, _Enemy);
+
+IF
+SavegameLoaded()
+AND
+DB_AESN_HpTransaction(_Combat, _, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_ReconcileCombatPending(_Combat, _)
+AND
+ConcatenateGUID("AESN_RECONCILE_COMBAT_", _Combat, _Timer)
+THEN
+DB_AESN_ReconcileCombatPending(_Combat, _Timer);
+TimerLaunch(_Timer, 500);
+
+IF
+TimerFinished(_Timer)
+AND
+DB_AESN_ReconcileCombatPending(_Combat, _Timer)
+THEN
+PROC_AESN_OpenCombatReconciliation(_Combat);
+NOT DB_AESN_ReconcileCombatPending(_Combat, _Timer);
+
+PROC
+PROC_AESN_OpenCombatReconciliation((GUIDSTRING)_Combat)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
+AND
+CombatIsActive(_Combat, _IsActive)
+AND
+NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, _)
+AND
+NOT DB_AESN_ReconcileResult(_Combat, _Enemy, _, _)
+THEN
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, _IsActive);
+RealtimeObjectTimerLaunch(_Enemy, "AESN_RECONCILE_ENEMY", 250);
+
+PROC
+PROC_AESN_RecordReconcileFailure((GUIDSTRING)_Combat, (CHARACTER)_Enemy, (STRING)_Reason)
+AND
+NOT DB_AESN_ReconcileFailure(_Combat, _Enemy, _)
+THEN
+DB_AESN_ReconcileFailure(_Combat, _Enemy, _Reason);
+
+PROC
+PROC_AESN_DeleteReconcileFailures((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_ReconcileFailure(_Combat, _Enemy, _FailureReason)
+THEN
+NOT DB_AESN_ReconcileFailure(_Combat, _Enemy, _FailureReason);
+
+PROC
+PROC_AESN_FinalizeSchema1Migration((GUIDSTRING)_Combat)
+AND
+DB_AESN_Schema1MigrationPending(_Combat)
+AND
+NOT DB_AESN_HpTransaction(_Combat, _, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _, _, _)
+AND
+CombatIsActive(_Combat, 1)
+THEN
+NOT DB_AESN_Schema1MigrationPending(_Combat);
+PROC_AESN_DeleteCombatOwnedFacts(_Combat);
+PROC_AESN_BuildRoster(_Combat);
+DebugLog("AESN_MIGRATION schema1 cleanup complete; schema2 resnapshot queued");
+
+PROC
+PROC_AESN_FinalizeSchema1Migration((GUIDSTRING)_Combat)
+AND
+DB_AESN_Schema1MigrationPending(_Combat)
+AND
+NOT DB_AESN_HpTransaction(_Combat, _, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _, _, _)
+AND
+CombatIsActive(_Combat, 0)
+THEN
+NOT DB_AESN_Schema1MigrationPending(_Combat);
+PROC_AESN_DeleteCombatOwnedFacts(_Combat);
+DebugLog("AESN_MIGRATION schema1 stale combat cleanup complete");
+
+// Version and identity scans run while the delayed enemy barrier is open.
+IF
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, _)
+AND
+NOT DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _, _, _, "Supported")
+THEN
+PROC_AESN_RecordReconcileFailure(_Combat, _Enemy, "UnsupportedSchema");
+
+IF
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, _)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, _Version, _, _, _, _, _, _, _)
+AND
+_Version != 1
+THEN
+PROC_AESN_RecordReconcileFailure(_Combat, _Enemy, "UnsupportedSchema");
+
+IF
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, _)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _TargetMaximum, _Delta, _AppliedSum)
+AND
+_AppliedSum != _Delta
+THEN
+PROC_AESN_RecordReconcileFailure(_Combat, _Enemy, "IdentityMismatch");
+
+IF
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, _)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _TargetMaximum, _, _)
+AND
+GetMaxHitpoints(_Enemy, _ObservedMaximum)
+AND
+_ObservedMaximum != _TargetMaximum
+THEN
+PROC_AESN_RecordReconcileFailure(_Combat, _Enemy, "IdentityMismatch");
+
+IF
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, _)
+AND
+DB_AESN_EnemyHpBit(_Combat, _Enemy, _, _Status)
+AND
+HasActiveStatus(_Enemy, _Status, 0)
+THEN
+PROC_AESN_RecordReconcileFailure(_Combat, _Enemy, "IdentityMismatch");
+
+IF
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, _)
+AND
+DB_AESN_EnemyComponent(_Combat, _Enemy, _, _Status)
+AND
+HasActiveStatus(_Enemy, _Status, 0)
+THEN
+PROC_AESN_RecordReconcileFailure(_Combat, _Enemy, "IdentityMismatch");
+
+IF
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, _)
+AND
+DB_AESN_ComponentApplication(_Combat, _Enemy, _Version, _)
+AND
+_Version != 1
+THEN
+PROC_AESN_RecordReconcileFailure(_Combat, _Enemy, "UnsupportedSchema");
+
+// A valid fully committed active combat is observation-only. Removing the
+// hold is the only state change and cannot duplicate any effect.
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_RECONCILE_ENEMY")
+AND
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 1)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _, _, _, "Supported")
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _TargetMaximum, _Delta, _Delta)
+AND
+DB_AESN_ComponentApplication(_Combat, _Enemy, 1, "FullyCommitted")
+AND
+GetMaxHitpoints(_Enemy, _TargetMaximum)
+AND
+NOT DB_AESN_ReconcileFailure(_Combat, _Enemy, _)
+THEN
+DB_AESN_ReconcileResult(_Combat, _Enemy, "RETAIN", "ValidActiveCommit");
+NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 1);
+NOT DB_AESN_HpApplicationHold(_Combat, _Enemy);
+DebugLog("AESN_RECONCILE RETAIN reason=ValidActiveCommit,doubleApply=0");
+
+// An inactive combat is stale regardless of its otherwise valid identity.
+// Existing cleanup owns percentage capture, exact removals, and final record
+// deletion; this goal never shortcuts that transaction.
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_RECONCILE_ENEMY")
+AND
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 0)
+AND
+NOT DB_AESN_ReconcileResult(_Combat, _Enemy, _, _)
+THEN
+DB_AESN_ReconcileResult(_Combat, _Enemy, "CLEANUP", "InactiveCombat");
+NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 0);
+PROC_AESN_RequestCombatCleanup(_Combat);
+DebugLog("AESN_RECONCILE CLEANUP reason=InactiveCombat");
+
+// Any identity failure is cleaned rather than trusted. A diagnostic blocks
+// automatic replanning while the exact owned cleanup path runs.
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_RECONCILE_ENEMY")
+AND
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 1)
+AND
+DB_AESN_ReconcileFailure(_Combat, _Enemy, _Reason)
+AND
+NOT DB_AESN_ReconcileResult(_Combat, _Enemy, _, _)
+THEN
+DB_AESN_ReconcileResult(_Combat, _Enemy, "CLEANUP", _Reason);
+DB_AESN_HpFailure(_Combat, _Enemy, "LoadReconcileIdentityMismatch");
+NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 1);
+PROC_AESN_CleanupEnemy(_Enemy, _Combat);
+DebugLog("AESN_RECONCILE CLEANUP reason=IdentityMismatch");
+
+// A deliberately paused zero-application plan is normalized to ApplyingHP
+// under the persistent hold and then rolled back through the normal state
+// machine. No status can be requested in the transition gap.
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_RECONCILE_ENEMY")
+AND
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 1)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "Planned", _, _, _, _, _, 0)
+AND
+NOT DB_AESN_HpPendingApply(_Combat, _Enemy, _, _, _)
+AND
+NOT DB_AESN_ReconcileFailure(_Combat, _Enemy, _)
+THEN
+DB_AESN_ReconcileResult(_Combat, _Enemy, "ROLLBACK_STARTED", "PendingApplication");
+DB_AESN_HpFailure(_Combat, _Enemy, "LoadReconcilePendingApplication");
+NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 1);
+PROC_AESN_SetHpState(_Combat, _Enemy, "Planned", "ApplyingHP", 0);
+PROC_AESN_BeginHpRollback(_Combat, _Enemy);
+DebugLog("AESN_RECONCILE ROLLBACK reason=PendingApplication,doubleApply=0");
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_RECONCILE_ENEMY")
+AND
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 1)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "ApplyingHP", _, _, _, _, _, _)
+AND
+NOT DB_AESN_HpPendingApply(_Combat, _Enemy, _, _, _)
+AND
+NOT DB_AESN_ReconcileFailure(_Combat, _Enemy, _)
+THEN
+DB_AESN_ReconcileResult(_Combat, _Enemy, "ROLLBACK_STARTED", "PendingApplication");
+DB_AESN_HpFailure(_Combat, _Enemy, "LoadReconcilePendingApplication");
+NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 1);
+PROC_AESN_BeginHpRollback(_Combat, _Enemy);
+DebugLog("AESN_RECONCILE ROLLBACK reason=PendingApplication,doubleApply=0");
+
+// A partial component chain owns only acknowledged component rows. Mark it
+// failed and let component cleanup hand off to exact HP cleanup.
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_RECONCILE_ENEMY")
+AND
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 1)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _, _, _)
+AND
+DB_AESN_ComponentApplication(_Combat, _Enemy, 1, _ComponentState)
+AND
+_ComponentState != "FullyCommitted"
+AND
+NOT DB_AESN_ComponentPendingApply(_Combat, _Enemy, _, _)
+AND
+NOT DB_AESN_ReconcileFailure(_Combat, _Enemy, _)
+THEN
+DB_AESN_ReconcileResult(_Combat, _Enemy, "ROLLBACK_STARTED", "PendingApplication");
+DB_AESN_HpFailure(_Combat, _Enemy, "LoadReconcilePendingApplication");
+NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 1);
+PROC_AESN_SetAnyComponentStateFailed(_Combat, _Enemy);
+PROC_AESN_BeginComponentFailureCleanup(_Combat, _Enemy);
+DebugLog("AESN_RECONCILE ROLLBACK reason=PendingApplication,doubleApply=0");
+
+// Retire reconciliation metadata only after the existing exact transaction has
+// removed every application record. Failure diagnostics remain until the
+// combat's ordinary final cleanup deletes them.
+IF
+DB_AESN_ReconcileResult(_Combat, _Enemy, "ROLLBACK_STARTED", "PendingApplication")
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "Failed", _, _, _, _, _, 0)
+THEN
+PROC_AESN_DeleteHpRecords(_Combat, _Enemy);
+NOT DB_AESN_HpApplicationHold(_Combat, _Enemy);
+NOT DB_AESN_ReconcileResult(_Combat, _Enemy, "ROLLBACK_STARTED", "PendingApplication");
+DB_AESN_ReconcileResult(_Combat, _Enemy, "ROLLED_BACK", "PendingApplication");
+
+IF
+DB_AESN_ReconcileResult(_Combat, _Enemy, "CLEANUP", _Reason)
+AND
+NOT DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
+THEN
+NOT DB_AESN_HpApplicationHold(_Combat, _Enemy);
+PROC_AESN_DeleteReconcileFailures(_Combat, _Enemy);
+NOT DB_AESN_ReconcileResult(_Combat, _Enemy, "CLEANUP", _Reason);
+
+// Migration waits on the exact asynchronous cleanup transactions above.
+IF
+DB_AESN_Schema1MigrationPending(_Combat)
+AND
+NOT DB_AESN_HpTransaction(_Combat, _, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _, _, _)
+THEN
+PROC_AESN_FinalizeSchema1Migration(_Combat);
+
+EXITSECTION
+
+ENDEXITSECTION

@@ -1,0 +1,74 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_StatTierTarget((CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_StatTierPendingReady((CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_StatTierApplied((CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+KBSECTION
+
+// Isolated one-tier primitive. The Stats resource independently defines exactly
+// Attack +1, SavingThrow +1, AC +1, and SpellSaveDC +1. This harness proves
+// runtime ownership, acknowledgement, active-state visibility, and exact cleanup.
+// ReCon command: oe AESN_TEST_SPAWN_AND_APPLY_STAT_TIER
+IF
+TextEvent("AESN_TEST_SPAWN_AND_APPLY_STAT_TIER")
+AND
+NOT DB_AESN_StatTierTarget(_)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _Target)
+THEN
+DB_AESN_StatTierTarget((CHARACTER)_Target);
+SetCanFight((CHARACTER)_Target, 0);
+SetCanJoinCombat((CHARACTER)_Target, 0);
+DB_AESN_StatTierPendingReady((CHARACTER)_Target);
+RealtimeObjectTimerLaunch((CHARACTER)_Target, "AESN_STAT_TIER_READY", 250);
+
+IF
+ObjectTimerFinished((CHARACTER)_Target, "AESN_STAT_TIER_READY")
+AND
+DB_AESN_StatTierPendingReady(_Target)
+AND
+DB_AESN_StatTierTarget(_Target)
+THEN
+NOT DB_AESN_StatTierPendingReady(_Target);
+ApplyStatus(_Target, "AESN_TIER_LEVEL_05_08", -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+
+IF
+StatusApplied((CHARACTER)_Target, "AESN_TIER_LEVEL_05_08", _, _)
+AND
+DB_AESN_StatTierTarget(_Target)
+AND
+NOT DB_AESN_StatTierApplied(_Target)
+AND
+HasActiveStatus(_Target, "AESN_TIER_LEVEL_05_08", 1)
+THEN
+DB_AESN_StatTierApplied(_Target);
+DebugLog("AESN_STAT_TIER APPLY attack=1,saves=1,ac=1,spellDC=1,statusOwned=1");
+
+// ReCon command: oe AESN_TEST_REMOVE_SPAWNED_STAT_TIER
+IF
+TextEvent("AESN_TEST_REMOVE_SPAWNED_STAT_TIER")
+AND
+DB_AESN_StatTierTarget((CHARACTER)_Target)
+AND
+DB_AESN_StatTierApplied(_Target)
+THEN
+RemoveStatus(_Target, "AESN_TIER_LEVEL_05_08", NULL_00000000-0000-0000-0000-000000000000);
+
+IF
+StatusRemoved((CHARACTER)_Target, "AESN_TIER_LEVEL_05_08", _, _)
+AND
+DB_AESN_StatTierTarget(_Target)
+AND
+DB_AESN_StatTierApplied(_Target)
+AND
+HasActiveStatus(_Target, "AESN_TIER_LEVEL_05_08", 0)
+THEN
+NOT DB_AESN_StatTierApplied(_Target);
+NOT DB_AESN_StatTierTarget(_Target);
+PROC_SetOnStage(_Target, 0);
+DebugLog("AESN_STAT_TIER REMOVE attack=1,saves=1,ac=1,spellDC=1,statusOwned=1");
+
+EXITSECTION
+
+ENDEXITSECTION

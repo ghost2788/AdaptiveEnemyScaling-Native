@@ -1,0 +1,168 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_CombatDispatchPending((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_CombatDispatched((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_CombatRetired((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_CombatParticipant((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_EnemyConsidered((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_EnemyEligible((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_EnemyRejected((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+KBSECTION
+
+// Snapshot each combat once. Roster construction owns the asynchronous
+// finalization barrier and uses DB_PartyMembers as its sole positive source.
+IF
+CombatStarted(_Combat)
+AND
+NOT DB_AESN_CombatSnapshotV2(_Combat, _, _, _, _, _, _, _, _, _, _, _)
+THEN
+PROC_AESN_BuildRoster(_Combat);
+
+// Intersect each snapshotted eligible member with vanilla Story's event-derived
+// current-combat registry. This database is combat-membership evidence only.
+IF
+DB_AESN_CombatSnapshotV2(_Combat, _, _, _, _, _, _, _, _, _, _, _)
+AND
+DB_AESN_SnapshotMember(_Combat, _Member, _)
+AND
+DB_Is_InCombat(_Member, _Combat)
+AND
+NOT DB_AESN_CombatParticipant(_Combat, _Member)
+THEN
+DB_AESN_CombatParticipant(_Combat, _Member);
+
+// EnteredCombat is the late-member path. A member must already exist in the
+// immutable roster snapshot; this event never expands roster eligibility.
+IF
+EnteredCombat(_Object, _Combat)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, _, _, _, _, _, _, _, _, _, _, _)
+AND
+DB_AESN_SnapshotMember(_Combat, (CHARACTER)_Object, _)
+AND
+NOT DB_AESN_CombatParticipant(_Combat, (CHARACTER)_Object)
+THEN
+DB_AESN_CombatParticipant(_Combat, (CHARACTER)_Object);
+
+// Give participant joins a separate barrier before evaluating current combat
+// characters, so existential hostility cannot race the participant facts.
+IF
+DB_AESN_CombatSnapshotV2(_Combat, _, _, _, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_CombatDispatchPending(_Combat, _)
+AND
+NOT DB_AESN_CombatDispatched(_Combat)
+AND
+NOT DB_AESN_CombatRetired(_Combat)
+AND
+NOT DB_AESN_MergeInProgress(_, _Combat)
+AND
+ConcatenateGUID("AESN_COMBAT_DISPATCH_", _Combat, _Timer)
+THEN
+DB_AESN_CombatDispatchPending(_Combat, _Timer);
+TimerLaunch(_Timer, 100);
+
+IF
+TimerFinished(_Timer)
+AND
+DB_AESN_CombatDispatchPending(_Combat, _Timer)
+THEN
+DB_AESN_CombatDispatched(_Combat);
+NOT DB_AESN_CombatDispatchPending(_Combat, _Timer);
+PROC_AESN_DispatchCurrentCombat(_Combat);
+
+PROC
+PROC_AESN_DispatchCurrentCombat((GUIDSTRING)_Combat)
+AND
+DB_Is_InCombat(_Object, _Combat)
+AND
+IsCharacter(_Object, 1)
+AND
+NOT DB_AESN_SnapshotMember(_Combat, (CHARACTER)_Object, _)
+THEN
+PROC_AESN_ConsiderEnemy((CHARACTER)_Object, _Combat);
+
+// Late non-members use the already committed snapshot. Duplicate events cannot
+// pass the DB_AESN_EnemyConsidered guard in PROC_AESN_ConsiderEnemy.
+IF
+EnteredCombat(_Object, _Combat)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, _, _, _, _, _, _, _, _, _, _, _)
+AND
+IsCharacter(_Object, 1)
+AND
+NOT DB_AESN_SnapshotMember(_Combat, (CHARACTER)_Object, _)
+THEN
+PROC_AESN_ConsiderEnemy((CHARACTER)_Object, _Combat);
+
+// Existential by construction: the query succeeds when any participating
+// snapshotted eligible member is an enemy of the candidate.
+QRY
+QRY_AESN_IsEligibleHostile((CHARACTER)_Enemy, (GUIDSTRING)_Combat)
+AND
+DB_AESN_CombatParticipant(_Combat, _Member)
+AND
+IsEnemy(_Enemy, _Member, 1)
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_ConsiderEnemy((CHARACTER)_Enemy, (GUIDSTRING)_Combat)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, _, _, _, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_EnemyConsidered(_Combat, _Enemy)
+THEN
+DB_AESN_EnemyConsidered(_Combat, _Enemy);
+PROC_AESN_AssessEnemy(_Enemy, _Combat);
+
+PROC
+PROC_AESN_AssessEnemy((CHARACTER)_Enemy, (GUIDSTRING)_Combat)
+AND
+QRY_AESN_IsEligibleHostile(_Enemy, _Combat)
+THEN
+DB_AESN_EnemyEligible(_Combat, _Enemy);
+
+PROC
+PROC_AESN_AssessEnemy((CHARACTER)_Enemy, (GUIDSTRING)_Combat)
+AND
+NOT QRY_AESN_IsEligibleHostile(_Enemy, _Combat)
+THEN
+DB_AESN_EnemyRejected(_Combat, _Enemy, "HostileToNoParticipant");
+
+IF
+DB_AESN_EnemyEligible(_Combat, _Enemy)
+THEN
+PROC_AESN_LogHostilityAccepted(_Enemy, _Combat);
+
+IF
+DB_AESN_EnemyRejected(_Combat, _Enemy, "HostileToNoParticipant")
+THEN
+PROC_AESN_LogHostilityRejected(_Enemy, _Combat);
+
+PROC
+PROC_AESN_LogHostilityAccepted((CHARACTER)_Enemy, (GUIDSTRING)_Combat)
+AND
+ConcatenateGUID("AESN_HOSTILITY ACCEPT enemy=", _Enemy, _Message1)
+AND
+Concatenate(_Message1, ",combat=", _Message2)
+AND
+ConcatenateGUID(_Message2, _Combat, _Message)
+THEN
+DebugLog(_Message);
+
+PROC
+PROC_AESN_LogHostilityRejected((CHARACTER)_Enemy, (GUIDSTRING)_Combat)
+AND
+ConcatenateGUID("AESN_HOSTILITY REJECT enemy=", _Enemy, _Message1)
+AND
+Concatenate(_Message1, ",combat=", _Message2)
+AND
+ConcatenateGUID(_Message2, _Combat, _Message)
+THEN
+DebugLog(_Message);
+
+EXITSECTION
+
+ENDEXITSECTION

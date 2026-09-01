@@ -1,0 +1,112 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_HostilityFixture((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (FACTION)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+KBSECTION
+
+// Isolated existential-hostility fixture. It controls only the participant and
+// relation inputs, then delegates both candidate decisions to production
+// PROC_AESN_ConsiderEnemy. It does not simulate roster membership or combat.
+// ReCon command: oe AESN_TEST_EXISTENTIAL_HOSTILITY
+IF
+TextEvent("AESN_TEST_EXISTENTIAL_HOSTILITY")
+AND
+GetHostCharacter(_Second)
+AND
+NOT DB_AESN_HostilityFixture(_, _, _, _, _, _)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _First)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _Neutral)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, (ITEM)S_CampSetup_CAMP_TrainingDummy_9819c93a-fd5e-474a-b1b8-7ee0cc3a19a7, 0, 1, "", 1, _Hostile)
+AND
+GetFaction(_Second, _SecondFaction)
+THEN
+PROC_AESN_SetupHostilityFixture((GUIDSTRING)_First, (CHARACTER)_First, (CHARACTER)_Second, _SecondFaction, (CHARACTER)_Neutral, (CHARACTER)_Hostile);
+
+PROC
+PROC_AESN_SetupHostilityFixture((GUIDSTRING)_Combat, (CHARACTER)_First, (CHARACTER)_Second, (FACTION)_SecondFaction, (CHARACTER)_Neutral, (CHARACTER)_Hostile)
+THEN
+SetCanFight(_First, 0);
+SetCanJoinCombat(_First, 0);
+SetCanFight(_Neutral, 0);
+SetCanJoinCombat(_Neutral, 0);
+SetCanFight(_Hostile, 0);
+SetCanJoinCombat(_Hostile, 0);
+DB_AESN_HostilityFixture(_Combat, _First, _Second, _SecondFaction, _Neutral, _Hostile);
+DB_AESN_CombatSnapshotV2(_Combat, 2, 2, 2, 2, 1, 1, 145, 0, 0, 0, "Supported");
+DB_AESN_CombatParticipant(_Combat, _First);
+DB_AESN_CombatParticipant(_Combat, (CHARACTER)_Second);
+// Keep this fixture focused on hostility classification. Production HP
+// planning treats an existing failure record as a fail-closed stop signal.
+DB_AESN_HpFailure(_Combat, _Neutral, "HarnessSuppressed");
+DB_AESN_HpFailure(_Combat, _Hostile, "HarnessSuppressed");
+SetIndividualRelation(_Neutral, _SecondFaction, 50);
+SetIndividualRelation(_Hostile, _SecondFaction, 0);
+RealtimeObjectTimerLaunch(_First, "AESN_HOSTILITY_FIXTURE_READY", 250);
+
+IF
+ObjectTimerFinished((CHARACTER)_First, "AESN_HOSTILITY_FIXTURE_READY")
+AND
+DB_AESN_HostilityFixture(_Combat, _First, _Second, _, _Neutral, _Hostile)
+AND
+IsEnemy(_Neutral, _First, 0)
+AND
+IsEnemy(_Neutral, _Second, 0)
+AND
+IsEnemy(_Hostile, _First, 0)
+AND
+IsEnemy(_Hostile, _Second, 1)
+THEN
+PROC_AESN_ConsiderEnemy(_Neutral, _Combat);
+PROC_AESN_ConsiderEnemy(_Hostile, _Combat);
+PROC_AESN_ConsiderEnemy(_Hostile, _Combat);
+
+IF
+DB_AESN_HostilityFixture(_Combat, _First, _Second, _, _Neutral, _Hostile)
+AND
+DB_AESN_EnemyRejected(_Combat, _Neutral, "HostileToNoParticipant")
+AND
+DB_AESN_EnemyEligible(_Combat, _Hostile)
+AND
+DB_AESN_EnemyConsidered(_Combat, _Neutral)
+AND
+DB_AESN_EnemyConsidered(_Combat, _Hostile)
+AND
+IsEnemy(_Hostile, _First, 0)
+AND
+IsEnemy(_Hostile, _Second, 1)
+THEN
+DebugLog("AESN_HOSTILITY_HARNESS PASS neutralRejected=1,firstNeutral=1,secondHostile=1,eligible=1");
+
+// ReCon command: oe AESN_TEST_RESET_EXISTENTIAL_HOSTILITY
+IF
+TextEvent("AESN_TEST_RESET_EXISTENTIAL_HOSTILITY")
+AND
+DB_AESN_HostilityFixture(_Combat, _First, _Second, _SecondFaction, _Neutral, _Hostile)
+THEN
+ClearIndividualRelation(_Neutral, _SecondFaction);
+ClearIndividualRelation(_Hostile, _SecondFaction);
+NOT DB_AESN_EnemyEligible(_Combat, _Neutral);
+NOT DB_AESN_EnemyEligible(_Combat, _Hostile);
+NOT DB_AESN_EnemyRejected(_Combat, _Neutral, "HostileToNoParticipant");
+NOT DB_AESN_EnemyRejected(_Combat, _Hostile, "HostileToNoParticipant");
+NOT DB_AESN_EnemyConsidered(_Combat, _Neutral);
+NOT DB_AESN_EnemyConsidered(_Combat, _Hostile);
+NOT DB_AESN_HpFailure(_Combat, _Neutral, "HarnessSuppressed");
+NOT DB_AESN_HpFailure(_Combat, _Hostile, "HarnessSuppressed");
+NOT DB_AESN_CombatParticipant(_Combat, _First);
+NOT DB_AESN_CombatParticipant(_Combat, _Second);
+DB_AESN_CombatRetired(_Combat);
+NOT DB_AESN_CombatSnapshotV2(_Combat, 2, 2, 2, 2, 1, 1, 145, 0, 0, 0, "Supported");
+NOT DB_AESN_CombatDispatched(_Combat);
+NOT DB_AESN_HostilityFixture(_Combat, _First, _Second, _SecondFaction, _Neutral, _Hostile);
+PROC_SetOnStage(_First, 0);
+PROC_SetOnStage(_Neutral, 0);
+PROC_SetOnStage(_Hostile, 0);
+DebugLog("AESN_HOSTILITY_HARNESS RESET exactOwnedFacts=1");
+
+EXITSECTION
+
+ENDEXITSECTION
