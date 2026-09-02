@@ -9,7 +9,7 @@ Production Hardened scaling is enabled from level 1 through 20 using the permane
 - Module name: `AdaptiveEnemyScalingNativePOC`
 - Module UUID: `a4567f52-1665-df50-b84c-3992f80fdb90`
 - Persistent Story schema: `2`
-- Toolkit module version: `1.0.0.0` (first Publish Local is expected to auto-increment to `1.0.0.1`)
+- Toolkit module version: `1.0.0.4` (beta release candidate; auto-increment enabled)
 - Status namespace: `AESN_*`
 - Osiris database namespace: `DB_AESN_*`
 - Technical mod dependencies: none

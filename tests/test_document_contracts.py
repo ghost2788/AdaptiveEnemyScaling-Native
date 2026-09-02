@@ -20,8 +20,9 @@ class DocumentContracts(unittest.TestCase):
         )
         self.assertEqual(identity["moduleUuid"], MODULE_UUID)
         self.assertEqual(identity["version"], "0.1.0")
-        self.assertEqual(identity["toolkitModuleVersion"], "1.0.0.0")
-        self.assertEqual(identity["toolkitModuleVersion64"], 36028797018963968)
+        self.assertEqual(identity["toolkitModuleVersion"], "1.0.0.4")
+        self.assertEqual(identity["toolkitModuleVersion64"], 36028797018963972)
+        self.assertEqual(identity["schemaVersion"], 2)
         self.assertEqual(identity["expectedFirstPublishVersion"], "1.0.0.1")
         for name in ("README.md", "DESIGN.md"):
             self.assertIn(
@@ -37,8 +38,8 @@ class DocumentContracts(unittest.TestCase):
             / "meta.lsx"
         ).read_text(encoding="utf-8")
         self.assertIn('value="Adaptive Enemy Scaling"', meta)
-        self.assertIn('value="ghost"', meta)
-        self.assertIn('value="36028797018963968"', meta)
+        self.assertIn('value="ghost2788"', meta)
+        self.assertIn('value="36028797018963972"', meta)
 
     def test_upstream_hashes_are_exact(self):
         text = (ROOT / "UPSTREAM.md").read_text(encoding="utf-8")

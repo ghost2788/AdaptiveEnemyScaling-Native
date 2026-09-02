@@ -12,8 +12,8 @@ The HP, roster, hostility, merge, save/load, and personal Action/Bonus-Action re
 - Module UUID: `a4567f52-1665-df50-b84c-3992f80fdb90`
 - Module folder: `AdaptiveEnemyScalingNativePOC_a4567f52-1665-df50-b84c-3992f80fdb90`
 - Internal POC milestone: `0.1.0`
-- Toolkit module version: `1.0.0.0`; the Toolkit UI rejected major version `0`
-- Expected first Publish Local version: `1.0.0.1` with auto-increment enabled
+- Toolkit module version: `1.0.0.4`; the Toolkit UI rejected major version `0`
+- The final beta release-candidate Publish Local produced `1.0.0.4`; auto-increment remains enabled
 - Status namespace: `AESN_*`
 - Database namespace: `DB_AESN_*`
 - No Script Extender tree
