@@ -4,7 +4,9 @@ param(
 
     [switch]$IncludeTestHarnesses,
 
-    [switch]$EnableActionResourceProof
+    [switch]$EnableActionResourceProof,
+
+    [switch]$EnableWorldHardenedProof
 )
 
 $ErrorActionPreference = 'Stop'
@@ -36,18 +38,24 @@ if ($EnableActionResourceProof -and -not $IncludeTestHarnesses) {
     throw "EnableActionResourceProof requires IncludeTestHarnesses"
 }
 
+if ($EnableWorldHardenedProof -and -not $IncludeTestHarnesses) {
+    throw "EnableWorldHardenedProof requires IncludeTestHarnesses"
+}
+
 $moduleFolder = [string]$identity.moduleFolder
 $productionGoalNames = @(
     'AESN_00_Init.txt',
     'AESN_10_Roster.txt',
     'AESN_20_Policy.txt',
+    'AESN_25_WorldHardened.txt',
     'AESN_30_Combat.txt',
     'AESN_40_HpTransaction.txt',
     'AESN_50_Applications.txt',
     'AESN_55_Components.txt',
     'AESN_56_Relentless.txt',
     'AESN_60_Merge.txt',
-    'AESN_65_Reconciliation.txt'
+    'AESN_65_Reconciliation.txt',
+    'AESN_66_WorldHardenedRuntime.txt'
 )
 $copySets = @(
     [pscustomobject]@{
@@ -132,8 +140,29 @@ if ($EnableActionResourceProof) {
     Set-Content -LiteralPath $actionProofGoal -Value $actionProofText -Encoding Ascii -NoNewline
 }
 
-if ($EnableActionResourceProof) {
+if ($EnableWorldHardenedProof) {
+    # As with the resource proof, only the staged Toolkit copy is enabled.
+    # Repository sources stay fail-closed and production sync removes it.
+    $worldProofGoal = Join-Path $requestedRoot "Mods\$moduleFolder\Story\RawFiles\Goals\AESN_84_WorldHardenedHarness.txt"
+    if (-not (Test-Path -LiteralPath $worldProofGoal -PathType Leaf)) {
+        throw "World-Hardened proof goal was not synchronized: $worldProofGoal"
+    }
+    $disabledWorldProofFact = 'NOT DB_AESN_WorldHarnessEnabled(1);'
+    $enabledWorldProofFact = 'DB_AESN_WorldHarnessEnabled(1);'
+    $worldProofText = Get-Content -Raw -LiteralPath $worldProofGoal
+    if (-not $worldProofText.Contains($disabledWorldProofFact)) {
+        throw "World-Hardened proof goal does not contain its disabled gate"
+    }
+    $worldProofText = $worldProofText.Replace($disabledWorldProofFact, $enabledWorldProofFact)
+    Set-Content -LiteralPath $worldProofGoal -Value $worldProofText -Encoding Ascii -NoNewline
+}
+
+if ($EnableActionResourceProof -and $EnableWorldHardenedProof) {
+    Write-Output "Synchronized $moduleFolder with action-resource and world-Hardened proofs enabled at $requestedRoot"
+} elseif ($EnableActionResourceProof) {
     Write-Output "Synchronized $moduleFolder with the isolated action-resource proof enabled at $requestedRoot"
+} elseif ($EnableWorldHardenedProof) {
+    Write-Output "Synchronized $moduleFolder with the observation-only world-Hardened proof enabled at $requestedRoot"
 } elseif ($IncludeTestHarnesses) {
     Write-Output "Synchronized $moduleFolder with test harnesses to verified Toolkit data root $requestedRoot"
 } else {

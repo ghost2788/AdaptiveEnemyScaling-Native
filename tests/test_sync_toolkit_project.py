@@ -55,6 +55,7 @@ class SyncToolkitProjectTests(unittest.TestCase):
             "AESN_00_Init.txt",
             "AESN_10_Roster.txt",
             "AESN_20_Policy.txt",
+            "AESN_25_WorldHardened.txt",
             "AESN_30_Combat.txt",
             "AESN_40_HpTransaction.txt",
             "AESN_50_Applications.txt",
@@ -62,6 +63,7 @@ class SyncToolkitProjectTests(unittest.TestCase):
             "AESN_56_Relentless.txt",
             "AESN_60_Merge.txt",
             "AESN_65_Reconciliation.txt",
+            "AESN_66_WorldHardenedRuntime.txt",
         ):
             self.assertIn(f"'{production_goal}'", text)
         self.assertIn("Remove-Item -LiteralPath $destinationFile -Force", text)
@@ -80,6 +82,17 @@ class SyncToolkitProjectTests(unittest.TestCase):
         self.assertIn("NOT DB_AESN_ActionProofHarnessEnabled(1);", text)
         self.assertIn("DB_AESN_ActionProofHarnessEnabled(1);", text)
         self.assertIn("Set-Content -LiteralPath $actionProofGoal", text)
+
+    def test_world_hardened_proof_staging_is_explicit_and_source_preserving(self):
+        text = SYNC.read_text(encoding="utf-8")
+        self.assertIn("[switch]$EnableWorldHardenedProof", text)
+        self.assertIn(
+            "EnableWorldHardenedProof requires IncludeTestHarnesses", text
+        )
+        self.assertIn("AESN_84_WorldHardenedHarness.txt", text)
+        self.assertIn("NOT DB_AESN_WorldHarnessEnabled(1);", text)
+        self.assertIn("DB_AESN_WorldHarnessEnabled(1);", text)
+        self.assertIn("Set-Content -LiteralPath $worldProofGoal", text)
 
 
 if __name__ == "__main__":

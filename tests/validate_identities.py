@@ -16,6 +16,9 @@ STATUS = (
 ROSTER = GOALS / "AESN_10_Roster.txt"
 POLICY = GOALS / "AESN_20_Policy.txt"
 COMBAT = GOALS / "AESN_30_Combat.txt"
+WORLD = GOALS / "AESN_25_WorldHardened.txt"
+WORLD_RUNTIME = GOALS / "AESN_66_WorldHardenedRuntime.txt"
+WORLD_HARNESS = GOALS / "AESN_84_WorldHardenedHarness.txt"
 SAVE_LOAD_PROBE = GOALS / "AESN_89_SaveLoadProbe.txt"
 DIAGNOSTICS = GOALS / "AESN_90_Diagnostics.txt"
 NARRATIVE_HARNESS = GOALS / "AESN_94_NarrativeCombatHarness.txt"
@@ -66,7 +69,13 @@ class IdentityAndRosterContracts(unittest.TestCase):
                 allowed_for_path.update({"DB_Players", "DB_Avatars"})
             if path == SAVE_LOAD_PROBE:
                 allowed_for_path.add("DB_Players")
-            if path in (COMBAT, NARRATIVE_HARNESS):
+            if path in (
+                COMBAT,
+                WORLD,
+                WORLD_RUNTIME,
+                WORLD_HARNESS,
+                NARRATIVE_HARNESS,
+            ):
                 allowed_for_path.add("DB_Is_InCombat")
             for token in re.findall(r"\bDB_[A-Za-z0-9_]+\b", text):
                 self.assertTrue(

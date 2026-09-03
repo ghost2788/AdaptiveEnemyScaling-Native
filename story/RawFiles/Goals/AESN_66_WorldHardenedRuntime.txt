@@ -1,0 +1,661 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+KBSECTION
+
+// Established saves do not replay INITSECTION. Reassert the durable owner,
+// discard timer-backed scheduler gates that cannot be trusted across a load,
+// and rebuild policy from the current permanent roster.
+IF
+SavegameLoaded()
+THEN
+DB_AESN_WorldContext((GUIDSTRING)AESN_WorldHardenedOwner_da8f9f22-2125-45f1-ac0f-a8c264596f04);
+PROC_AESN_ResetWorldTransient((GUIDSTRING)AESN_WorldHardenedOwner_da8f9f22-2125-45f1-ac0f-a8c264596f04);
+TimerLaunch("AESN_WORLD_LOAD_REFRESH", 500);
+
+IF
+TimerFinished("AESN_WORLD_LOAD_REFRESH")
+THEN
+PROC_AESN_RequestWorldPolicyRefresh();
+
+PROC
+PROC_AESN_ResetWorldTransient((GUIDSTRING)_World)
+AND
+DB_AESN_WorldContext(_World)
+THEN
+TimerCancel("AESN_WORLD_LOAD_REFRESH");
+TimerCancel("AESN_WORLD_POLICY_REFRESH");
+TimerCancel("AESN_WORLD_POLICY_BUILD");
+TimerCancel("AESN_WORLD_POLICY_FINALIZE");
+TimerCancel("AESN_WORLD_POLICY_RETRY");
+TimerCancel("AESN_WORLD_SCAN");
+TimerCancel("AESN_WORLD_SCAN_TIMEOUT");
+
+PROC
+PROC_AESN_ResetWorldTransient((GUIDSTRING)_World)
+AND
+DB_AESN_WorldPolicyRefreshState(_State)
+THEN
+NOT DB_AESN_WorldPolicyRefreshState(_State);
+
+PROC
+PROC_AESN_ResetWorldTransient((GUIDSTRING)_World)
+AND
+DB_AESN_WorldPreviousPolicy(_World, _Tier, _TargetHpPercent)
+THEN
+NOT DB_AESN_WorldPreviousPolicy(_World, _Tier, _TargetHpPercent);
+
+PROC
+PROC_AESN_ResetWorldTransient((GUIDSTRING)_World)
+AND
+DB_AESN_WorldPolicyFinalizePending(_World)
+THEN
+NOT DB_AESN_WorldPolicyFinalizePending(_World);
+
+PROC
+PROC_AESN_ResetWorldTransient((GUIDSTRING)_World)
+AND
+DB_AESN_WorldScanScheduled(_World)
+THEN
+NOT DB_AESN_WorldScanScheduled(_World);
+
+PROC
+PROC_AESN_ResetWorldTransient((GUIDSTRING)_World)
+AND
+DB_AESN_WorldScanOpen(_World)
+THEN
+NOT DB_AESN_WorldScanOpen(_World);
+
+PROC
+PROC_AESN_ResetWorldTransient((GUIDSTRING)_World)
+AND
+DB_AESN_WorldScanCenter(_Member)
+THEN
+NOT DB_AESN_WorldScanCenter(_Member);
+
+PROC
+PROC_AESN_ResetWorldTransient((GUIDSTRING)_World)
+AND
+DB_AESN_WorldScanCompletionCount(_Count)
+THEN
+NOT DB_AESN_WorldScanCompletionCount(_Count);
+
+PROC
+PROC_AESN_ResetWorldTransient((GUIDSTRING)_World)
+AND
+DB_AESN_WorldScanSeen(_Enemy)
+THEN
+NOT DB_AESN_WorldScanSeen(_Enemy);
+
+IF
+LevelGameplayStarted(_Level, _IsEditorMode)
+THEN
+PROC_AESN_RequestWorldPolicyRefresh();
+
+IF
+CharacterJoinedParty(_Character)
+THEN
+PROC_AESN_RequestWorldPolicyRefresh();
+
+IF
+CharacterLeftParty(_Character)
+THEN
+PROC_AESN_RequestWorldPolicyRefresh();
+
+IF
+LeveledUp(_Character)
+THEN
+PROC_AESN_RequestWorldPolicyRefresh();
+
+IF
+RespecCompleted(_Character)
+THEN
+PROC_AESN_RequestWorldPolicyRefresh();
+
+PROC
+PROC_AESN_RequestWorldPolicyRefresh()
+AND
+NOT DB_AESN_WorldPolicyRefreshState(_)
+THEN
+DB_AESN_WorldPolicyRefreshState("Queued");
+TimerLaunch("AESN_WORLD_POLICY_REFRESH", 250);
+
+// Retrying the same debounced timer lets acknowledged HP/component work finish
+// before the world snapshot is replaced.
+IF
+TimerFinished("AESN_WORLD_POLICY_REFRESH")
+AND
+DB_AESN_WorldPolicyRefreshState("Queued")
+THEN
+PROC_AESN_TryBeginWorldPolicyRefresh();
+TimerLaunch("AESN_WORLD_POLICY_REFRESH", 250);
+
+PROC
+PROC_AESN_TryBeginWorldPolicyRefresh()
+AND
+DB_AESN_WorldContext(_World)
+AND
+DB_AESN_CombatSnapshotV2(_World, 2, _, _, _, _, _Tier, _TargetHpPercent, _, _, _, "Supported")
+AND
+NOT DB_AESN_WorldScanOpen(_World)
+AND
+NOT DB_AESN_WorldMutationPending(_)
+AND
+NOT DB_AESN_HpApplicationHold(_World, _)
+THEN
+DB_AESN_WorldPreviousPolicy(_World, _Tier, _TargetHpPercent);
+NOT DB_AESN_WorldPolicyRefreshState("Queued");
+DB_AESN_WorldPolicyRefreshState("Building");
+PROC_AESN_DeleteCombatOwnedFacts(_World);
+TimerLaunch("AESN_WORLD_POLICY_BUILD", 100);
+
+PROC
+PROC_AESN_TryBeginWorldPolicyRefresh()
+AND
+DB_AESN_WorldContext(_World)
+AND
+NOT DB_AESN_CombatSnapshotV2(_World, _, _, _, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_WorldScanOpen(_World)
+AND
+NOT DB_AESN_WorldMutationPending(_)
+AND
+NOT DB_AESN_HpApplicationHold(_World, _)
+THEN
+NOT DB_AESN_WorldPolicyRefreshState("Queued");
+DB_AESN_WorldPolicyRefreshState("Building");
+PROC_AESN_DeleteCombatOwnedFacts(_World);
+TimerLaunch("AESN_WORLD_POLICY_BUILD", 100);
+
+IF
+TimerFinished("AESN_WORLD_POLICY_BUILD")
+AND
+DB_AESN_WorldPolicyRefreshState("Building")
+AND
+DB_AESN_WorldContext(_World)
+THEN
+PROC_AESN_BuildRoster(_World);
+
+// Every eligible permanent roster member is a world hostility/discovery
+// witness. Unlike combat participants, these facts persist between scans.
+IF
+DB_AESN_WorldContext(_World)
+AND
+DB_AESN_CombatSnapshotV2(_World, 2, _, _, _, _, _, _, _, _, _, "Supported")
+AND
+DB_AESN_SnapshotMember(_World, _Member, _)
+AND
+NOT DB_AESN_CombatParticipant(_World, _Member)
+THEN
+DB_AESN_CombatParticipant(_World, _Member);
+
+IF
+DB_AESN_WorldPolicyRefreshState("Building")
+AND
+DB_AESN_WorldContext(_World)
+AND
+DB_AESN_CombatSnapshotV2(_World, 2, _, _, _, _, _, _, _, _, _, "Supported")
+AND
+NOT DB_AESN_WorldPolicyFinalizePending(_World)
+THEN
+DB_AESN_WorldPolicyFinalizePending(_World);
+TimerLaunch("AESN_WORLD_POLICY_FINALIZE", 100);
+
+IF
+TimerFinished("AESN_WORLD_POLICY_FINALIZE")
+AND
+DB_AESN_WorldPolicyFinalizePending(_World)
+AND
+DB_AESN_CombatSnapshotV2(_World, 2, _, _, _, _, _NewTier, _NewTargetHpPercent, _, _, _, "Supported")
+THEN
+NOT DB_AESN_WorldPolicyFinalizePending(_World);
+PROC_AESN_QueueWorldPolicyReplans(_World, _NewTier, _NewTargetHpPercent);
+PROC_AESN_ClearWorldPreviousPolicy(_World);
+NOT DB_AESN_WorldPolicyRefreshState("Building");
+PROC_AESN_RequestWorldScan();
+
+// Party databases can be briefly empty while a level or save finishes
+// loading. Release the build gate and retry later instead of wedging world
+// updates or spinning a fast timer forever.
+IF
+DB_AESN_WorldPolicyRefreshState("Building")
+AND
+DB_AESN_WorldContext(_World)
+AND
+DB_AESN_SnapshotFailure(_World, "EmptyEligibleRoster")
+THEN
+NOT DB_AESN_WorldPolicyRefreshState("Building");
+PROC_AESN_DeleteCombatOwnedFacts(_World);
+TimerLaunch("AESN_WORLD_POLICY_RETRY", 5000);
+
+IF
+TimerFinished("AESN_WORLD_POLICY_RETRY")
+THEN
+PROC_AESN_RequestWorldPolicyRefresh();
+
+QRY
+QRY_AESN_WorldPolicyChanged((GUIDSTRING)_World, (INTEGER)_NewTier, (INTEGER)_NewTargetHpPercent)
+AND
+DB_AESN_WorldPreviousPolicy(_World, _OldTier, _OldTargetHpPercent)
+AND
+_OldTier != _NewTier
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_WorldPolicyChanged((GUIDSTRING)_World, (INTEGER)_NewTier, (INTEGER)_NewTargetHpPercent)
+AND
+DB_AESN_WorldPreviousPolicy(_World, _OldTier, _OldTargetHpPercent)
+AND
+_OldTargetHpPercent != _NewTargetHpPercent
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_QueueWorldPolicyReplans((GUIDSTRING)_World, (INTEGER)_NewTier, (INTEGER)_NewTargetHpPercent)
+AND
+QRY_AESN_WorldPolicyChanged(_World, _NewTier, _NewTargetHpPercent)
+AND
+DB_AESN_HpTransaction(_World, _Enemy, 1, "HPCommitted", _, _, _, _, _, _)
+AND
+DB_AESN_ComponentApplication(_World, _Enemy, 1, "FullyCommitted")
+AND
+NOT DB_Is_InCombat(_Enemy, _)
+AND
+NOT DB_AESN_MergeReplanRequired(_World, _Enemy)
+THEN
+DB_AESN_MergeReplanRequired(_World, _Enemy);
+
+PROC
+PROC_AESN_QueueWorldPolicyReplans((GUIDSTRING)_World, (INTEGER)_NewTier, (INTEGER)_NewTargetHpPercent)
+AND
+QRY_AESN_WorldPolicyChanged(_World, _NewTier, _NewTargetHpPercent)
+AND
+DB_AESN_HpTransaction(_World, _Enemy, 1, "HPCommitted", _, _, _, _, _, _)
+AND
+DB_AESN_ComponentApplication(_World, _Enemy, 1, "FullyCommitted")
+AND
+DB_Is_InCombat(_Enemy, _)
+AND
+NOT DB_AESN_WorldReplanDeferred(_Enemy)
+THEN
+DB_AESN_WorldReplanDeferred(_Enemy);
+
+PROC
+PROC_AESN_ClearWorldPreviousPolicy((GUIDSTRING)_World)
+AND
+DB_AESN_WorldPreviousPolicy(_World, _Tier, _TargetHpPercent)
+THEN
+NOT DB_AESN_WorldPreviousPolicy(_World, _Tier, _TargetHpPercent);
+
+// Scan requests are coalesced. Normal completion schedules the next scan three
+// seconds later; lifecycle events request an earlier pass.
+PROC
+PROC_AESN_RequestWorldScan()
+AND
+DB_AESN_WorldContext(_World)
+AND
+DB_AESN_CombatSnapshotV2(_World, 2, _, _, _, _, _, _, _, _, _, "Supported")
+AND
+NOT DB_AESN_WorldPolicyRefreshState(_)
+AND
+NOT DB_AESN_WorldScanOpen(_World)
+AND
+NOT DB_AESN_WorldScanScheduled(_World)
+THEN
+DB_AESN_WorldScanScheduled(_World);
+TimerLaunch("AESN_WORLD_SCAN", 50);
+
+IF
+TimerFinished("AESN_WORLD_SCAN")
+AND
+DB_AESN_WorldScanScheduled(_World)
+AND
+NOT DB_AESN_WorldScanOpen(_World)
+THEN
+NOT DB_AESN_WorldScanScheduled(_World);
+DB_AESN_WorldScanOpen(_World);
+DB_AESN_WorldScanCompletionCount(0);
+TimerLaunch("AESN_WORLD_SCAN_TIMEOUT", 3000);
+
+IF
+DB_AESN_WorldScanOpen(_World)
+AND
+DB_AESN_SnapshotMember(_World, _Member, _)
+AND
+NOT DB_AESN_WorldScanCenter(_Member)
+THEN
+DB_AESN_WorldScanCenter(_Member);
+IterateCharactersAround(_Member, 100.0, "AESN_WORLD_CANDIDATE", "AESN_WORLD_SCAN_COMPLETE");
+
+IF
+EntityEvent(_Object, "AESN_WORLD_CANDIDATE")
+AND
+DB_AESN_WorldScanOpen(_World)
+AND
+IsCharacter(_Object, 1)
+THEN
+PROC_AESN_ConsiderWorldEnemy((CHARACTER)_Object, _World);
+
+QRY
+QRY_AESN_IsDiscoverableWorldHostile((CHARACTER)_Enemy, (GUIDSTRING)_World)
+AND
+IsDead(_Enemy, 0)
+AND
+IsActive(_Enemy, 1)
+AND
+IsOnStage(_Enemy, 1)
+AND
+IsInvisible(_Enemy, 0)
+AND
+NOT DB_PartyMembers(_Enemy)
+AND
+NOT DB_Is_InCombat(_Enemy, _)
+AND
+DB_AESN_SnapshotMember(_World, _Member, _)
+AND
+IsEnemy(_Enemy, _Member, 1)
+THEN
+DB_NOOP(1);
+
+// A combat-owned fallback still cleaning up blocks a second owner. Existing
+// world ownership and no ownership are the only admissible states.
+QRY
+QRY_AESN_HasNoForeignHardenedOwner((CHARACTER)_Enemy, (GUIDSTRING)_World)
+AND
+DB_AESN_HpTransaction(_World, _Enemy, _, _, _, _, _, _, _, _)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HasNoForeignHardenedOwner((CHARACTER)_Enemy, (GUIDSTRING)_World)
+AND
+NOT DB_AESN_HpTransaction(_, _Enemy, _, _, _, _, _, _, _, _)
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_ConsiderWorldEnemy((CHARACTER)_Enemy, (GUIDSTRING)_World)
+AND
+QRY_AESN_IsDiscoverableWorldHostile(_Enemy, _World)
+AND
+QRY_AESN_HasNoForeignHardenedOwner(_Enemy, _World)
+THEN
+DB_AESN_WorldScanSeen(_Enemy);
+NOT DB_AESN_WorldScanMiss(_Enemy);
+PROC_AESN_BeginTrackingWorldEnemy(_Enemy, _World);
+PROC_AESN_ConsiderEnemy(_Enemy, _World);
+
+PROC
+PROC_AESN_BeginTrackingWorldEnemy((CHARACTER)_Enemy, (GUIDSTRING)_World)
+AND
+NOT DB_AESN_WorldTracked(_Enemy)
+THEN
+DB_AESN_WorldTracked(_Enemy);
+DB_AESN_WorldMutationPending(_Enemy);
+
+IF
+EntityEvent(_Center, "AESN_WORLD_SCAN_COMPLETE")
+AND
+DB_AESN_WorldScanOpen(_World)
+AND
+DB_AESN_WorldScanCompletionCount(_Completed)
+AND
+IntegerSum(_Completed, 1, _NextCompleted)
+THEN
+NOT DB_AESN_WorldScanCompletionCount(_Completed);
+DB_AESN_WorldScanCompletionCount(_NextCompleted);
+
+IF
+DB_AESN_WorldScanOpen(_World)
+AND
+DB_AESN_WorldScanCompletionCount(_Completed)
+AND
+SysCount("DB_AESN_WorldScanCenter", 1, _Expected)
+AND
+_Expected > 0
+AND
+_Completed >= _Expected
+THEN
+PROC_AESN_FinalizeWorldScan(_World);
+
+IF
+TimerFinished("AESN_WORLD_SCAN_TIMEOUT")
+AND
+DB_AESN_WorldScanOpen(_World)
+THEN
+PROC_AESN_FinalizeWorldScan(_World);
+
+PROC
+PROC_AESN_FinalizeWorldScan((GUIDSTRING)_World)
+THEN
+TimerCancel("AESN_WORLD_SCAN_TIMEOUT");
+NOT DB_AESN_WorldScanOpen(_World);
+PROC_AESN_RecordWorldScanMisses(_World);
+PROC_AESN_ClearWorldScanFacts();
+TimerLaunch("AESN_WORLD_SCAN", 3000);
+DB_AESN_WorldScanScheduled(_World);
+
+// Range, line of sight, visibility, and hostility are discovery-only gates.
+// A completed world package is durable when it leaves the scan and is changed
+// only by policy/external-HP replans or fail-closed transaction recovery.
+PROC
+PROC_AESN_RecordWorldScanMisses((GUIDSTRING)_World)
+AND
+DB_AESN_WorldTracked(_Enemy)
+AND
+NOT DB_AESN_WorldScanSeen(_Enemy)
+AND
+NOT DB_Is_InCombat(_Enemy, _)
+AND
+NOT DB_AESN_WorldScanMiss(_Enemy)
+THEN
+DB_AESN_WorldScanMiss(_Enemy);
+
+PROC
+PROC_AESN_RequestWorldCleanup((CHARACTER)_Enemy, (GUIDSTRING)_World)
+AND
+NOT DB_AESN_WorldCleanupRequested(_Enemy)
+THEN
+DB_AESN_WorldCleanupRequested(_Enemy);
+DB_AESN_WorldMutationPending(_Enemy);
+PROC_AESN_ClearWorldReady(_Enemy);
+PROC_AESN_CleanupEnemy(_Enemy, _World);
+
+PROC
+PROC_AESN_ClearWorldScanFacts()
+AND
+DB_AESN_WorldScanCenter(_Member)
+THEN
+NOT DB_AESN_WorldScanCenter(_Member);
+
+PROC
+PROC_AESN_ClearWorldScanFacts()
+AND
+DB_AESN_WorldScanSeen(_Enemy)
+THEN
+NOT DB_AESN_WorldScanSeen(_Enemy);
+
+PROC
+PROC_AESN_ClearWorldScanFacts()
+AND
+DB_AESN_WorldScanCompletionCount(_Count)
+THEN
+NOT DB_AESN_WorldScanCompletionCount(_Count);
+
+// A fully acknowledged world transaction is safe to retain and can satisfy a
+// later combat's Hardened prerequisite without any second HP application.
+IF
+DB_AESN_WorldContext(_World)
+AND
+DB_AESN_HpTransaction(_World, _Enemy, 1, "HPCommitted", _, _, _, _, _Delta, _Delta)
+AND
+DB_AESN_ComponentApplication(_World, _Enemy, 1, "FullyCommitted")
+AND
+NOT DB_AESN_HpReplan(_World, _Enemy, _, _, _)
+AND
+NOT DB_AESN_WorldCleanupRequested(_Enemy)
+THEN
+DB_AESN_WorldHardenedReady(_Enemy);
+PROC_AESN_ClearWorldMutationPending(_Enemy);
+
+IF
+DB_AESN_WorldContext(_World)
+AND
+DB_AESN_MergeReplanRequired(_World, _Enemy)
+THEN
+DB_AESN_WorldMutationPending(_Enemy);
+PROC_AESN_ClearWorldReady(_Enemy);
+
+// Any fail-closed HP or component branch must also release world tracking.
+// Otherwise one failed target would leave the global policy refresh barrier
+// permanently occupied.
+IF
+DB_AESN_WorldContext(_World)
+AND
+DB_AESN_HpFailure(_World, _Enemy, _Reason)
+AND
+DB_AESN_WorldTracked(_Enemy)
+AND
+NOT DB_AESN_WorldCleanupRequested(_Enemy)
+THEN
+PROC_AESN_RequestWorldCleanup(_Enemy, _World);
+
+// External HP changes are detected from the committed target identity. The
+// existing replan path removes AES-owned bits before observing the new base.
+IF
+DB_AESN_WorldScanSeen(_Enemy)
+AND
+DB_AESN_WorldContext(_World)
+AND
+GetMaxHitpoints(_Enemy, _ObservedMaximum)
+AND
+DB_AESN_HpTransaction(_World, _Enemy, 1, "HPCommitted", _, _, _, _TargetMaximum, _Delta, _AppliedSum)
+AND
+_ObservedMaximum != _TargetMaximum
+AND
+NOT DB_Is_InCombat(_Enemy, _)
+AND
+NOT DB_AESN_MergeReplanRequired(_World, _Enemy)
+THEN
+DB_AESN_MergeReplanRequired(_World, _Enemy);
+
+IF
+DB_AESN_WorldScanSeen(_Enemy)
+AND
+DB_AESN_WorldContext(_World)
+AND
+GetMaxHitpoints(_Enemy, _ObservedMaximum)
+AND
+DB_AESN_HpTransaction(_World, _Enemy, 1, "HPCommitted", _, _, _, _TargetMaximum, _Delta, _AppliedSum)
+AND
+_ObservedMaximum != _TargetMaximum
+AND
+DB_Is_InCombat(_Enemy, _)
+AND
+NOT DB_AESN_WorldReplanDeferred(_Enemy)
+THEN
+DB_AESN_WorldReplanDeferred(_Enemy);
+
+IF
+LeftCombat(_Object, _Combat)
+AND
+DB_AESN_WorldReplanDeferred((CHARACTER)_Object)
+AND
+DB_AESN_WorldContext(_World)
+AND
+NOT DB_Is_InCombat((CHARACTER)_Object, _)
+THEN
+NOT DB_AESN_WorldReplanDeferred((CHARACTER)_Object);
+DB_AESN_MergeReplanRequired(_World, (CHARACTER)_Object);
+PROC_AESN_RequestWorldScan();
+
+// Visibility and hostility lifecycle changes are cheap scan requests; the
+// candidate query remains the single authority for initial discovery.
+IF
+WentOnStage(_Object, _IsOnStageNow)
+THEN
+PROC_AESN_RequestWorldScan();
+
+IF
+RelationChanged(_SourceFaction, _TargetFaction, _Relation, _Permanent)
+THEN
+PROC_AESN_RequestWorldScan();
+
+IF
+TemporaryHostileRelationRequestHandled(_Character1, _Character2, _Success)
+THEN
+PROC_AESN_RequestWorldScan();
+
+IF
+TemporaryHostileRelationRemoved(_Enemy, _SourceFaction, _TargetFaction)
+THEN
+PROC_AESN_RequestWorldScan();
+
+IF
+BaseFactionChanged(_Target, _OldFaction, _NewFaction)
+THEN
+PROC_AESN_RequestWorldScan();
+
+IF
+CombatEnded(_Combat)
+THEN
+PROC_AESN_RequestWorldScan();
+
+PROC
+PROC_AESN_ClearWorldReady((CHARACTER)_Enemy)
+AND
+DB_AESN_WorldHardenedReady(_Enemy)
+THEN
+NOT DB_AESN_WorldHardenedReady(_Enemy);
+
+PROC
+PROC_AESN_ClearWorldMutationPending((CHARACTER)_Enemy)
+AND
+DB_AESN_WorldMutationPending(_Enemy)
+THEN
+NOT DB_AESN_WorldMutationPending(_Enemy);
+
+// Finalize cleanup only after the shared exact cleanup machinery has removed
+// every owned record. This also lets a later scan retry a transient failure.
+IF
+DB_AESN_WorldCleanupRequested(_Enemy)
+AND
+DB_AESN_WorldContext(_World)
+AND
+NOT DB_AESN_HpTransaction(_World, _Enemy, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_EnemyComponent(_World, _Enemy, _, _)
+AND
+NOT DB_AESN_ComponentApplication(_World, _Enemy, _, _)
+THEN
+NOT DB_AESN_WorldCleanupRequested(_Enemy);
+PROC_AESN_ClearWorldReady(_Enemy);
+PROC_AESN_ClearWorldMutationPending(_Enemy);
+PROC_AESN_ClearWorldTracked(_Enemy);
+PROC_AESN_ClearWorldFailure(_World, _Enemy);
+
+PROC
+PROC_AESN_ClearWorldTracked((CHARACTER)_Enemy)
+AND
+DB_AESN_WorldTracked(_Enemy)
+THEN
+NOT DB_AESN_WorldTracked(_Enemy);
+
+PROC
+PROC_AESN_ClearWorldTracked((CHARACTER)_Enemy)
+AND
+DB_AESN_WorldScanMiss(_Enemy)
+THEN
+NOT DB_AESN_WorldScanMiss(_Enemy);
+
+PROC
+PROC_AESN_ClearWorldFailure((GUIDSTRING)_World, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpFailure(_World, _Enemy, _Reason)
+THEN
+NOT DB_AESN_HpFailure(_World, _Enemy, _Reason);
+
+EXITSECTION
+
+ENDEXITSECTION

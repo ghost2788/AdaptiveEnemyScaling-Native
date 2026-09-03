@@ -27,6 +27,15 @@ DebugLog("AESN_MIGRATION schema1 detected; exact cleanup queued");
 // Persisted transactions are held before the delayed inspection barrier. The
 // reconciler never applies a status or writes HP: it may retain, invoke exact
 // owned cleanup, or invoke the existing acknowledgement-driven rollback.
+// RETAIN is evidence for the preceding load only; clear it on the next load so
+// repeated save/load cycles run the same validation again.
+IF
+SavegameLoaded()
+AND
+DB_AESN_ReconcileResult(_Combat, _Enemy, "RETAIN", _Reason)
+THEN
+NOT DB_AESN_ReconcileResult(_Combat, _Enemy, "RETAIN", _Reason);
+
 IF
 SavegameLoaded()
 AND
@@ -61,6 +70,8 @@ PROC_AESN_OpenCombatReconciliation((GUIDSTRING)_Combat)
 AND
 DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
 AND
+NOT DB_AESN_WorldContext(_Combat)
+AND
 CombatIsActive(_Combat, _IsActive)
 AND
 NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, _)
@@ -68,6 +79,22 @@ AND
 NOT DB_AESN_ReconcileResult(_Combat, _Enemy, _, _)
 THEN
 DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, _IsActive);
+RealtimeObjectTimerLaunch(_Enemy, "AESN_RECONCILE_ENEMY", 250);
+
+// The durable world owner is not a combat GUID. Mode 2 preserves that explicit
+// identity instead of misclassifying a valid precombat transaction as stale.
+PROC
+PROC_AESN_OpenCombatReconciliation((GUIDSTRING)_Combat)
+AND
+DB_AESN_WorldContext(_Combat)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, _)
+AND
+NOT DB_AESN_ReconcileResult(_Combat, _Enemy, _, _)
+THEN
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 2);
 RealtimeObjectTimerLaunch(_Enemy, "AESN_RECONCILE_ENEMY", 250);
 
 PROC
@@ -179,6 +206,29 @@ _Version != 1
 THEN
 PROC_AESN_RecordReconcileFailure(_Combat, _Enemy, "UnsupportedSchema");
 
+// World cleanup and replan markers represent interrupted mutation, not a
+// stable commit. Reconcile them through exact cleanup before the next scan.
+IF
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 2)
+AND
+DB_AESN_WorldCleanupRequested(_Enemy)
+THEN
+PROC_AESN_RecordReconcileFailure(_Combat, _Enemy, "WorldCleanupPending");
+
+IF
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 2)
+AND
+DB_AESN_HpReplan(_Combat, _Enemy, _, _, _)
+THEN
+PROC_AESN_RecordReconcileFailure(_Combat, _Enemy, "WorldReplanPending");
+
+IF
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 2)
+AND
+DB_AESN_MergeReplanRequired(_Combat, _Enemy)
+THEN
+PROC_AESN_RecordReconcileFailure(_Combat, _Enemy, "WorldReplanQueued");
+
 // A valid fully committed active combat is observation-only. Removing the
 // hold is the only state change and cannot duplicate any effect.
 IF
@@ -200,6 +250,37 @@ DB_AESN_ReconcileResult(_Combat, _Enemy, "RETAIN", "ValidActiveCommit");
 NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 1);
 NOT DB_AESN_HpApplicationHold(_Combat, _Enemy);
 DebugLog("AESN_RECONCILE RETAIN reason=ValidActiveCommit,doubleApply=0");
+
+// A valid world commit is retained even though its owner is not an active
+// combat. Reconstituting readiness lets a later combat reuse this exact owner.
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_RECONCILE_ENEMY")
+AND
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 2)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _, _, _, "Supported")
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _TargetMaximum, _Delta, _Delta)
+AND
+DB_AESN_ComponentApplication(_Combat, _Enemy, 1, "FullyCommitted")
+AND
+GetMaxHitpoints(_Enemy, _TargetMaximum)
+AND
+NOT DB_AESN_WorldCleanupRequested(_Enemy)
+AND
+NOT DB_AESN_HpReplan(_Combat, _Enemy, _, _, _)
+AND
+NOT DB_AESN_MergeReplanRequired(_Combat, _Enemy)
+AND
+NOT DB_AESN_ReconcileFailure(_Combat, _Enemy, _)
+THEN
+DB_AESN_ReconcileResult(_Combat, _Enemy, "RETAIN", "ValidWorldCommit");
+NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 2);
+NOT DB_AESN_HpApplicationHold(_Combat, _Enemy);
+DB_AESN_WorldTracked(_Enemy);
+DB_AESN_WorldHardenedReady(_Enemy);
+PROC_AESN_ClearWorldMutationPending(_Enemy);
+DebugLog("AESN_RECONCILE RETAIN reason=ValidWorldCommit,doubleApply=0");
 
 // An inactive combat is stale regardless of its otherwise valid identity.
 // Existing cleanup owns percentage capture, exact removals, and final record
@@ -233,6 +314,23 @@ NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 1);
 PROC_AESN_CleanupEnemy(_Enemy, _Combat);
 DebugLog("AESN_RECONCILE CLEANUP reason=IdentityMismatch");
 
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_RECONCILE_ENEMY")
+AND
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 2)
+AND
+DB_AESN_ReconcileFailure(_Combat, _Enemy, _Reason)
+AND
+NOT DB_AESN_ReconcileResult(_Combat, _Enemy, _, _)
+THEN
+DB_AESN_ReconcileResult(_Combat, _Enemy, "CLEANUP", _Reason);
+DB_AESN_HpFailure(_Combat, _Enemy, "LoadReconcileIdentityMismatch");
+NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 2);
+DB_AESN_WorldCleanupRequested(_Enemy);
+DB_AESN_WorldMutationPending(_Enemy);
+PROC_AESN_CleanupEnemy(_Enemy, _Combat);
+DebugLog("AESN_RECONCILE CLEANUP reason=InvalidWorldCommit");
+
 // A deliberately paused zero-application plan is normalized to ApplyingHP
 // under the persistent hold and then rolled back through the normal state
 // machine. No status can be requested in the transition gap.
@@ -257,6 +355,26 @@ DebugLog("AESN_RECONCILE ROLLBACK reason=PendingApplication,doubleApply=0");
 IF
 ObjectTimerFinished((CHARACTER)_Enemy, "AESN_RECONCILE_ENEMY")
 AND
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 2)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "Planned", _, _, _, _, _, 0)
+AND
+NOT DB_AESN_HpPendingApply(_Combat, _Enemy, _, _, _)
+AND
+NOT DB_AESN_ReconcileFailure(_Combat, _Enemy, _)
+THEN
+DB_AESN_ReconcileResult(_Combat, _Enemy, "ROLLBACK_STARTED", "PendingApplication");
+DB_AESN_HpFailure(_Combat, _Enemy, "LoadReconcilePendingApplication");
+NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 2);
+DB_AESN_WorldCleanupRequested(_Enemy);
+DB_AESN_WorldMutationPending(_Enemy);
+PROC_AESN_SetHpState(_Combat, _Enemy, "Planned", "ApplyingHP", 0);
+PROC_AESN_BeginHpRollback(_Combat, _Enemy);
+DebugLog("AESN_RECONCILE ROLLBACK reason=PendingWorldApplication,doubleApply=0");
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_RECONCILE_ENEMY")
+AND
 DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 1)
 AND
 DB_AESN_HpTransaction(_Combat, _Enemy, 1, "ApplyingHP", _, _, _, _, _, _)
@@ -270,6 +388,25 @@ DB_AESN_HpFailure(_Combat, _Enemy, "LoadReconcilePendingApplication");
 NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 1);
 PROC_AESN_BeginHpRollback(_Combat, _Enemy);
 DebugLog("AESN_RECONCILE ROLLBACK reason=PendingApplication,doubleApply=0");
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_RECONCILE_ENEMY")
+AND
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 2)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "ApplyingHP", _, _, _, _, _, _)
+AND
+NOT DB_AESN_HpPendingApply(_Combat, _Enemy, _, _, _)
+AND
+NOT DB_AESN_ReconcileFailure(_Combat, _Enemy, _)
+THEN
+DB_AESN_ReconcileResult(_Combat, _Enemy, "ROLLBACK_STARTED", "PendingApplication");
+DB_AESN_HpFailure(_Combat, _Enemy, "LoadReconcilePendingApplication");
+NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 2);
+DB_AESN_WorldCleanupRequested(_Enemy);
+DB_AESN_WorldMutationPending(_Enemy);
+PROC_AESN_BeginHpRollback(_Combat, _Enemy);
+DebugLog("AESN_RECONCILE ROLLBACK reason=PendingWorldApplication,doubleApply=0");
 
 // A partial component chain owns only acknowledged component rows. Mark it
 // failed and let component cleanup hand off to exact HP cleanup.
@@ -294,6 +431,30 @@ NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 1);
 PROC_AESN_SetAnyComponentStateFailed(_Combat, _Enemy);
 PROC_AESN_BeginComponentFailureCleanup(_Combat, _Enemy);
 DebugLog("AESN_RECONCILE ROLLBACK reason=PendingApplication,doubleApply=0");
+
+IF
+ObjectTimerFinished((CHARACTER)_Enemy, "AESN_RECONCILE_ENEMY")
+AND
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 2)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _, _, _)
+AND
+DB_AESN_ComponentApplication(_Combat, _Enemy, 1, _ComponentState)
+AND
+_ComponentState != "FullyCommitted"
+AND
+NOT DB_AESN_ComponentPendingApply(_Combat, _Enemy, _, _)
+AND
+NOT DB_AESN_ReconcileFailure(_Combat, _Enemy, _)
+THEN
+DB_AESN_ReconcileResult(_Combat, _Enemy, "ROLLBACK_STARTED", "PendingApplication");
+DB_AESN_HpFailure(_Combat, _Enemy, "LoadReconcilePendingApplication");
+NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 2);
+DB_AESN_WorldCleanupRequested(_Enemy);
+DB_AESN_WorldMutationPending(_Enemy);
+PROC_AESN_SetAnyComponentStateFailed(_Combat, _Enemy);
+PROC_AESN_BeginComponentFailureCleanup(_Combat, _Enemy);
+DebugLog("AESN_RECONCILE ROLLBACK reason=PendingWorldApplication,doubleApply=0");
 
 // Retire reconciliation metadata only after the existing exact transaction has
 // removed every application record. Failure diagnostics remain until the

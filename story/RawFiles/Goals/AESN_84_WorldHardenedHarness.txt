@@ -1,0 +1,177 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+// Observation-only and disabled in repository sources. The sync tool may
+// enable this exact gate only for an explicitly staged acceptance build.
+NOT DB_AESN_WorldHarnessEnabled(1);
+NOT DB_AESN_WorldHarnessObserved((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_WorldHarnessCombatObserved((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+KBSECTION
+
+// This harness never creates production eligibility, ownership, transaction,
+// or policy facts. It only records checkpoints reached by production Story.
+IF
+DB_AESN_WorldHarnessEnabled(1)
+AND
+DB_AESN_WorldContext(_World)
+AND
+DB_AESN_WorldTracked(_Enemy)
+AND
+DB_AESN_WorldHardenedReady(_Enemy)
+AND
+DB_AESN_HpTransaction(_World, _Enemy, 1, "HPCommitted", _, _, _, _, _Delta, _Delta)
+AND
+DB_AESN_ComponentApplication(_World, _Enemy, 1, "FullyCommitted")
+AND
+NOT DB_Is_InCombat(_Enemy, _)
+AND
+NOT DB_AESN_WorldHarnessObserved(_Enemy, "PrecombatCommit")
+THEN
+DB_AESN_WorldHarnessObserved(_Enemy, "PrecombatCommit");
+DebugLog("AESN_WORLD_PROOF PRECOMBAT_COMMIT productionOwned=1,outOfCombat=1");
+
+IF
+DB_AESN_WorldHarnessEnabled(1)
+AND
+DB_AESN_WorldHardenedReady(_Enemy)
+AND
+DB_AESN_EnemyEligible(_Combat, _Enemy)
+AND
+DB_AESN_CombatHardenedReady(_Combat, _Enemy)
+AND
+NOT DB_AESN_WorldContext(_Combat)
+AND
+NOT DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_WorldHarnessCombatObserved(_Combat, _Enemy, "SingleOwner")
+THEN
+DB_AESN_WorldHarnessCombatObserved(_Combat, _Enemy, "SingleOwner");
+DebugLog("AESN_WORLD_PROOF SINGLE_OWNER_COMBAT worldHpOwner=1,combatHpOwner=0");
+
+IF
+DB_AESN_WorldHarnessEnabled(1)
+AND
+DB_AESN_WorldHardenedReady(_Enemy)
+AND
+DB_AESN_RelentlessRecipient(_Combat, _Enemy, _Tier)
+AND
+DB_AESN_RelentlessApplication(_Combat, _Enemy, _Tier, _Status, "Committed")
+AND
+NOT DB_AESN_WorldContext(_Combat)
+AND
+NOT DB_AESN_WorldHarnessCombatObserved(_Combat, _Enemy, "RelentlessCombat")
+THEN
+DB_AESN_WorldHarnessCombatObserved(_Combat, _Enemy, "RelentlessCombat");
+DebugLog("AESN_WORLD_PROOF RELENTLESS_COMBAT worldHardened=1,combatRelentless=1");
+
+IF
+DB_AESN_WorldHarnessEnabled(1)
+AND
+DB_AESN_WorldContext(_World)
+AND
+DB_AESN_WorldHarnessCombatObserved(_Combat, _Enemy, "SingleOwner")
+AND
+DB_AESN_WorldHardenedReady(_Enemy)
+AND
+NOT DB_Is_InCombat(_Enemy, _)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _Enemy, "Relentless", _)
+AND
+DB_AESN_HpTransaction(_World, _Enemy, 1, "HPCommitted", _, _, _, _, _Delta, _Delta)
+AND
+NOT DB_AESN_WorldHarnessObserved(_Enemy, "PostcombatRetain")
+THEN
+DB_AESN_WorldHarnessObserved(_Enemy, "PostcombatRetain");
+DebugLog("AESN_WORLD_PROOF POSTCOMBAT_RETAIN worldOwnershipRetained=1,combatRelentlessRemoved=1");
+
+IF
+DB_AESN_WorldHarnessEnabled(1)
+AND
+DB_AESN_WorldContext(_World)
+AND
+DB_AESN_WorldPreviousPolicy(_World, _OldTier, _OldTargetHpPercent)
+AND
+DB_AESN_CombatSnapshotV2(_World, 2, _, _, _, _, _NewTier, _NewTargetHpPercent, _, _, _, "Supported")
+AND
+_OldTier != _NewTier
+AND
+DB_AESN_WorldTracked(_Enemy)
+AND
+NOT DB_AESN_WorldHarnessObserved(_Enemy, "PolicyReplan")
+THEN
+DB_AESN_WorldHarnessObserved(_Enemy, "PolicyReplan");
+DebugLog("AESN_WORLD_PROOF POLICY_REPLAN tierChanged=1");
+
+IF
+DB_AESN_WorldHarnessEnabled(1)
+AND
+DB_AESN_WorldContext(_World)
+AND
+DB_AESN_WorldPreviousPolicy(_World, _OldTier, _OldTargetHpPercent)
+AND
+DB_AESN_CombatSnapshotV2(_World, 2, _, _, _, _, _NewTier, _NewTargetHpPercent, _, _, _, "Supported")
+AND
+_OldTargetHpPercent != _NewTargetHpPercent
+AND
+DB_AESN_WorldTracked(_Enemy)
+AND
+NOT DB_AESN_WorldHarnessObserved(_Enemy, "PolicyReplan")
+THEN
+DB_AESN_WorldHarnessObserved(_Enemy, "PolicyReplan");
+DebugLog("AESN_WORLD_PROOF POLICY_REPLAN hpPolicyChanged=1");
+
+IF
+DB_AESN_WorldHarnessEnabled(1)
+AND
+DB_AESN_WorldContext(_World)
+AND
+DB_AESN_MergeReplanRequired(_World, _Enemy)
+AND
+GetMaxHitpoints(_Enemy, _ObservedMaximum)
+AND
+DB_AESN_HpTransaction(_World, _Enemy, 1, "HPCommitted", _, _, _, _TargetMaximum, _Delta, _AppliedSum)
+AND
+_ObservedMaximum != _TargetMaximum
+AND
+NOT DB_AESN_WorldHarnessObserved(_Enemy, "ExternalHpReplan")
+THEN
+DB_AESN_WorldHarnessObserved(_Enemy, "ExternalHpReplan");
+DebugLog("AESN_WORLD_PROOF EXTERNAL_HP_REPLAN observedMaximumChanged=1");
+
+IF
+DB_AESN_WorldHarnessEnabled(1)
+AND
+DB_AESN_WorldContext(_World)
+AND
+DB_AESN_WorldScanMiss(_Enemy)
+AND
+DB_AESN_WorldTracked(_Enemy)
+AND
+DB_AESN_WorldHardenedReady(_Enemy)
+AND
+DB_AESN_HpTransaction(_World, _Enemy, 1, "HPCommitted", _, _, _, _, _Delta, _Delta)
+AND
+NOT DB_AESN_WorldCleanupRequested(_Enemy)
+AND
+NOT DB_AESN_WorldHarnessObserved(_Enemy, "StickyRetain")
+THEN
+DB_AESN_WorldHarnessObserved(_Enemy, "StickyRetain");
+DebugLog("AESN_WORLD_PROOF STICKY_RETAIN scanMiss=1,worldCommitRetained=1");
+
+IF
+DB_AESN_WorldHarnessEnabled(1)
+AND
+DB_AESN_WorldContext(_World)
+AND
+DB_AESN_ReconcileResult(_World, _Enemy, "RETAIN", "ValidWorldCommit")
+AND
+DB_AESN_WorldHardenedReady(_Enemy)
+AND
+NOT DB_AESN_WorldHarnessObserved(_Enemy, "SaveLoadRetain")
+THEN
+DB_AESN_WorldHarnessObserved(_Enemy, "SaveLoadRetain");
+DebugLog("AESN_WORLD_PROOF SAVELOAD_RETAIN validWorldCommit=1,doubleApply=0");
+
+EXITSECTION
+
+ENDEXITSECTION

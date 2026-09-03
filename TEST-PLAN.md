@@ -20,6 +20,23 @@ The current implementation is no longer the 5–8-only balance fixture. Before a
 5. Re-run HP transaction, stale reconciliation, death cleanup, late entry, combat merge, save/load, and rollback under schema 2. No HP drift, AESN resource total above `2/2`, dead-recipient replacement, Toolkit crash, or game crash is acceptable.
 6. Sample Honour gameplay at levels `1,5,9,13,17,19` for solo, duo, four-, six-, and twelve-member synthetic policies before changing the approved numeric table.
 
+## Precombat Hardened acceptance gate
+
+Runtime verification: pending. Stage the observation-only build with `-IncludeTestHarnesses -EnableWorldHardenedProof`; this changes only the staged Toolkit copy and remains excluded from production sync. Compile Story before starting the acceptance run.
+
+The runtime trace must contain all eight production-derived checkpoints without any harness-created eligibility or ownership facts:
+
+1. `PRECOMBAT_COMMIT`: an active, onstage, non-invisible hostile within 100 metres receives a fully committed world-owned Hardened transaction before combat without a perception or line-of-sight requirement.
+2. `SINGLE_OWNER_COMBAT`: entering combat reuses that world transaction and creates no combat-owned HP transaction.
+3. `RELENTLESS_COMBAT`: an eligible recipient may receive combat-owned Relentless from the frozen encounter ledger.
+4. `POSTCOMBAT_RETAIN`: the valid world Hardened owner remains after combat and Relentless cleanup.
+5. `POLICY_REPLAN`: a permanent-party level or size change replans an out-of-combat target once while preserving its current HP percentage.
+6. `EXTERNAL_HP_REPLAN`: after another HP modifier changes maximum HP, the new base is `observed maximum - AES-owned applied sum`; the foreign modifier is preserved and AESN does not compound itself.
+7. `STICKY_RETAIN`: after first commit, a missed discovery scan leaves the world-owned Hardened HP and combat-stat package intact.
+8. `SAVELOAD_RETAIN`: a valid committed world transaction survives retail save/load with no duplicate application.
+
+Any missing checkpoint, double application, HP-percentage drift, foreign-status removal, premature hidden/offstage scaling, or Story error blocks production publication of this change.
+
 ## Capability spikes
 
 | ID | Setup | Required observation | Failure result |
@@ -115,6 +132,12 @@ CAP-07 was **Verified locally on 2026-08-31**. Two spatially separated ordinary 
 | RT-25 | Overflow/failure injection | No partial stat/action scaling; acknowledged bits roll back; diagnostic remains |
 | RT-26 | Host plus clients | One host-authoritative application; all peers observe the same HP, stats, statuses, and cleanup |
 | RT-27 | Client reconnect | Rejoining client observes committed state; host does not reapply |
+| RT-28 | Precombat nearby active hostile | **Partially verified in retail:** red gnolls at approximately 62 and 70 feet received precombat Hardened without NPC-perception or line-of-sight gates; single-owner combat handoff remains pending. See `evidence/capability-spikes/WORLD-HARDENED-01-discovery-sticky.md` |
+| RT-29 | Dynamic party-policy change | **Pending:** out-of-combat Hardened replans once; active combat defers until exit |
+| RT-30 | External maximum-HP modifier | **Pending:** recompute from `observed maximum - AES-owned applied sum`; preserve the foreign modifier and living HP percentage |
+| RT-31 | Discovery-range/visibility loss | **Verified locally:** the tester retraced the route that previously removed Hardened, waited beyond the scan interval, and confirmed the committed package remained applied. See `evidence/capability-spikes/WORLD-HARDENED-01-discovery-sticky.md` |
+| RT-32 | World-owned committed save/load | **Verified locally for valid commits:** retail save/reload retained the same maximum HP and exactly one Hardened status while the scanner continued scaling other loaded red gnolls. Invalid/partial recovery remains a separate fault-injection gate. See `evidence/capability-spikes/WORLD-HARDENED-01-discovery-sticky.md` |
+| RT-33 | Neutral-to-hostile mid-combat flip | **Verified locally:** yellow-ring goblins remained unscaled while neutral; after the player attacked during the active retail combat and they turned red, the hostility recheck reconsidered them and applied AES under the original frozen combat policy. Relentless remains limited to any unspent budget and recipient capacity. See `evidence/capability-spikes/WORLD-HARDENED-01-discovery-sticky.md` |
 
 ## Package gate
 
@@ -127,3 +150,5 @@ After Publish Local:
 5. Compare live Mods and `modsettings.lsx` manifests with their pre-build versions.
 6. Produce `artifacts/reports/package-validation.json`.
 7. Stop for user review without installing or uploading.
+
+Latest result: the `1.0.0.5` production update package passed extraction, production-goal, authored-source, namespace, Script Extender, active-identity, and retail smoke checks. A pre-build live-manifest baseline was not captured for this iteration, so no claim is made about unrelated live Mods-directory changes. See `evidence/release-candidates/1.0.0.5.md`.

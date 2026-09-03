@@ -368,6 +368,18 @@ PROC_AESN_MigrateCombatState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
 AND DB_AESN_EnemyRejected(_OldCombat, _Enemy, _Reason)
 THEN NOT DB_AESN_EnemyRejected(_OldCombat, _Enemy, _Reason); DB_AESN_EnemyRejected(_NewCombat, _Enemy, _Reason);
 
+PROC
+PROC_AESN_MigrateCombatState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_CombatHardenedReady(_OldCombat, _Enemy)
+AND NOT DB_AESN_CombatHardenedReady(_NewCombat, _Enemy)
+THEN NOT DB_AESN_CombatHardenedReady(_OldCombat, _Enemy); DB_AESN_CombatHardenedReady(_NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MigrateCombatState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND DB_AESN_CombatHardenedReady(_OldCombat, _Enemy)
+AND DB_AESN_CombatHardenedReady(_NewCombat, _Enemy)
+THEN NOT DB_AESN_CombatHardenedReady(_OldCombat, _Enemy);
+
 // HP planning, acknowledgement, application, removal, and cleanup state.
 PROC
 PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
@@ -492,12 +504,34 @@ DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
 THEN
 PROC_AESN_CleanupEnemy(_Enemy, _Combat);
 
+// A precombat enemy keeps world-owned Hardened state, so its combat may own
+// only the Relentless component. Dispatch that exact component for removal too.
+PROC
+PROC_AESN_DispatchCombatEnemyCleanup((GUIDSTRING)_Combat)
+AND
+DB_AESN_EnemyComponent(_Combat, _Enemy, "Relentless", _)
+AND
+NOT DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
+THEN
+PROC_AESN_CleanupEnemy(_Enemy, _Combat);
+
+IF
+DB_AESN_CombatCleanupRequested(_Combat)
+AND
+DB_AESN_EnemyComponent(_Combat, _Enemy, "Relentless", _)
+AND
+NOT DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
+THEN
+PROC_AESN_CleanupEnemy(_Enemy, _Combat);
+
 IF
 DB_AESN_CombatCleanupRequested(_Combat)
 AND
 NOT DB_AESN_HpTransaction(_Combat, _, _, _, _, _, _, _, _, _)
 AND
 NOT DB_AESN_EnemyComponent(_Combat, _, _, _)
+AND
+NOT DB_AESN_RelentlessApplication(_Combat, _, _, _, "Applying")
 THEN
 PROC_AESN_FinalizeCombatCleanup(_Combat);
 
@@ -567,6 +601,11 @@ THEN NOT DB_AESN_EnemyRejected(_Combat, _Enemy, _Reason);
 
 PROC
 PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+AND DB_AESN_HostilityRecheckPending(_Combat, _Timer)
+THEN NOT DB_AESN_HostilityRecheckPending(_Combat, _Timer);
+
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
 AND DB_AESN_CombatSnapshotV2(_Combat, _Version, _EligibleSize, _EffectiveSize, _Sum, _Average, _Tier, _TargetHpPercent, _ActionBudget, _BonusActionBudget, _RecipientCap, _State)
 THEN NOT DB_AESN_CombatSnapshotV2(_Combat, _Version, _EligibleSize, _EffectiveSize, _Sum, _Average, _Tier, _TargetHpPercent, _ActionBudget, _BonusActionBudget, _RecipientCap, _State);
 
@@ -615,6 +654,11 @@ PROC
 PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
 AND DB_AESN_RelentlessRejected(_Combat, _Enemy, _Reason)
 THEN NOT DB_AESN_RelentlessRejected(_Combat, _Enemy, _Reason);
+
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+AND DB_AESN_CombatHardenedReady(_Combat, _Enemy)
+THEN NOT DB_AESN_CombatHardenedReady(_Combat, _Enemy);
 
 PROC
 PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)

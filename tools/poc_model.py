@@ -49,6 +49,21 @@ class HpTransactionPlan:
 
 
 @dataclass(frozen=True)
+class HardenedRefreshPlan:
+    external_base: int
+    target_maximum: int
+    delta: int
+    bits: tuple[int, ...]
+    restored_current: int
+
+
+@dataclass(frozen=True)
+class WorldHardenedDecision:
+    action: str
+    reason: str
+
+
+@dataclass(frozen=True)
 class MergeResult:
     aliases: dict[str, str]
     snapshots: dict[str, Policy]
@@ -170,6 +185,90 @@ def target_maximum(base_maximum: int, policy: Policy) -> int:
     if target <= 0:
         raise PolicyError("calculated target maximum HP must be positive")
     return target
+
+
+def plan_hardened_refresh(
+    observed_current: int,
+    observed_maximum: int,
+    owned_applied_sum: int,
+    policy: Policy,
+    *,
+    alive: bool,
+) -> HardenedRefreshPlan:
+    values = (observed_current, observed_maximum, owned_applied_sum)
+    if any(not isinstance(value, int) or isinstance(value, bool) for value in values):
+        raise PolicyError("observed HP values and owned HP must be integers")
+    if observed_maximum <= 0:
+        raise PolicyError("observed maximum HP must be positive")
+    if observed_current < 0 or observed_current > observed_maximum:
+        raise PolicyError("observed current HP must be within the observed maximum")
+    if owned_applied_sum < 0 or owned_applied_sum >= observed_maximum:
+        raise PolicyError("owned HP must leave a positive external base")
+
+    external_base = observed_maximum - owned_applied_sum
+    target = target_maximum(external_base, policy)
+    delta = target - external_base
+    bits = tuple(decompose_delta(delta))
+    restored = restore_current(
+        observed_current,
+        observed_maximum,
+        target,
+        alive=alive,
+    )
+    return HardenedRefreshPlan(
+        external_base=external_base,
+        target_maximum=target,
+        delta=delta,
+        bits=bits,
+        restored_current=restored,
+    )
+
+
+def decide_world_hardened(
+    *,
+    tracked: bool,
+    committed: bool,
+    in_combat: bool,
+    alive: bool,
+    active: bool,
+    on_stage: bool,
+    invisible: bool,
+    hostile: bool,
+) -> WorldHardenedDecision:
+    if in_combat:
+        return WorldHardenedDecision("defer", "active combat freezes Hardened")
+
+    # Visibility, range, and hostility are discovery gates. Once the complete
+    # world-owned package commits, only an explicit policy replan or a
+    # fail-closed transaction path may mutate it.
+    if tracked and committed:
+        return WorldHardenedDecision("retain", "committed world target is sticky")
+    if tracked:
+        return WorldHardenedDecision("wait", "world transaction is still pending")
+
+    eligible = (
+        alive
+        and active
+        and on_stage
+        and not invisible
+        and hostile
+    )
+    if eligible:
+        return WorldHardenedDecision("apply", "new eligible world target")
+    return WorldHardenedDecision("ignore", "untracked target is not eligible")
+
+
+def should_reconsider_rejected_hostile(
+    *,
+    rejected_reason: str,
+    still_in_combat: bool,
+    hostile_to_participant: bool,
+) -> bool:
+    return (
+        rejected_reason == "HostileToNoParticipant"
+        and still_in_combat
+        and hostile_to_participant
+    )
 
 
 def decompose_delta(delta: int) -> list[int]:

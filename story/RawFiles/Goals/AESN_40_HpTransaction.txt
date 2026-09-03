@@ -10,10 +10,31 @@ KBSECTION
 // A production hostile is planned once against its immutable schema-2 policy
 // snapshot. Planning records one target and exact desired bits but performs no
 // mutation; acknowledgement-driven application is a separate state transition.
+// The world path marks tracking before eligibility, so it is explicitly
+// admitted. A combat path is admitted only when no world owner is tracking the
+// same enemy.
+QRY
+QRY_AESN_HardenedPlanOwnerAllowed((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_WorldContext(_Combat)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HardenedPlanOwnerAllowed((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+NOT DB_AESN_WorldContext(_Combat)
+AND
+NOT DB_AESN_WorldTracked(_Enemy)
+THEN
+DB_NOOP(1);
+
 IF
 DB_AESN_EnemyEligible(_Combat, _Enemy)
 AND
 NOT DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
+AND
+QRY_AESN_HardenedPlanOwnerAllowed(_Combat, _Enemy)
 AND
 NOT DB_AESN_HpFailure(_Combat, _Enemy, _)
 AND

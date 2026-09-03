@@ -63,10 +63,20 @@ PROC_AESN_ReplanEnemy((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
 AND
 DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
 AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum)
+AND
+GetMaxHitpoints(_Enemy, _ObservedMaximum)
+AND
+IntegerSubtract(_ObservedMaximum, _AppliedSum, _ExternalBase)
+AND
+_ExternalBase > 0
+AND
 GetHitpointsPercentage(_Enemy, _CapturedPercentage)
 AND
 NOT DB_AESN_HpReplan(_Combat, _Enemy, _, _, _)
 THEN
+NOT DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum);
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _BeforeCurrent, _ExternalBase, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum);
 DB_AESN_HpReplan(_Combat, _Enemy, 1, "RemovingComponents", _CapturedPercentage);
 PROC_AESN_BeginComponentReplan(_Combat, _Enemy);
 
@@ -75,12 +85,39 @@ PROC_AESN_ReplanEnemy((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
 AND
 NOT DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
 AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum)
+AND
+GetMaxHitpoints(_Enemy, _ObservedMaximum)
+AND
+IntegerSubtract(_ObservedMaximum, _AppliedSum, _ExternalBase)
+AND
+_ExternalBase > 0
+AND
 GetHitpointsPercentage(_Enemy, _CapturedPercentage)
 AND
 NOT DB_AESN_HpReplan(_Combat, _Enemy, _, _, _)
 THEN
+NOT DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum);
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _BeforeCurrent, _ExternalBase, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum);
 DB_AESN_HpReplan(_Combat, _Enemy, 1, "RemovingComponents", _CapturedPercentage);
 PROC_AESN_BeginHpReplanRemoval(_Combat, _Enemy);
+
+PROC
+PROC_AESN_ReplanEnemy((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _, _, _AppliedSum)
+AND
+GetMaxHitpoints(_Enemy, _ObservedMaximum)
+AND
+IntegerSubtract(_ObservedMaximum, _AppliedSum, _ExternalBase)
+AND
+_ExternalBase <= 0
+AND
+NOT DB_AESN_HpReplan(_Combat, _Enemy, _, _, _)
+THEN
+DB_AESN_HpFailure(_Combat, _Enemy, "UnsafeExternalBase");
+NOT DB_AESN_MergeReplanRequired(_Combat, _Enemy);
+DebugLog("AESN_HP REPLAN_ABORTED reason=UnsafeExternalBase");
 
 PROC
 PROC_AESN_SetHpReplanState((GUIDSTRING)_Combat, (CHARACTER)_Enemy, (STRING)_OldState, (STRING)_NewState)
@@ -519,7 +556,9 @@ DB_AESN_HpTransaction(_Combat, _Enemy, 1, "CleaningHP", _, _BeforeMaximum, _, _,
 AND
 DB_AESN_HpCleanup(_Combat, _Enemy, _CleanupCurrent, _CleanupMaximum, _CleanupPercentage)
 AND
-GetMaxHitpoints(_Enemy, _BeforeMaximum)
+IntegerSubtract(_CleanupMaximum, _AppliedSum, _ExpectedMaximum)
+AND
+GetMaxHitpoints(_Enemy, _ExpectedMaximum)
 AND
 GetHitpoints(_Enemy, _Current)
 AND
@@ -536,7 +575,9 @@ DB_AESN_HpTransaction(_Combat, _Enemy, 1, "CleaningHP", _, _BeforeMaximum, _, _,
 AND
 DB_AESN_HpCleanup(_Combat, _Enemy, _CleanupCurrent, _CleanupMaximum, _CleanupPercentage)
 AND
-GetMaxHitpoints(_Enemy, _BeforeMaximum)
+IntegerSubtract(_CleanupMaximum, _AppliedSum, _ExpectedMaximum)
+AND
+GetMaxHitpoints(_Enemy, _ExpectedMaximum)
 AND
 GetHitpoints(_Enemy, 0)
 THEN
@@ -548,9 +589,13 @@ PROC_AESN_FinalizeHpRemoval((GUIDSTRING)_Combat, (CHARACTER)_Enemy, "Cleanup")
 AND
 DB_AESN_HpTransaction(_Combat, _Enemy, 1, "CleaningHP", _, _BeforeMaximum, _, _, _, _AppliedSum)
 AND
+DB_AESN_HpCleanup(_Combat, _Enemy, _CleanupCurrent, _CleanupMaximum, _CleanupPercentage)
+AND
+IntegerSubtract(_CleanupMaximum, _AppliedSum, _ExpectedMaximum)
+AND
 GetMaxHitpoints(_Enemy, _ObservedMaximum)
 AND
-_ObservedMaximum != _BeforeMaximum
+_ObservedMaximum != _ExpectedMaximum
 THEN
 DB_AESN_HpFailure(_Combat, _Enemy, "MaximumMismatch");
 PROC_AESN_SetHpState(_Combat, _Enemy, "CleaningHP", "CleanupFailed", _AppliedSum);

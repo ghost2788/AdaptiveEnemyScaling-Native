@@ -5,6 +5,7 @@ NOT DB_AESN_RelentlessLedger((GUIDSTRING)NULL_00000000-0000-0000-0000-0000000000
 NOT DB_AESN_RelentlessRecipient((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0);
 NOT DB_AESN_RelentlessApplication((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, "", "");
 NOT DB_AESN_RelentlessRejected((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_CombatHardenedReady((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
 KBSECTION
 
 // The ledger is persistent even while the capability gate is closed. Its
@@ -13,14 +14,48 @@ KBSECTION
 IF
 DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _ActionBudget, _BonusActionBudget, _RecipientCap, "Supported")
 AND
+NOT DB_AESN_WorldContext(_Combat)
+AND
 NOT DB_AESN_RelentlessLedger(_Combat, _, _, _, _, _, _, _)
 THEN
 DB_AESN_RelentlessLedger(_Combat, 2, _ActionBudget, _BonusActionBudget, _RecipientCap, 0, 0, 0);
 
-// Production allocation is fail-closed. The capability fact is absent from
-// shipped initialization until the hostile runtime proof has passed.
+// One readiness fact bridges the two valid Hardened ownership paths. A hidden
+// late entrant can commit under its combat, while a prebuffed visible hostile
+// keeps its durable world-owned transaction without receiving a second copy.
 IF
 DB_AESN_ComponentApplication(_Combat, _Enemy, 1, "FullyCommitted")
+AND
+NOT DB_AESN_WorldContext(_Combat)
+AND
+DB_AESN_EnemyEligible(_Combat, _Enemy)
+AND
+NOT DB_AESN_CombatHardenedReady(_Combat, _Enemy)
+THEN
+DB_AESN_CombatHardenedReady(_Combat, _Enemy);
+
+IF
+DB_AESN_WorldHardenedReady(_Enemy)
+AND
+DB_AESN_EnemyEligible(_Combat, _Enemy)
+AND
+NOT DB_AESN_WorldContext(_Combat)
+AND
+NOT DB_AESN_CombatHardenedReady(_Combat, _Enemy)
+THEN
+DB_AESN_CombatHardenedReady(_Combat, _Enemy);
+
+// Production allocation is fail-closed. Readiness proves exactly one complete
+// Hardened owner; the combat snapshot remains the sole budget authority.
+IF
+DB_AESN_CombatHardenedReady(_Combat, _Enemy)
+THEN
+PROC_AESN_ConsiderRelentlessCandidate(_Combat, _Enemy);
+
+PROC
+PROC_AESN_ConsiderRelentlessCandidate((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_CombatHardenedReady(_Combat, _Enemy)
 AND
 DB_AESN_EnemyEligible(_Combat, _Enemy)
 AND

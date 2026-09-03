@@ -2,7 +2,7 @@
 
 ## Decision
 
-Use modular native statuses plus a versioned Osiris state machine. Maximum HP is represented by AESN-owned binary flat-HP statuses; Hardened and Relentless are separate owned statuses. This makes every mutation attributable and reversible without removing another mod's resources.
+Use modular native statuses plus a versioned Osiris state machine. Maximum HP is represented by AESN-owned binary flat-HP statuses; world-owned Hardened and combat-owned Relentless are separate ownership domains. This makes every mutation attributable and reversible without removing another mod's resources.
 
 The HP, roster, hostility, merge, save/load, and personal Action/Bonus-Action resource mechanisms have passed their isolated native capability gates. Hardened and Relentless are production-enabled.
 
@@ -12,8 +12,8 @@ The HP, roster, hostility, merge, save/load, and personal Action/Bonus-Action re
 - Module UUID: `a4567f52-1665-df50-b84c-3992f80fdb90`
 - Module folder: `AdaptiveEnemyScalingNativePOC_a4567f52-1665-df50-b84c-3992f80fdb90`
 - Internal POC milestone: `0.1.0`
-- Toolkit module version: `1.0.0.4`; the Toolkit UI rejected major version `0`
-- The final beta release-candidate Publish Local produced `1.0.0.4`; auto-increment remains enabled
+- Toolkit module version: `1.0.0.5`; the Toolkit UI rejected major version `0`
+- The accepted beta release candidate was `1.0.0.4`; the verified precombat production update package is `1.0.0.5`, with auto-increment still enabled
 - Status namespace: `AESN_*`
 - Database namespace: `DB_AESN_*`
 - No Script Extender tree
@@ -40,12 +40,15 @@ AdaptiveEnemyScaling-Native-POC/
 |   |-- AESN_00_Init.txt
 |   |-- AESN_10_Roster.txt
 |   |-- AESN_20_Policy.txt
+|   |-- AESN_25_WorldHardened.txt (world database schema)
 |   |-- AESN_30_Combat.txt
 |   |-- AESN_40_HpTransaction.txt
 |   |-- AESN_50_Applications.txt
+|   |-- AESN_56_Relentless.txt
 |   |-- AESN_60_Merge.txt
-|   |-- AESN_70_Reconcile.txt
-|   |-- AESN_90_Diagnostics.txt
+|   |-- AESN_65_Reconciliation.txt
+|   |-- AESN_66_WorldHardenedRuntime.txt
+|   |-- AESN_84_WorldHardenedHarness.txt
 |   `-- AESN_99_TestHarness.txt
 |-- tests/
 |   |-- fixtures/
@@ -60,7 +63,7 @@ Numeric goal names aid navigation. Story goal dependencies, rather than filename
 
 ## Persistent state
 
-Production policy state uses schema version `2`. The frozen snapshot contains derived policy outputs; mutable Relentless expenditure is kept in a separate monotonic ledger so the immutable combat policy never changes.
+Production policy state uses schema version `2`. The durable synthetic world owner uses the same acknowledged HP/component transaction records as combat ownership, but never receives a Relentless ledger. A combat snapshot contains frozen derived policy outputs; mutable Relentless expenditure is kept in a separate monotonic ledger so the immutable combat policy never changes.
 
 - `DB_AESN_SchemaVersion(2)`
 - `DB_AESN_CombatSnapshotV2(combat, schema, eligibleSize, effectiveSize, levelSum, averageLevel, hardenedTier, targetHpPercent, actionBudget, bonusActionBudget, recipientCap, policyState)`
@@ -94,7 +97,9 @@ An empty eligible roster fails closed and creates no scaling snapshot. Active co
 
 ## Snapshot and hostile targets
 
-At combat start, snapshot eligible member GUIDs, levels, exact count, level sum, and floored average. Build `DB_AESN_CombatParticipant` from the intersection of the snapshot and native participants in that combat.
+Outside combat, the world owner rebuilds its policy from the full permanent roster when members join, leave, level, or respec. Its discovery-only scan reaches 100 metres around every eligible permanent member every three seconds and on relevant lifecycle events. A new target must be alive, active, onstage, non-invisible, outside combat, and hostile to at least one current roster member. Active/onstage state is the available render-range proxy; NPC perception (`CanSee`) and line of sight are deliberately not discovery gates. Once its world-owned package commits, a later scan miss does not remove the package. Explicit policy changes replan every tracked target, including targets outside the scan. Invalid or failed transactions still use exact cleanup. This avoids making already-discovered statistics flicker with distance or perception geometry.
+
+At combat start, snapshot eligible member GUIDs, levels, exact count, level sum, and floored average. Build `DB_AESN_CombatParticipant` from the intersection of the snapshot and native participants in that combat. A fully committed world-owned Hardened transaction satisfies the combat readiness gate without a second HP or Hardened application. A hidden or late entrant that was not prebuffed uses the existing combat-owned fallback. Relentless remains combat-owned in both paths.
 
 An enemy character is eligible only when an existential query succeeds:
 
@@ -103,11 +108,11 @@ DB_AESN_CombatParticipant(combat, member)
 AND IsEnemy(enemy, member) == 1
 ```
 
-No representative party member, archetype, team, owner, or faction shortcut classifies the enemy. Hostile summons remain eligible when hostile to a participating snapshotted member. Repeated combat events are idempotent; late entrants receive the existing snapshot policy.
+No representative party member, archetype, team, owner, or faction shortcut classifies the enemy. Hostile summons remain eligible when hostile to a participating snapshotted member. Repeated combat events are idempotent; late entrants receive the existing snapshot policy. An actor first rejected as neutral is reconsidered after an attack or hostility/faction change, but only while it remains in the same combat and is now hostile to at least one participating snapshot member. This covers mid-combat betrayals without scaling allied reinforcements.
 
 ## Production policy
 
-Average level is `floor(levelSum / eligibleSize)` and both level and size are frozen for the combat. Effective size is capped at twelve. No gear inspection, module detection, enemy-level mutation, ability distribution, or flat damage bonus participates in policy.
+Average level is `floor(levelSum / eligibleSize)`. World Hardened policy follows current permanent-party level and size outside combat; existing combat participants retain their current Hardened policy until they leave combat. Combat snapshots freeze level, size, and Relentless budgets for that encounter. Effective size is capped at twelve. No gear inspection, module detection, enemy-level mutation, ability distribution, or flat damage bonus participates in policy.
 
 | Tier | Average level | Solo HP | Attack/saves/DC | AC | Base Action budget | Base Bonus-Action budget |
 |---|---:|---:|---:|---:|---:|---:|
@@ -169,7 +174,7 @@ An enemy already dead at initial application is skipped.
 
 ### Replan
 
-A merge policy change atomically removes the old recorded bits, applies the new bits, verifies the expected net maximum, and restores percentage once. It does not perform a full cleanup followed by a second percentage restoration.
+A merge, world-party-policy, or external-HP change atomically removes the old recorded bits, observes the remaining maximum, applies the new bits, verifies the expected net maximum, and restores percentage once. The no-compounding base is `observed maximum - AES-owned applied sum`; therefore HP supplied by another mod remains part of the base instead of being overwritten. Replanning does not perform a full cleanup followed by a second percentage restoration. If the target is in combat, the world replan is deferred until it leaves.
 
 ## Merged combat ownership
 
@@ -186,6 +191,8 @@ If both snapshots exist and differ, canonical average level is the higher averag
 
 `SavegameLoaded`, `GameModeStarted(..., IsStoryReload)`, and gameplay-ready events trigger one guarded reconciliation pass.
 
+- Valid world-owned committed records are retained, re-marked ready, and never applied twice.
+- Invalid, partial, or identity-mismatched world records enter exact cleanup before any fresh scan can rebuild them.
 - Active combat with matching committed records and statuses: retain unchanged.
 - Active combat with a mismatch: remove only detected fork-owned statuses, preserve percentage once, and rebuild the persisted canonical plan.
 - Discarded merged combat: resolve to the active surviving alias.
@@ -197,8 +204,8 @@ Relentless recipients and spent counters persist unchanged. A load never refunds
 
 ## Diagnostics
 
-Production emits structured debug-log records for roster decisions, snapshots, policy, hostility, rollback, cleanup, merge mismatch, reload reconciliation, and failure-closed conditions. UI banners and reload-proof notifications are absent. Test commands live only in goals excluded by the default synchronization allowlist.
+Production emits structured debug-log records for roster decisions, snapshots, policy, hostility, rollback, cleanup, merge mismatch, reload reconciliation, and failure-closed conditions. UI banners and reload-proof notifications are absent. The disabled `AESN_84_WorldHardenedHarness` only observes production facts and emits named acceptance checkpoints; it never fabricates eligibility, tracking, ownership, or transactions. Test commands and observers live only in goals excluded by the default synchronization allowlist.
 
 ## Publication boundary
 
-The official Toolkit is installed on `B:`. Repository sources synchronize only to the verified Toolkit `Data` root. Default synchronization copies the ten production goals and removes stale proof/test goals; explicit switches are required to stage test harnesses or the isolated resource proof. Publish Local may write to the live player Mods directory, so package handling and mod-manager activation remain user-operated and must preserve the user's existing load order. No workflow uploads to mod.io.
+The official Toolkit is installed on `B:`. Repository sources synchronize only to the verified Toolkit `Data` root. Default synchronization copies the twelve production goals and removes stale proof/test goals; explicit switches are required to stage test harnesses, the isolated resource proof, or the observation-only world proof. Publish Local may write to the live player Mods directory, so package handling and mod-manager activation remain user-operated and must preserve the user's existing load order. No workflow uploads to mod.io.

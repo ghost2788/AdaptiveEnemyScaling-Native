@@ -200,6 +200,94 @@ class PocModelTests(unittest.TestCase):
         with self.assertRaises(model.PolicyError):
             model.target_maximum(100_000_000, model.build_policy([7]))
 
+    def test_world_refresh_subtracts_owned_bits_before_reapplying_policy(self):
+        model = load_model(self)
+        policy = model.build_policy([5, 5, 5, 5])
+
+        plan = model.plan_hardened_refresh(
+            88,
+            175,
+            25,
+            policy,
+            alive=True,
+        )
+
+        self.assertEqual(plan.external_base, 150)
+        self.assertEqual(plan.target_maximum, 315)
+        self.assertEqual(plan.delta, 165)
+        self.assertEqual(sum(plan.bits), 165)
+        self.assertEqual(plan.restored_current, 158)
+
+    def test_world_lifecycle_uses_visibility_only_for_discovery(self):
+        model = load_model(self)
+
+        visible = model.decide_world_hardened(
+            tracked=False,
+            committed=False,
+            in_combat=False,
+            alive=True,
+            active=True,
+            on_stage=True,
+            invisible=False,
+            hostile=True,
+        )
+        hidden = model.decide_world_hardened(
+            tracked=True,
+            committed=True,
+            in_combat=False,
+            alive=True,
+            active=True,
+            on_stage=True,
+            invisible=True,
+            hostile=True,
+        )
+        fighting = model.decide_world_hardened(
+            tracked=True,
+            committed=True,
+            in_combat=True,
+            alive=True,
+            active=True,
+            on_stage=True,
+            invisible=False,
+            hostile=True,
+        )
+
+        self.assertEqual(visible.action, "apply")
+        self.assertEqual(hidden.action, "retain")
+        self.assertEqual(fighting.action, "defer")
+
+    def test_reconsideration_only_reopens_neutral_rejection_that_is_now_hostile(self):
+        model = load_model(self)
+
+        self.assertTrue(
+            model.should_reconsider_rejected_hostile(
+                rejected_reason="HostileToNoParticipant",
+                still_in_combat=True,
+                hostile_to_participant=True,
+            )
+        )
+        self.assertFalse(
+            model.should_reconsider_rejected_hostile(
+                rejected_reason="HostileToNoParticipant",
+                still_in_combat=True,
+                hostile_to_participant=False,
+            )
+        )
+        self.assertFalse(
+            model.should_reconsider_rejected_hostile(
+                rejected_reason="DeadAtEntry",
+                still_in_combat=True,
+                hostile_to_participant=True,
+            )
+        )
+        self.assertFalse(
+            model.should_reconsider_rejected_hostile(
+                rejected_reason="HostileToNoParticipant",
+                still_in_combat=False,
+                hostile_to_participant=True,
+            )
+        )
+
     def test_decompose_delta_uses_exact_descending_bits_and_enforces_bounds(self):
         model = load_model(self)
 

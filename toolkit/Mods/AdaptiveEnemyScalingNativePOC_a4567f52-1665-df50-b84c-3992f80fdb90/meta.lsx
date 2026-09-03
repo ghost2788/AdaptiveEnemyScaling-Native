@@ -24,7 +24,7 @@
                     <attribute id="FileSize" type="uint64" value="25729652"/>
                     <attribute id="Folder" type="LSString" value="AdaptiveEnemyScalingNativePOC_a4567f52-1665-df50-b84c-3992f80fdb90"/>
                     <attribute id="LobbyLevelName" type="FixedString" value=""/>
-                    <attribute id="MD5" type="LSString" value="96bdb110599acd0199b98c20c53629ba"/>
+                    <attribute id="MD5" type="LSString" value="18b3fef482264a16e3aa29d114fd2261"/>
                     <attribute id="MenuLevelName" type="FixedString" value=""/>
                     <attribute id="Name" type="LSString" value="Adaptive Enemy Scaling"/>
                     <attribute id="NumPlayers" type="uint8" value="4"/>
@@ -32,7 +32,7 @@
                     <attribute id="PublishHandle" type="uint64" value="0"/>
                     <attribute id="StartupLevelName" type="FixedString" value=""/>
                     <attribute id="UUID" type="FixedString" value="a4567f52-1665-df50-b84c-3992f80fdb90"/>
-                    <attribute id="Version64" type="int64" value="36028797018963972"/>
+                    <attribute id="Version64" type="int64" value="36028797018963973"/>
                     <children>
                         <node id="PublishVersion">
                             <attribute id="Version64" type="int64" value="144255927718626661"/>

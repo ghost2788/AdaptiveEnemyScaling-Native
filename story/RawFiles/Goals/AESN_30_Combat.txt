@@ -8,6 +8,7 @@ NOT DB_AESN_CombatParticipant((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000
 NOT DB_AESN_EnemyConsidered((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
 NOT DB_AESN_EnemyEligible((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
 NOT DB_AESN_EnemyRejected((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_HostilityRecheckPending((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, "");
 KBSECTION
 
 // Snapshot each combat once. Roster construction owns the asynchronous
@@ -162,6 +163,102 @@ AND
 ConcatenateGUID(_Message2, _Combat, _Message)
 THEN
 DebugLog(_Message);
+
+// A candidate can enter as an ally or neutral, then become an enemy during
+// the same combat. Reopen only the exact neutral-hostility rejection after a
+// short relation-update barrier; committed enemies and other failure classes
+// remain protected by their existing idempotence guards.
+IF
+AttackedBy(_Defender, _AttackerOwner, _Attacker, _DamageType, _DamageAmount, _DamageCause, _StoryActionID)
+AND
+IsCharacter(_Defender, 1)
+AND
+DB_AESN_EnemyRejected(_Combat, (CHARACTER)_Defender, "HostileToNoParticipant")
+AND
+DB_Is_InCombat((CHARACTER)_Defender, _Combat)
+THEN
+PROC_AESN_RequestRejectedHostilityRecheck(_Combat);
+
+IF
+AttackedBy(_Defender, _AttackerOwner, _Attacker, _DamageType, _DamageAmount, _DamageCause, _StoryActionID)
+AND
+IsCharacter(_AttackerOwner, 1)
+AND
+DB_AESN_EnemyRejected(_Combat, (CHARACTER)_AttackerOwner, "HostileToNoParticipant")
+AND
+DB_Is_InCombat((CHARACTER)_AttackerOwner, _Combat)
+THEN
+PROC_AESN_RequestRejectedHostilityRecheck(_Combat);
+
+IF
+RelationChanged(_SourceFaction, _TargetFaction, _Relation, _Permanent)
+AND
+DB_AESN_EnemyRejected(_Combat, _Enemy, "HostileToNoParticipant")
+THEN
+PROC_AESN_RequestRejectedHostilityRecheck(_Combat);
+
+IF
+TemporaryHostileRelationRequestHandled(_Character1, _Character2, _Success)
+AND
+DB_AESN_EnemyRejected(_Combat, _Enemy, "HostileToNoParticipant")
+THEN
+PROC_AESN_RequestRejectedHostilityRecheck(_Combat);
+
+IF
+BaseFactionChanged(_Target, _OldFaction, _NewFaction)
+AND
+DB_AESN_EnemyRejected(_Combat, _Enemy, "HostileToNoParticipant")
+THEN
+PROC_AESN_RequestRejectedHostilityRecheck(_Combat);
+
+// A late snapshot member can also make an earlier neutral candidate hostile
+// to at least one participating member for the first time.
+IF
+DB_AESN_CombatParticipant(_Combat, _Member)
+AND
+DB_AESN_EnemyRejected(_Combat, _Enemy, "HostileToNoParticipant")
+THEN
+PROC_AESN_RequestRejectedHostilityRecheck(_Combat);
+
+PROC
+PROC_AESN_RequestRejectedHostilityRecheck((GUIDSTRING)_Combat)
+AND
+DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _, _, _, "Supported")
+AND
+NOT DB_AESN_HostilityRecheckPending(_Combat, _)
+AND
+NOT DB_AESN_CombatRetired(_Combat)
+AND
+NOT DB_AESN_MergeInProgress(_, _Combat)
+AND
+ConcatenateGUID("AESN_HOSTILITY_RECHECK_", _Combat, _Timer)
+THEN
+DB_AESN_HostilityRecheckPending(_Combat, _Timer);
+TimerLaunch(_Timer, 500);
+
+IF
+TimerFinished(_Timer)
+AND
+DB_AESN_HostilityRecheckPending(_Combat, _Timer)
+THEN
+NOT DB_AESN_HostilityRecheckPending(_Combat, _Timer);
+PROC_AESN_ReconsiderRejectedHostiles(_Combat);
+
+PROC
+PROC_AESN_ReconsiderRejectedHostiles((GUIDSTRING)_Combat)
+AND
+DB_AESN_EnemyRejected(_Combat, _Enemy, "HostileToNoParticipant")
+AND
+DB_AESN_EnemyConsidered(_Combat, _Enemy)
+AND
+DB_Is_InCombat(_Enemy, _Combat)
+AND
+QRY_AESN_IsEligibleHostile(_Enemy, _Combat)
+THEN
+NOT DB_AESN_EnemyRejected(_Combat, _Enemy, "HostileToNoParticipant");
+NOT DB_AESN_EnemyConsidered(_Combat, _Enemy);
+PROC_AESN_ConsiderEnemy(_Enemy, _Combat);
+DebugLog("AESN_HOSTILITY RECHECK accepted a previously neutral combatant");
 
 EXITSECTION
 
