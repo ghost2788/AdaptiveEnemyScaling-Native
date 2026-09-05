@@ -5,7 +5,34 @@ NOT DB_AESN_HpTransaction((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000,
 NOT DB_AESN_HpDesiredBit((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, "");
 NOT DB_AESN_HpPlanQueued((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
 NOT DB_AESN_HpFailure((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+// Integration rollout gate: declaration only; absent in production INIT data.
+NOT DB_AESN_HpTotalIntegrationEnabled(0);
 KBSECTION
+
+QRY
+QRY_AESN_InitialHpPlanAllowed((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+QRY_AESN_HardenedPlanOwnerAllowed(_Combat, _Enemy)
+AND
+NOT DB_AESN_HpPlanQueued(_Combat, _Enemy)
+AND
+NOT DB_AESN_HpReplan(_Combat, _Enemy, _, _, _)
+AND
+NOT DB_AESN_HpApplicationHold(_Combat, _Enemy)
+AND
+NOT DB_AESN_CombatCleanupRequested(_Combat)
+AND
+NOT DB_AESN_WorldCleanupRequested(_Enemy)
+AND
+NOT DB_AESN_MergeInProgress(_Combat, _)
+AND
+NOT DB_AESN_MergeInProgress(_, _Combat)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
+THEN
+DB_NOOP(1);
 
 // A production hostile is planned once against its immutable schema-2 policy
 // snapshot. Planning records one target and exact desired bits but performs no
@@ -34,7 +61,7 @@ DB_AESN_EnemyEligible(_Combat, _Enemy)
 AND
 NOT DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
 AND
-QRY_AESN_HardenedPlanOwnerAllowed(_Combat, _Enemy)
+QRY_AESN_InitialHpPlanAllowed(_Combat, _Enemy)
 AND
 NOT DB_AESN_HpFailure(_Combat, _Enemy, _)
 AND
@@ -44,6 +71,8 @@ PROC_AESN_PlanEnemy(_Enemy, _Combat);
 
 PROC
 PROC_AESN_PlanEnemy((CHARACTER)_Enemy, (GUIDSTRING)_Combat)
+AND
+QRY_AESN_InitialHpPlanAllowed(_Combat, _Enemy)
 AND
 DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _, _, _, "Supported")
 AND
@@ -57,6 +86,8 @@ DB_AESN_HpFailure(_Combat, _Enemy, "DeadAtEntry");
 
 PROC
 PROC_AESN_PlanEnemy((CHARACTER)_Enemy, (GUIDSTRING)_Combat)
+AND
+QRY_AESN_InitialHpPlanAllowed(_Combat, _Enemy)
 AND
 DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _, _, _, "Supported")
 AND
@@ -77,6 +108,8 @@ DB_AESN_HpFailure(_Combat, _Enemy, "UnsafeBaseMaximum");
 PROC
 PROC_AESN_PlanEnemy((CHARACTER)_Enemy, (GUIDSTRING)_Combat)
 AND
+QRY_AESN_InitialHpPlanAllowed(_Combat, _Enemy)
+AND
 DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _, _, _, "Supported")
 AND
 GetHitpoints(_Enemy, _BeforeCurrent)
@@ -95,6 +128,8 @@ DB_AESN_HpFailure(_Combat, _Enemy, "UnsafeBaseMaximum");
 
 PROC
 PROC_AESN_PlanEnemy((CHARACTER)_Enemy, (GUIDSTRING)_Combat)
+AND
+QRY_AESN_InitialHpPlanAllowed(_Combat, _Enemy)
 AND
 DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _TargetHpPercent, _, _, _, "Supported")
 AND
@@ -125,6 +160,8 @@ DB_AESN_HpFailure(_Combat, _Enemy, "UnsafeDelta");
 PROC
 PROC_AESN_PlanEnemy((CHARACTER)_Enemy, (GUIDSTRING)_Combat)
 AND
+QRY_AESN_InitialHpPlanAllowed(_Combat, _Enemy)
+AND
 DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _TargetHpPercent, _, _, _, "Supported")
 AND
 GetHitpoints(_Enemy, _BeforeCurrent)
@@ -154,6 +191,8 @@ DB_AESN_HpFailure(_Combat, _Enemy, "UnsafeDelta");
 PROC
 PROC_AESN_PlanEnemy((CHARACTER)_Enemy, (GUIDSTRING)_Combat)
 AND
+QRY_AESN_InitialHpPlanAllowed(_Combat, _Enemy)
+AND
 DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _TargetHpPercent, _, _, _, "Supported")
 AND
 GetHitpoints(_Enemy, _BeforeCurrent)
@@ -182,24 +221,7 @@ NOT DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
 AND
 NOT DB_AESN_HpFailure(_Combat, _Enemy, _)
 THEN
-DB_AESN_HpTransaction(_Combat, _Enemy, 1, "Planned", _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, 0);
-PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 32768, "AESN_HP_BIT_32768");
-PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 16384, "AESN_HP_BIT_16384");
-PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 8192, "AESN_HP_BIT_08192");
-PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 4096, "AESN_HP_BIT_04096");
-PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 2048, "AESN_HP_BIT_02048");
-PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 1024, "AESN_HP_BIT_01024");
-PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 512, "AESN_HP_BIT_00512");
-PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 256, "AESN_HP_BIT_00256");
-PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 128, "AESN_HP_BIT_00128");
-PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 64, "AESN_HP_BIT_00064");
-PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 32, "AESN_HP_BIT_00032");
-PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 16, "AESN_HP_BIT_00016");
-PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 8, "AESN_HP_BIT_00008");
-PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 4, "AESN_HP_BIT_00004");
-PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 2, "AESN_HP_BIT_00002");
-PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 1, "AESN_HP_BIT_00001");
-DB_AESN_HpPlanQueued(_Combat, _Enemy);
+PROC_AESN_StoreHpPlan(_Combat, _Enemy, _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta);
 
 // Merge replanning starts only after old owned components and HP bits are gone.
 // It reuses the one percentage captured before removal instead of observing or
@@ -331,7 +353,26 @@ AND
 _Delta <= 65535
 THEN
 PROC_AESN_SetHpReplanState(_Combat, _Enemy, "PlanningNew", "ApplyingNew");
-DB_AESN_HpTransaction(_Combat, _Enemy, 1, "Planned", _BeforeCurrent, _BeforeMaximum, _CapturedPercentage, _TargetMaximum, _Delta, 0);
+PROC_AESN_StoreHpPlan(_Combat, _Enemy, _BeforeCurrent, _BeforeMaximum, _CapturedPercentage, _TargetMaximum, _Delta);
+DebugLog("AESN_MERGE REPLAN_NEW_PLAN percentageWrite=0");
+
+PROC
+PROC_AESN_AbortCanonicalReplan((GUIDSTRING)_Combat, (CHARACTER)_Enemy, (REAL)_CapturedPercentage, (STRING)_Reason)
+AND
+DB_AESN_HpReplan(_Combat, _Enemy, 1, "PlanningNew", _CapturedPercentage)
+THEN
+DB_AESN_HpFailure(_Combat, _Enemy, _Reason);
+NOT DB_AESN_HpReplan(_Combat, _Enemy, 1, "PlanningNew", _CapturedPercentage);
+NOT DB_AESN_MergeReplanRequired(_Combat, _Enemy);
+DebugLog("AESN_MERGE REPLAN_ABORTED percentageWrite=0");
+
+// Desired representation data is complete before the final queued event.
+PROC
+PROC_AESN_StoreHpPlan((GUIDSTRING)_Combat, (CHARACTER)_Enemy, (INTEGER)_BeforeCurrent, (INTEGER)_BeforeMaximum, (REAL)_BeforePercentage, (INTEGER)_TargetMaximum, (INTEGER)_Delta)
+AND
+NOT DB_AESN_HpTotalIntegrationEnabled(1)
+THEN
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "Planned", _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, 0);
 PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 32768, "AESN_HP_BIT_32768");
 PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 16384, "AESN_HP_BIT_16384");
 PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 8192, "AESN_HP_BIT_08192");
@@ -349,17 +390,15 @@ PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 4, "AESN_HP_BIT_00004");
 PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 2, "AESN_HP_BIT_00002");
 PROC_AESN_QueueHpBit(_Combat, _Enemy, _Delta, 1, "AESN_HP_BIT_00001");
 DB_AESN_HpPlanQueued(_Combat, _Enemy);
-DebugLog("AESN_MERGE REPLAN_NEW_PLAN percentageWrite=0");
 
 PROC
-PROC_AESN_AbortCanonicalReplan((GUIDSTRING)_Combat, (CHARACTER)_Enemy, (REAL)_CapturedPercentage, (STRING)_Reason)
+PROC_AESN_StoreHpPlan((GUIDSTRING)_Combat, (CHARACTER)_Enemy, (INTEGER)_BeforeCurrent, (INTEGER)_BeforeMaximum, (REAL)_BeforePercentage, (INTEGER)_TargetMaximum, (INTEGER)_Delta)
 AND
-DB_AESN_HpReplan(_Combat, _Enemy, 1, "PlanningNew", _CapturedPercentage)
+DB_AESN_HpTotalIntegrationEnabled(1)
 THEN
-DB_AESN_HpFailure(_Combat, _Enemy, _Reason);
-NOT DB_AESN_HpReplan(_Combat, _Enemy, 1, "PlanningNew", _CapturedPercentage);
-NOT DB_AESN_MergeReplanRequired(_Combat, _Enemy);
-DebugLog("AESN_MERGE REPLAN_ABORTED percentageWrite=0");
+DB_AESN_HpTransaction(_Combat, _Enemy, 2, "Planned", _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, 0);
+PROC_AESN_QueueHpTotal(_Combat, _Enemy, _Delta);
+DB_AESN_HpPlanQueued(_Combat, _Enemy);
 
 // Bit membership is computed independently by quotient parity. Because delta
 // is bounded to 0..65535, the 16 calls above form an exact binary registry.

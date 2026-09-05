@@ -1,0 +1,688 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+// Disposable, opt-in primitive qualification only. NEVER a production converter.
+NOT DB_AESN_HpWoundedEnabled(1);
+NOT DB_AESN_HpWoundedStarted(1);
+NOT DB_AESN_HpWoundedVersion(0);
+NOT DB_AESN_HpWoundedSpawn((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0);
+NOT DB_AESN_HpWoundedFixture((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0);
+NOT DB_AESN_HpWoundedState((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, 0, 0, 0, "");
+NOT DB_AESN_HpWoundedPending((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_HpWoundedOwnedBit((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_HpWoundedRemovedBit((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_HpWoundedObservation((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, "", 0, 0, 0);
+NOT DB_AESN_HpWoundedFailure((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, "");
+DB_AESN_HpWoundedSample(1, 13, "AESN_HP_TOTAL_1");
+DB_AESN_HpWoundedSample(111, 69, "AESN_HP_TOTAL_111");
+DB_AESN_HpWoundedSampleBit(1, "AESN_HP_BIT_00001");
+DB_AESN_HpWoundedSampleBit(111, "AESN_HP_BIT_00001");
+DB_AESN_HpWoundedSampleBit(111, "AESN_HP_BIT_00002");
+DB_AESN_HpWoundedSampleBit(111, "AESN_HP_BIT_00004");
+DB_AESN_HpWoundedSampleBit(111, "AESN_HP_BIT_00008");
+DB_AESN_HpWoundedSampleBit(111, "AESN_HP_BIT_00032");
+DB_AESN_HpWoundedSampleBit(111, "AESN_HP_BIT_00064");
+DB_AESN_HpWoundedPhase("Baseline", "AESN_HpWounded_Baseline");
+DB_AESN_HpWoundedPhase("LegacyApplying", "AESN_HpWounded_LegacyApplying");
+DB_AESN_HpWoundedPhase("LegacyWounding", "AESN_HpWounded_LegacyWounding");
+DB_AESN_HpWoundedPhase("LegacyReloading", "AESN_HpWounded_LegacyReloading");
+DB_AESN_HpWoundedPhase("LegacyRemoving", "AESN_HpWounded_LegacyRemoving");
+DB_AESN_HpWoundedPhase("TotalApplying", "AESN_HpWounded_TotalApplying");
+DB_AESN_HpWoundedPhase("TotalRestoring", "AESN_HpWounded_TotalRestoring");
+DB_AESN_HpWoundedPhase("TotalReloading", "AESN_HpWounded_TotalReloading");
+DB_AESN_HpWoundedPhase("TotalRemoving", "AESN_HpWounded_TotalRemoving");
+KBSECTION
+
+QRY
+QRY_AESN_HpWoundedSafe((CHARACTER)_NPC, (INTEGER)_Amount)
+AND
+DB_AESN_HpWoundedEnabled(1)
+AND
+DB_AESN_HpWoundedVersion(1)
+AND
+DB_AESN_HpWoundedFixture(_NPC, _Amount)
+AND
+DB_AESN_HpWoundedSample(_Amount, _, _)
+AND
+NOT DB_AESN_HpWoundedFailure(_NPC, _Amount, _)
+AND
+IsDead(_NPC, 0)
+AND
+IsInCombat(_NPC, 0)
+THEN
+DB_NOOP(1);
+
+// Procedure order makes load-interruption handling precede new transitions.
+IF
+SavegameLoaded()
+THEN
+PROC_AESN_HpWoundedAbortTransient();
+PROC_AESN_HpWoundedReload();
+PROC_AESN_HpWoundedStart();
+
+PROC
+PROC_AESN_HpWoundedAbortTransient()
+AND
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, _Phase)
+AND
+DB_AESN_HpWoundedPhase(_Phase, _)
+AND
+NOT DB_AESN_HpWoundedFailure(_NPC, _Amount, _)
+THEN
+DB_AESN_HpWoundedFailure(_NPC, _Amount, "Interrupted");
+
+PROC
+PROC_AESN_HpWoundedAbortTransient()
+AND
+DB_AESN_HpWoundedSpawn(_Anchor, _Amount)
+THEN
+NOT DB_AESN_HpWoundedSpawn(_Anchor, _Amount);
+DB_AESN_HpWoundedFailure(_Anchor, _Amount, "Interrupted");
+
+PROC
+PROC_AESN_HpWoundedStart()
+AND
+DB_AESN_HpWoundedEnabled(1)
+AND
+NOT DB_AESN_HpWoundedStarted(1)
+AND
+GetHostCharacter(_Host)
+AND
+IsDead(_Host, 0)
+AND
+IsInCombat(_Host, 0)
+THEN
+DB_AESN_HpWoundedStarted(1);
+DB_AESN_HpWoundedVersion(1);
+DB_AESN_HpWoundedSpawn(_Host, 1);
+RealtimeObjectTimerLaunch(_Host, "AESN_HpWounded_Spawn", 2000);
+
+IF
+ObjectTimerFinished((GUIDSTRING)_Object, "AESN_HpWounded_Spawn")
+AND
+DB_AESN_HpWoundedSpawn((CHARACTER)_Object, _Amount)
+THEN
+NOT DB_AESN_HpWoundedSpawn((CHARACTER)_Object, _Amount);
+PROC_AESN_HpWoundedSpawn((CHARACTER)_Object, _Amount);
+
+QRY
+QRY_AESN_HpWoundedSpawnSafe((CHARACTER)_Anchor, (INTEGER)_Amount)
+AND
+DB_AESN_HpWoundedEnabled(1)
+AND
+DB_AESN_HpWoundedVersion(1)
+AND
+DB_AESN_HpWoundedStarted(1)
+AND
+DB_AESN_HpWoundedSample(_Amount, _, _)
+AND
+NOT DB_AESN_HpWoundedFixture(_, _Amount)
+AND
+NOT DB_AESN_HpWoundedFailure(_Anchor, _Amount, _)
+AND
+IsDead(_Anchor, 0)
+AND
+IsInCombat(_Anchor, 0)
+AND
+GetHostCharacter(_Host)
+AND
+IsDead(_Host, 0)
+AND
+IsInCombat(_Host, 0)
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_HpWoundedSpawn((CHARACTER)_Anchor, (INTEGER)_Amount)
+AND
+NOT QRY_AESN_HpWoundedSpawnSafe(_Anchor, _Amount)
+THEN
+DB_AESN_HpWoundedFailure(_Anchor, _Amount, "Spawn");
+
+PROC
+PROC_AESN_HpWoundedSpawn((CHARACTER)_Anchor, (INTEGER)_Amount)
+AND
+QRY_AESN_HpWoundedSpawnSafe(_Anchor, _Amount)
+AND
+GetHostCharacter(_Host)
+AND
+GetFaction(_Host, _Faction)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, _Anchor, 0, 1, "", 1, _Object)
+THEN
+PROC_AESN_HpWoundedSetup((CHARACTER)_Object, _Amount, _Faction);
+
+PROC
+PROC_AESN_HpWoundedSetup((CHARACTER)_NPC, (INTEGER)_Amount, (FACTION)_Faction)
+AND
+DB_AESN_HpWoundedEnabled(1)
+AND
+DB_AESN_HpWoundedVersion(1)
+AND
+DB_AESN_HpWoundedSample(_Amount, _Wounded, _)
+AND
+NOT DB_AESN_HpWoundedFixture(_NPC, _)
+AND
+IsDead(_NPC, 0)
+AND
+IsInCombat(_NPC, 0)
+THEN
+DB_AESN_HpWoundedFixture(_NPC, _Amount);
+DB_AESN_HpWoundedState(_NPC, _Amount, 0, 0, _Wounded, "Baseline");
+PROC_SelfHealing_Disable(_NPC);
+SetFaction(_NPC, _Faction);
+SetCanFight(_NPC, 0);
+SetCanJoinCombat(_NPC, 0);
+DB_AESN_HpWoundedPending(_NPC, "Baseline");
+RealtimeObjectTimerLaunch(_NPC, "AESN_HpWounded_Baseline", 500);
+PROC_AESN_HpWoundedNext(_NPC, _Amount);
+
+PROC
+PROC_AESN_HpWoundedNext((CHARACTER)_NPC, 1)
+AND
+QRY_AESN_HpWoundedSafe(_NPC, 1)
+THEN
+DB_AESN_HpWoundedSpawn(_NPC, 111);
+RealtimeObjectTimerLaunch(_NPC, "AESN_HpWounded_Spawn", 500);
+
+// Each phase has its own timer and consumable pending fact. Replay is inert.
+IF
+ObjectTimerFinished((GUIDSTRING)_Object, _Timer)
+AND
+DB_AESN_HpWoundedPhase(_Phase, _Timer)
+AND
+DB_AESN_HpWoundedPending((CHARACTER)_Object, _Phase)
+AND
+DB_AESN_HpWoundedState((CHARACTER)_Object, _Amount, _Base, _Target, _Wounded, _Phase)
+THEN
+NOT DB_AESN_HpWoundedPending((CHARACTER)_Object, _Phase);
+PROC_AESN_HpWoundedStep((CHARACTER)_Object, _Amount, _Base, _Target, _Wounded, _Phase);
+
+PROC
+PROC_AESN_HpWoundedStep((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, (STRING)_Phase)
+AND
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, _Phase)
+AND
+NOT DB_AESN_HpWoundedFailure(_NPC, _Amount, _)
+AND
+NOT QRY_AESN_HpWoundedGood(_NPC, _Amount, _Base, _Target, _Wounded, _Phase)
+THEN
+DB_AESN_HpWoundedFailure(_NPC, _Amount, _Phase);
+
+PROC
+PROC_AESN_HpWoundedStep((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, (STRING)_Phase)
+AND
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, _Phase)
+AND
+QRY_AESN_HpWoundedGood(_NPC, _Amount, _Base, _Target, _Wounded, _Phase)
+AND
+GetHitpoints(_NPC, _Current)
+AND
+GetMaxHitpoints(_NPC, _Maximum)
+THEN
+PROC_AESN_HpWoundedRecord(_NPC, _Amount, _Base, _Target, _Wounded, _Phase, _Current, _Maximum);
+PROC_AESN_HpWoundedAdvance(_NPC, _Amount, _Base, _Target, _Wounded, _Phase, _Current, _Maximum);
+
+// No engine HP/status response is manufactured. Missing native responses fail.
+QRY
+QRY_AESN_HpWoundedGood((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "Baseline")
+AND
+QRY_AESN_HpWoundedSafe(_NPC, _Amount)
+AND
+DB_AESN_HpWoundedSample(_Amount, _Wounded, _)
+AND
+GetHitpoints(_NPC, _Current)
+AND
+GetMaxHitpoints(_NPC, _Maximum)
+AND
+_Maximum > 0
+AND
+_Maximum < 1000000
+AND
+_Current == _Maximum
+AND
+IntegerSum(_Maximum, 7, _ReferenceMax)
+AND
+IntegerSum(_ReferenceMax, _Amount, _FutureTarget)
+AND
+_Wounded > 0
+AND
+_Wounded < _FutureTarget
+THEN
+DB_NOOP(1);
+
+// Shared read-only invariants: all post-baseline phases enforce the same bounds.
+QRY
+QRY_AESN_HpWoundedInvariant((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, (INTEGER)_ExpectedMax)
+AND
+QRY_AESN_HpWoundedSafe(_NPC, _Amount)
+AND
+DB_AESN_HpWoundedSample(_Amount, _Wounded, _)
+AND
+_Base > 0
+AND
+_Base < 1000000
+AND
+IntegerSum(_Base, 7, _ReferenceMax)
+AND
+IntegerSum(_ReferenceMax, _Amount, _Target)
+AND
+_Wounded > 0
+AND
+_Wounded < _Target
+AND
+GetHitpoints(_NPC, _Current)
+AND
+GetMaxHitpoints(_NPC, _Maximum)
+AND
+_Current > 0
+AND
+_Current <= _Maximum
+AND
+_Maximum == _ExpectedMax
+AND
+HasActiveStatus(_NPC, "AESN_HP_TOTAL_7", 1)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpWoundedRepresentation((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_TotalPresent, (INTEGER)_BitsPresent)
+AND
+DB_AESN_HpWoundedSample(_Amount, _, _Status)
+AND
+HasActiveStatus(_NPC, _Status, _TotalPresent)
+AND
+NOT QRY_AESN_HpWoundedBadBit(_NPC, _Amount, _BitsPresent)
+THEN
+DB_NOOP(1);
+
+// Explicit wrappers retain phase-specific maximum and captured-current checks.
+QRY
+QRY_AESN_HpWoundedGood((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "LegacyApplying")
+AND
+QRY_AESN_HpWoundedInvariant(_NPC, _Amount, _Base, _Target, _Wounded, _Target)
+AND
+QRY_AESN_HpWoundedRepresentation(_NPC, _Amount, 0, 1)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpWoundedGood((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "LegacyWounding")
+AND
+QRY_AESN_HpWoundedInvariant(_NPC, _Amount, _Base, _Target, _Wounded, _Target)
+AND
+GetHitpoints(_NPC, _Wounded)
+AND
+QRY_AESN_HpWoundedRepresentation(_NPC, _Amount, 0, 1)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpWoundedGood((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "LegacyReloading")
+AND
+QRY_AESN_HpWoundedInvariant(_NPC, _Amount, _Base, _Target, _Wounded, _Target)
+AND
+GetHitpoints(_NPC, _Wounded)
+AND
+QRY_AESN_HpWoundedRepresentation(_NPC, _Amount, 0, 1)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpWoundedGood((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "LegacyRemoving")
+AND
+IntegerSum(_Base, 7, _ReferenceMax)
+AND
+QRY_AESN_HpWoundedInvariant(_NPC, _Amount, _Base, _Target, _Wounded, _ReferenceMax)
+AND
+QRY_AESN_HpWoundedRepresentation(_NPC, _Amount, 0, 0)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpWoundedGood((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "TotalApplying")
+AND
+QRY_AESN_HpWoundedInvariant(_NPC, _Amount, _Base, _Target, _Wounded, _Target)
+AND
+QRY_AESN_HpWoundedRepresentation(_NPC, _Amount, 1, 0)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpWoundedGood((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "TotalRestoring")
+AND
+QRY_AESN_HpWoundedInvariant(_NPC, _Amount, _Base, _Target, _Wounded, _Target)
+AND
+GetHitpoints(_NPC, _Wounded)
+AND
+QRY_AESN_HpWoundedRepresentation(_NPC, _Amount, 1, 0)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpWoundedGood((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "TotalReloading")
+AND
+QRY_AESN_HpWoundedInvariant(_NPC, _Amount, _Base, _Target, _Wounded, _Target)
+AND
+GetHitpoints(_NPC, _Wounded)
+AND
+QRY_AESN_HpWoundedRepresentation(_NPC, _Amount, 1, 0)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpWoundedGood((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "TotalRemoving")
+AND
+IntegerSum(_Base, 7, _ReferenceMax)
+AND
+QRY_AESN_HpWoundedInvariant(_NPC, _Amount, _Base, _Target, _Wounded, _ReferenceMax)
+AND
+QRY_AESN_HpWoundedRepresentation(_NPC, _Amount, 0, 0)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpWoundedBadBit((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Expected)
+AND
+DB_AESN_HpWoundedSampleBit(_Amount, _Bit)
+AND
+NOT DB_AESN_HpWoundedOwnedBit(_NPC, _Bit)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpWoundedBadBit((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Expected)
+AND
+DB_AESN_HpWoundedOwnedBit(_NPC, _Bit)
+AND
+NOT HasActiveStatus(_NPC, _Bit, _Expected)
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_HpWoundedRecord((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "Baseline", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+IntegerSum(_Base, 7, _Expected)
+THEN
+DB_AESN_HpWoundedObservation(_NPC, _Amount, "Baseline", _Maximum, _Current, _Maximum);
+
+PROC
+PROC_AESN_HpWoundedRecord((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "LegacyApplying", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+IntegerSum(_Base, 7, _Expected)
+THEN
+DB_AESN_HpWoundedObservation(_NPC, _Amount, "LegacyApplying", _Target, _Current, _Maximum);
+
+PROC
+PROC_AESN_HpWoundedRecord((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "LegacyWounding", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+IntegerSum(_Base, 7, _Expected)
+THEN
+DB_AESN_HpWoundedObservation(_NPC, _Amount, "LegacyWounding", _Target, _Current, _Maximum);
+
+PROC
+PROC_AESN_HpWoundedRecord((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "LegacyReloading", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+IntegerSum(_Base, 7, _Expected)
+THEN
+DB_AESN_HpWoundedObservation(_NPC, _Amount, "LegacyReloading", _Target, _Current, _Maximum);
+
+PROC
+PROC_AESN_HpWoundedRecord((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "LegacyRemoving", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+IntegerSum(_Base, 7, _Expected)
+THEN
+DB_AESN_HpWoundedObservation(_NPC, _Amount, "LegacyRemoving", _Expected, _Current, _Maximum);
+
+PROC
+PROC_AESN_HpWoundedRecord((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "TotalApplying", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+IntegerSum(_Base, 7, _Expected)
+THEN
+DB_AESN_HpWoundedObservation(_NPC, _Amount, "TotalApplying", _Target, _Current, _Maximum);
+
+PROC
+PROC_AESN_HpWoundedRecord((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "TotalRestoring", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+IntegerSum(_Base, 7, _Expected)
+THEN
+DB_AESN_HpWoundedObservation(_NPC, _Amount, "Converted", _Target, _Current, _Maximum);
+
+PROC
+PROC_AESN_HpWoundedRecord((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "TotalReloading", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+IntegerSum(_Base, 7, _Expected)
+THEN
+DB_AESN_HpWoundedObservation(_NPC, _Amount, "TotalReloading", _Target, _Current, _Maximum);
+
+PROC
+PROC_AESN_HpWoundedRecord((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "TotalRemoving", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+IntegerSum(_Base, 7, _Expected)
+THEN
+DB_AESN_HpWoundedObservation(_NPC, _Amount, "Cleanup", _Expected, _Current, _Maximum);
+
+// Read observation facts as evidence, without deleting the saved checkpoints.
+IF
+DB_AESN_HpWoundedObservation(_NPC, _Amount, _Phase, _Expected, _Current, _Maximum)
+THEN
+DebugLog("AESN_HpWounded observation recorded - inspect saved facts for exact values");
+
+PROC
+PROC_AESN_HpWoundedAdvance((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "Baseline", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+QRY_AESN_HpWoundedSafe(_NPC, _Amount)
+AND
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "Baseline")
+AND
+IntegerSum(_Maximum, 7, _ReferenceMax)
+AND
+IntegerSum(_ReferenceMax, _Amount, _NewTarget)
+THEN
+NOT DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "Baseline");
+DB_AESN_HpWoundedState(_NPC, _Amount, _Maximum, _NewTarget, _Wounded, "LegacyApplying");
+ApplyStatus(_NPC, "AESN_HP_TOTAL_7", -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+PROC_AESN_HpWoundedApplyBits(_NPC, _Amount);
+DB_AESN_HpWoundedPending(_NPC, "LegacyApplying");
+RealtimeObjectTimerLaunch(_NPC, "AESN_HpWounded_LegacyApplying", 500);
+
+PROC
+PROC_AESN_HpWoundedApplyBits((CHARACTER)_NPC, (INTEGER)_Amount)
+AND
+QRY_AESN_HpWoundedSafe(_NPC, _Amount)
+AND
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "LegacyApplying")
+AND
+DB_AESN_HpWoundedSampleBit(_Amount, _Bit)
+AND
+NOT DB_AESN_HpWoundedOwnedBit(_NPC, _Bit)
+THEN
+DB_AESN_HpWoundedOwnedBit(_NPC, _Bit);
+ApplyStatus(_NPC, _Bit, -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+
+PROC
+PROC_AESN_HpWoundedAdvance((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "LegacyApplying", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+QRY_AESN_HpWoundedSafe(_NPC, _Amount)
+AND
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "LegacyApplying")
+AND
+DB_AESN_HpWoundedSample(_Amount, _Wounded, _Status)
+THEN
+NOT DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "LegacyApplying");
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "LegacyWounding");
+SetHitpoints(_NPC, _Wounded, "Guaranteed");
+DB_AESN_HpWoundedPending(_NPC, "LegacyWounding");
+RealtimeObjectTimerLaunch(_NPC, "AESN_HpWounded_LegacyWounding", 500);
+
+PROC
+PROC_AESN_HpWoundedAdvance((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "LegacyWounding", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+QRY_AESN_HpWoundedSafe(_NPC, _Amount)
+AND
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "LegacyWounding")
+AND
+DB_AESN_HpWoundedSample(_Amount, _Wounded, _Status)
+THEN
+NOT DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "LegacyWounding");
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "LegacyInspect");
+DebugLog("AESN_HpWounded LegacyInspect: save and inspect fixture facts");
+
+PROC
+PROC_AESN_HpWoundedAdvance((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "LegacyReloading", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+QRY_AESN_HpWoundedSafe(_NPC, _Amount)
+AND
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "LegacyReloading")
+AND
+DB_AESN_HpWoundedSample(_Amount, _Wounded, _Status)
+THEN
+NOT DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "LegacyReloading");
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "LegacyRemoving");
+PROC_AESN_HpWoundedRemoveBits(_NPC, _Amount);
+DB_AESN_HpWoundedPending(_NPC, "LegacyRemoving");
+RealtimeObjectTimerLaunch(_NPC, "AESN_HpWounded_LegacyRemoving", 500);
+
+PROC
+PROC_AESN_HpWoundedAdvance((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "LegacyRemoving", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+QRY_AESN_HpWoundedSafe(_NPC, _Amount)
+AND
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "LegacyRemoving")
+AND
+DB_AESN_HpWoundedSample(_Amount, _Wounded, _Status)
+THEN
+NOT DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "LegacyRemoving");
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "TotalApplying");
+ApplyStatus(_NPC, _Status, -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+DB_AESN_HpWoundedPending(_NPC, "TotalApplying");
+RealtimeObjectTimerLaunch(_NPC, "AESN_HpWounded_TotalApplying", 500);
+
+PROC
+PROC_AESN_HpWoundedAdvance((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "TotalApplying", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+QRY_AESN_HpWoundedSafe(_NPC, _Amount)
+AND
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "TotalApplying")
+AND
+DB_AESN_HpWoundedSample(_Amount, _Wounded, _Status)
+THEN
+NOT DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "TotalApplying");
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "TotalRestoring");
+SetHitpoints(_NPC, _Wounded, "Guaranteed");
+DB_AESN_HpWoundedPending(_NPC, "TotalRestoring");
+RealtimeObjectTimerLaunch(_NPC, "AESN_HpWounded_TotalRestoring", 500);
+
+PROC
+PROC_AESN_HpWoundedAdvance((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "TotalRestoring", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+QRY_AESN_HpWoundedSafe(_NPC, _Amount)
+AND
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "TotalRestoring")
+AND
+DB_AESN_HpWoundedSample(_Amount, _Wounded, _Status)
+THEN
+NOT DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "TotalRestoring");
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "TotalInspect");
+DebugLog("AESN_HpWounded TotalInspect: save and inspect fixture facts");
+
+PROC
+PROC_AESN_HpWoundedAdvance((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "TotalReloading", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+QRY_AESN_HpWoundedSafe(_NPC, _Amount)
+AND
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "TotalReloading")
+AND
+DB_AESN_HpWoundedSample(_Amount, _Wounded, _Status)
+THEN
+NOT DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "TotalReloading");
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "TotalRemoving");
+RemoveStatus(_NPC, _Status, NULL_00000000-0000-0000-0000-000000000000);
+DB_AESN_HpWoundedPending(_NPC, "TotalRemoving");
+RealtimeObjectTimerLaunch(_NPC, "AESN_HpWounded_TotalRemoving", 500);
+
+PROC
+PROC_AESN_HpWoundedAdvance((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, (INTEGER)_Target, (INTEGER)_Wounded, "TotalRemoving", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+QRY_AESN_HpWoundedSafe(_NPC, _Amount)
+AND
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "TotalRemoving")
+AND
+DB_AESN_HpWoundedSample(_Amount, _Wounded, _Status)
+THEN
+NOT DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "TotalRemoving");
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "Complete");
+DebugLog("AESN_HpWounded Complete: save and inspect fixture facts");
+
+PROC
+PROC_AESN_HpWoundedRemoveBits((CHARACTER)_NPC, (INTEGER)_Amount)
+AND
+QRY_AESN_HpWoundedSafe(_NPC, _Amount)
+AND
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "LegacyRemoving")
+AND
+DB_AESN_HpWoundedOwnedBit(_NPC, _Bit)
+AND
+NOT DB_AESN_HpWoundedRemovedBit(_NPC, _Bit)
+THEN
+DB_AESN_HpWoundedRemovedBit(_NPC, _Bit);
+RemoveStatus(_NPC, _Bit, NULL_00000000-0000-0000-0000-000000000000);
+
+// Only stable inspection phases may reload. No writes until delayed validation.
+PROC
+PROC_AESN_HpWoundedReload()
+AND
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "LegacyInspect")
+AND
+NOT DB_AESN_HpWoundedFailure(_NPC, _Amount, _)
+AND
+NOT QRY_AESN_HpWoundedSafe(_NPC, _Amount)
+THEN
+DB_AESN_HpWoundedFailure(_NPC, _Amount, "LegacyInspect");
+
+PROC
+PROC_AESN_HpWoundedReload()
+AND
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "LegacyInspect")
+AND
+QRY_AESN_HpWoundedSafe(_NPC, _Amount)
+THEN
+NOT DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "LegacyInspect");
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "LegacyReloading");
+DB_AESN_HpWoundedPending(_NPC, "LegacyReloading");
+RealtimeObjectTimerLaunch(_NPC, "AESN_HpWounded_LegacyReloading", 2000);
+
+PROC
+PROC_AESN_HpWoundedReload()
+AND
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "TotalInspect")
+AND
+NOT DB_AESN_HpWoundedFailure(_NPC, _Amount, _)
+AND
+NOT QRY_AESN_HpWoundedSafe(_NPC, _Amount)
+THEN
+DB_AESN_HpWoundedFailure(_NPC, _Amount, "TotalInspect");
+
+PROC
+PROC_AESN_HpWoundedReload()
+AND
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "TotalInspect")
+AND
+QRY_AESN_HpWoundedSafe(_NPC, _Amount)
+THEN
+NOT DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "TotalInspect");
+DB_AESN_HpWoundedState(_NPC, _Amount, _Base, _Target, _Wounded, "TotalReloading");
+DB_AESN_HpWoundedPending(_NPC, "TotalReloading");
+RealtimeObjectTimerLaunch(_NPC, "AESN_HpWounded_TotalReloading", 2000);
+
+QRY
+QRY_AESN_HpWoundedBadBit((CHARACTER)_NPC, (INTEGER)_Amount, 0)
+AND
+DB_AESN_HpWoundedOwnedBit(_NPC, _Bit)
+AND
+NOT DB_AESN_HpWoundedRemovedBit(_NPC, _Bit)
+THEN
+DB_NOOP(1);
+
+EXITSECTION
+ENDEXITSECTION

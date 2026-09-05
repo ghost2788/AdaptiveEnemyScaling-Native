@@ -1,0 +1,231 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+// Disposable capability probe, never production. Enable only the staged copy.
+NOT DB_AESN_HpTooltipProofEnabled(1);
+NOT DB_AESN_HpTooltipProofStarted(1);
+NOT DB_AESN_HpTooltipProofVersion(0);
+DB_AESN_HpTooltipProofSettle("Applying", "AESN_HP_TOOLTIP_APPLIED");
+DB_AESN_HpTooltipProofSettle("Reference", "AESN_HP_TOOLTIP_REFERENCE");
+DB_AESN_HpTooltipProofSettle("OwnRemoved", "AESN_HP_TOOLTIP_OWN_REMOVED");
+DB_AESN_HpTooltipProofSettle("Cleaning", "AESN_HP_TOOLTIP_CLEANED");
+NOT DB_AESN_HpTooltipProofSpawn((CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_HpTooltipProofFixture((CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_HpTooltipProofState((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, "");
+NOT DB_AESN_HpTooltipProofObservation((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "", 0, 0, 0);
+NOT DB_AESN_HpTooltipProofFailure((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+KBSECTION
+
+// Only load a disposable OUT-OF-COMBAT save for this proof.
+IF
+SavegameLoaded()
+AND
+DB_AESN_HpTooltipProofEnabled(1)
+AND
+NOT DB_AESN_HpTooltipProofStarted(1)
+AND
+GetHostCharacter(_Host)
+AND
+IsInCombat(_Host, 0)
+THEN
+DB_AESN_HpTooltipProofStarted(1);
+DB_AESN_HpTooltipProofVersion(2);
+DB_AESN_HpTooltipProofSpawn(_Host);
+RealtimeObjectTimerLaunch(_Host, "AESN_HP_TOOLTIP_SPAWN", 2000);
+
+IF
+ObjectTimerFinished((CHARACTER)_Host, "AESN_HP_TOOLTIP_SPAWN")
+AND
+DB_AESN_HpTooltipProofSpawn(_Host)
+AND
+GetFaction(_Host, _Faction)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, _Host, 0, 1, "", 1, _Object)
+THEN
+NOT DB_AESN_HpTooltipProofSpawn(_Host);
+PROC_AESN_HpTooltipSetup((CHARACTER)_Object, _Faction);
+
+PROC
+PROC_AESN_HpTooltipSetup((CHARACTER)_NPC, (FACTION)_Faction)
+THEN
+SetFaction(_NPC, _Faction);
+SetCanFight(_NPC, 0);
+SetCanJoinCombat(_NPC, 0);
+DB_AESN_HpTooltipProofFixture(_NPC);
+RealtimeObjectTimerLaunch(_NPC, "AESN_HP_TOOLTIP_BASELINE", 500);
+DebugLog("AESN_HP_TOOLTIP_PROOF SETUP disposable non-combat fixture created");
+
+IF
+ObjectTimerFinished((CHARACTER)_NPC, "AESN_HP_TOOLTIP_BASELINE")
+AND
+DB_AESN_HpTooltipProofFixture(_NPC)
+AND
+NOT DB_AESN_HpTooltipProofState(_NPC, _, _)
+AND
+GetMaxHitpoints(_NPC, _Base)
+AND
+_Base > 0
+AND
+_Base < 1000000
+AND
+GetHitpoints(_NPC, _Current)
+AND
+_Current > 0
+THEN
+DB_AESN_HpTooltipProofObservation(_NPC, "Baseline", _Base, _Current, _Base);
+DB_AESN_HpTooltipProofState(_NPC, _Base, "Applying");
+ApplyStatus(_NPC, "AESN_HP_TOOLTIP_PROOF_111", -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+RealtimeObjectTimerLaunch(_NPC, "AESN_HP_TOOLTIP_SETTLE", 500);
+
+// Wait for status changes before filling this disposable fixture. Reload
+// validation deliberately has no fill step and no reapplication.
+IF
+ObjectTimerFinished((CHARACTER)_NPC, "AESN_HP_TOOLTIP_SETTLE")
+AND
+DB_AESN_HpTooltipProofVersion(2)
+AND
+DB_AESN_HpTooltipProofState(_NPC, _Base, _Phase)
+AND
+DB_AESN_HpTooltipProofSettle(_Phase, _Timer)
+AND
+NOT DB_AESN_HpTooltipProofFailure(_NPC, _)
+THEN
+SetHitpointsPercentage(_NPC, 100.0, "Guaranteed");
+RealtimeObjectTimerLaunch(_NPC, _Timer, 500);
+
+IF
+ObjectTimerFinished((CHARACTER)_NPC, "AESN_HP_TOOLTIP_APPLIED")
+THEN
+PROC_AESN_HpTooltipCheck(_NPC, "Applying", 111);
+
+// This is the only reload transition. It never re-adds the first boost.
+IF
+SavegameLoaded()
+AND
+DB_AESN_HpTooltipProofEnabled(1)
+AND
+DB_AESN_HpTooltipProofVersion(2)
+AND
+DB_AESN_HpTooltipProofState(_NPC, _Base, "Inspect")
+AND
+NOT DB_AESN_HpTooltipProofFailure(_NPC, _)
+THEN
+NOT DB_AESN_HpTooltipProofState(_NPC, _Base, "Inspect");
+DB_AESN_HpTooltipProofState(_NPC, _Base, "Reloading");
+RealtimeObjectTimerLaunch(_NPC, "AESN_HP_TOOLTIP_RELOADED", 2000);
+
+IF
+ObjectTimerFinished((CHARACTER)_NPC, "AESN_HP_TOOLTIP_RELOADED")
+THEN
+PROC_AESN_HpTooltipCheck(_NPC, "Reloading", 111);
+
+IF
+ObjectTimerFinished((CHARACTER)_NPC, "AESN_HP_TOOLTIP_REFERENCE")
+THEN
+PROC_AESN_HpTooltipCheck(_NPC, "Reference", 222);
+
+IF
+ObjectTimerFinished((CHARACTER)_NPC, "AESN_HP_TOOLTIP_OWN_REMOVED")
+THEN
+PROC_AESN_HpTooltipCheck(_NPC, "OwnRemoved", 111);
+
+IF
+ObjectTimerFinished((CHARACTER)_NPC, "AESN_HP_TOOLTIP_CLEANED")
+THEN
+PROC_AESN_HpTooltipCheck(_NPC, "Cleaning", 0);
+
+PROC
+PROC_AESN_HpTooltipCheck((CHARACTER)_NPC, (STRING)_Phase, (INTEGER)_Delta)
+AND
+DB_AESN_HpTooltipProofState(_NPC, _Base, _Phase)
+AND
+NOT DB_AESN_HpTooltipProofFailure(_NPC, _)
+AND
+IntegerSum(_Base, _Delta, _Expected)
+AND
+GetMaxHitpoints(_NPC, _Maximum)
+AND
+GetHitpoints(_NPC, _Current)
+THEN
+DB_AESN_HpTooltipProofObservation(_NPC, _Phase, _Expected, _Current, _Maximum);
+
+// Consume the recorded evidence to validate only the active, non-failed phase.
+IF
+DB_AESN_HpTooltipProofObservation(_NPC, _Phase, _Expected, _Current, _Maximum)
+AND
+DB_AESN_HpTooltipProofState(_NPC, _Base, _Phase)
+AND
+NOT DB_AESN_HpTooltipProofFailure(_NPC, _)
+THEN
+PROC_AESN_HpTooltipAccept(_NPC, _Base, _Phase, _Expected, _Current, _Maximum);
+
+PROC
+PROC_AESN_HpTooltipAccept((CHARACTER)_NPC, (INTEGER)_Base, (STRING)_Phase, (INTEGER)_Expected, (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+_Maximum != _Expected
+THEN
+DB_AESN_HpTooltipProofFailure(_NPC, _Phase);
+DebugLog("AESN_HP_TOOLTIP_PROOF FAIL maximum mismatch - inspect observation facts");
+
+PROC
+PROC_AESN_HpTooltipAccept((CHARACTER)_NPC, (INTEGER)_Base, (STRING)_Phase, (INTEGER)_Expected, (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+_Maximum == _Expected
+AND
+_Current != _Expected
+THEN
+DB_AESN_HpTooltipProofFailure(_NPC, _Phase);
+DebugLog("AESN_HP_TOOLTIP_PROOF FAIL full-current HP mismatch - inspect observation facts");
+
+PROC
+PROC_AESN_HpTooltipAccept((CHARACTER)_NPC, (INTEGER)_Base, (STRING)_Phase, (INTEGER)_Expected, (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+_Maximum == _Expected
+AND
+_Current == _Expected
+THEN
+PROC_AESN_HpTooltipAdvance(_NPC, _Base, _Phase);
+
+PROC
+PROC_AESN_HpTooltipAdvance((CHARACTER)_NPC, (INTEGER)_Base, "Applying")
+THEN
+NOT DB_AESN_HpTooltipProofState(_NPC, _Base, "Applying");
+DB_AESN_HpTooltipProofState(_NPC, _Base, "Inspect");
+DebugLog("AESN_HP_TOOLTIP_PROOF INSPECT +111 exact - inspect tooltip and save separately before reloading");
+
+PROC
+PROC_AESN_HpTooltipAdvance((CHARACTER)_NPC, (INTEGER)_Base, "Reloading")
+THEN
+NOT DB_AESN_HpTooltipProofState(_NPC, _Base, "Reloading");
+DB_AESN_HpTooltipProofState(_NPC, _Base, "Reference");
+// Same +111, separate status/StackId: removing one must preserve the other.
+ApplyStatus(_NPC, "AESN_HP_TOOLTIP_REFERENCE_111", -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+RealtimeObjectTimerLaunch(_NPC, "AESN_HP_TOOLTIP_SETTLE", 500);
+DebugLog("AESN_HP_TOOLTIP_PROOF RETAINED +111 survived reload without reapplication");
+
+PROC
+PROC_AESN_HpTooltipAdvance((CHARACTER)_NPC, (INTEGER)_Base, "Reference")
+THEN
+NOT DB_AESN_HpTooltipProofState(_NPC, _Base, "Reference");
+DB_AESN_HpTooltipProofState(_NPC, _Base, "OwnRemoved");
+RemoveStatus(_NPC, "AESN_HP_TOOLTIP_PROOF_111", NULL_00000000-0000-0000-0000-000000000000);
+RealtimeObjectTimerLaunch(_NPC, "AESN_HP_TOOLTIP_SETTLE", 500);
+
+PROC
+PROC_AESN_HpTooltipAdvance((CHARACTER)_NPC, (INTEGER)_Base, "OwnRemoved")
+THEN
+NOT DB_AESN_HpTooltipProofState(_NPC, _Base, "OwnRemoved");
+DB_AESN_HpTooltipProofState(_NPC, _Base, "Cleaning");
+RemoveStatus(_NPC, "AESN_HP_TOOLTIP_REFERENCE_111", NULL_00000000-0000-0000-0000-000000000000);
+RealtimeObjectTimerLaunch(_NPC, "AESN_HP_TOOLTIP_SETTLE", 500);
+DebugLog("AESN_HP_TOOLTIP_PROOF SOURCE_ISOLATION other identical boost preserved");
+
+PROC
+PROC_AESN_HpTooltipAdvance((CHARACTER)_NPC, (INTEGER)_Base, "Cleaning")
+THEN
+NOT DB_AESN_HpTooltipProofState(_NPC, _Base, "Cleaning");
+DB_AESN_HpTooltipProofState(_NPC, _Base, "Complete");
+DebugLog("AESN_HP_TOOLTIP_PROOF PASS arithmetic retention source-isolation cleanup - visual label still requires inspection");
+
+EXITSECTION
+ENDEXITSECTION

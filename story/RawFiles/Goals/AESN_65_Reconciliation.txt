@@ -8,6 +8,15 @@ NOT DB_AESN_ReconcileResult((GUIDSTRING)NULL_00000000-0000-0000-0000-00000000000
 NOT DB_AESN_Schema1MigrationPending((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
 KBSECTION
 
+// Persisted journal identity excludes generic holds/cleanup even if this
+// callback is delivered after another SavegameLoaded rule.
+IF
+SavegameLoaded()
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _, _, _, _, _, _)
+THEN
+PROC_AESN_RecoverHpMigration(_Owner, _Enemy);
+
 // A schema-1 snapshot is never trusted as a production policy. Existing
 // transaction/component ownership is reconciled and removed first; only after
 // every owned effect is gone may an active combat take a fresh schema-2 roster
@@ -42,6 +51,10 @@ AND
 DB_AESN_HpTransaction(_Combat, _Enemy, _, _, _, _, _, _, _, _)
 AND
 NOT DB_AESN_HpApplicationHold(_Combat, _Enemy)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
 DB_AESN_HpApplicationHold(_Combat, _Enemy);
 
@@ -77,6 +90,10 @@ AND
 NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, _)
 AND
 NOT DB_AESN_ReconcileResult(_Combat, _Enemy, _, _)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
 DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, _IsActive);
 RealtimeObjectTimerLaunch(_Enemy, "AESN_RECONCILE_ENEMY", 250);
@@ -93,6 +110,10 @@ AND
 NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, _)
 AND
 NOT DB_AESN_ReconcileResult(_Combat, _Enemy, _, _)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
 DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 2);
 RealtimeObjectTimerLaunch(_Enemy, "AESN_RECONCILE_ENEMY", 250);
@@ -155,14 +176,16 @@ DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, _)
 AND
 DB_AESN_HpTransaction(_Combat, _Enemy, _Version, _, _, _, _, _, _, _)
 AND
-_Version != 1
+NOT QRY_AESN_HpRepresentationSupported(_Version)
 THEN
 PROC_AESN_RecordReconcileFailure(_Combat, _Enemy, "UnsupportedSchema");
 
 IF
 DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, _)
 AND
-DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _TargetMaximum, _Delta, _AppliedSum)
+DB_AESN_HpTransaction(_Combat, _Enemy, _Representation, "HPCommitted", _, _, _, _TargetMaximum, _Delta, _AppliedSum)
+AND
+QRY_AESN_HpRepresentationSupported(_Representation)
 AND
 _AppliedSum != _Delta
 THEN
@@ -171,7 +194,9 @@ PROC_AESN_RecordReconcileFailure(_Combat, _Enemy, "IdentityMismatch");
 IF
 DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, _)
 AND
-DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _TargetMaximum, _, _)
+DB_AESN_HpTransaction(_Combat, _Enemy, _Representation, "HPCommitted", _, _, _, _TargetMaximum, _, _)
+AND
+QRY_AESN_HpRepresentationSupported(_Representation)
 AND
 GetMaxHitpoints(_Enemy, _ObservedMaximum)
 AND
@@ -238,13 +263,21 @@ DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 1)
 AND
 DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _, _, _, "Supported")
 AND
-DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _TargetMaximum, _Delta, _Delta)
+DB_AESN_HpTransaction(_Combat, _Enemy, _Representation, "HPCommitted", _, _, _, _TargetMaximum, _Delta, _Delta)
+AND
+QRY_AESN_HpRepresentationSupported(_Representation)
 AND
 DB_AESN_ComponentApplication(_Combat, _Enemy, 1, "FullyCommitted")
 AND
 GetMaxHitpoints(_Enemy, _TargetMaximum)
 AND
+QRY_AESN_HpCommittedIdentity(_Combat, _Enemy, _Representation)
+AND
 NOT DB_AESN_ReconcileFailure(_Combat, _Enemy, _)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
 DB_AESN_ReconcileResult(_Combat, _Enemy, "RETAIN", "ValidActiveCommit");
 NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 1);
@@ -260,11 +293,15 @@ DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 2)
 AND
 DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _, _, _, "Supported")
 AND
-DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _TargetMaximum, _Delta, _Delta)
+DB_AESN_HpTransaction(_Combat, _Enemy, _Representation, "HPCommitted", _, _, _, _TargetMaximum, _Delta, _Delta)
+AND
+QRY_AESN_HpRepresentationSupported(_Representation)
 AND
 DB_AESN_ComponentApplication(_Combat, _Enemy, 1, "FullyCommitted")
 AND
 GetMaxHitpoints(_Enemy, _TargetMaximum)
+AND
+QRY_AESN_HpCommittedIdentity(_Combat, _Enemy, _Representation)
 AND
 NOT DB_AESN_WorldCleanupRequested(_Enemy)
 AND
@@ -273,6 +310,10 @@ AND
 NOT DB_AESN_MergeReplanRequired(_Combat, _Enemy)
 AND
 NOT DB_AESN_ReconcileFailure(_Combat, _Enemy, _)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
 DB_AESN_ReconcileResult(_Combat, _Enemy, "RETAIN", "ValidWorldCommit");
 NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 2);
@@ -291,6 +332,10 @@ AND
 DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 0)
 AND
 NOT DB_AESN_ReconcileResult(_Combat, _Enemy, _, _)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
 DB_AESN_ReconcileResult(_Combat, _Enemy, "CLEANUP", "InactiveCombat");
 NOT DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 0);
@@ -307,6 +352,10 @@ AND
 DB_AESN_ReconcileFailure(_Combat, _Enemy, _Reason)
 AND
 NOT DB_AESN_ReconcileResult(_Combat, _Enemy, _, _)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
 DB_AESN_ReconcileResult(_Combat, _Enemy, "CLEANUP", _Reason);
 DB_AESN_HpFailure(_Combat, _Enemy, "LoadReconcileIdentityMismatch");
@@ -322,6 +371,10 @@ AND
 DB_AESN_ReconcileFailure(_Combat, _Enemy, _Reason)
 AND
 NOT DB_AESN_ReconcileResult(_Combat, _Enemy, _, _)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
 DB_AESN_ReconcileResult(_Combat, _Enemy, "CLEANUP", _Reason);
 DB_AESN_HpFailure(_Combat, _Enemy, "LoadReconcileIdentityMismatch");
@@ -344,6 +397,10 @@ AND
 NOT DB_AESN_HpPendingApply(_Combat, _Enemy, _, _, _)
 AND
 NOT DB_AESN_ReconcileFailure(_Combat, _Enemy, _)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
 DB_AESN_ReconcileResult(_Combat, _Enemy, "ROLLBACK_STARTED", "PendingApplication");
 DB_AESN_HpFailure(_Combat, _Enemy, "LoadReconcilePendingApplication");
@@ -362,6 +419,10 @@ AND
 NOT DB_AESN_HpPendingApply(_Combat, _Enemy, _, _, _)
 AND
 NOT DB_AESN_ReconcileFailure(_Combat, _Enemy, _)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
 DB_AESN_ReconcileResult(_Combat, _Enemy, "ROLLBACK_STARTED", "PendingApplication");
 DB_AESN_HpFailure(_Combat, _Enemy, "LoadReconcilePendingApplication");
@@ -382,6 +443,10 @@ AND
 NOT DB_AESN_HpPendingApply(_Combat, _Enemy, _, _, _)
 AND
 NOT DB_AESN_ReconcileFailure(_Combat, _Enemy, _)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
 DB_AESN_ReconcileResult(_Combat, _Enemy, "ROLLBACK_STARTED", "PendingApplication");
 DB_AESN_HpFailure(_Combat, _Enemy, "LoadReconcilePendingApplication");
@@ -399,6 +464,10 @@ AND
 NOT DB_AESN_HpPendingApply(_Combat, _Enemy, _, _, _)
 AND
 NOT DB_AESN_ReconcileFailure(_Combat, _Enemy, _)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
 DB_AESN_ReconcileResult(_Combat, _Enemy, "ROLLBACK_STARTED", "PendingApplication");
 DB_AESN_HpFailure(_Combat, _Enemy, "LoadReconcilePendingApplication");
@@ -415,7 +484,9 @@ ObjectTimerFinished((CHARACTER)_Enemy, "AESN_RECONCILE_ENEMY")
 AND
 DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 1)
 AND
-DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _, _, _)
+DB_AESN_HpTransaction(_Combat, _Enemy, _Representation, "HPCommitted", _, _, _, _, _, _)
+AND
+QRY_AESN_HpRepresentationSupported(_Representation)
 AND
 DB_AESN_ComponentApplication(_Combat, _Enemy, 1, _ComponentState)
 AND
@@ -424,6 +495,10 @@ AND
 NOT DB_AESN_ComponentPendingApply(_Combat, _Enemy, _, _)
 AND
 NOT DB_AESN_ReconcileFailure(_Combat, _Enemy, _)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
 DB_AESN_ReconcileResult(_Combat, _Enemy, "ROLLBACK_STARTED", "PendingApplication");
 DB_AESN_HpFailure(_Combat, _Enemy, "LoadReconcilePendingApplication");
@@ -437,7 +512,9 @@ ObjectTimerFinished((CHARACTER)_Enemy, "AESN_RECONCILE_ENEMY")
 AND
 DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, 2)
 AND
-DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _, _, _)
+DB_AESN_HpTransaction(_Combat, _Enemy, _Representation, "HPCommitted", _, _, _, _, _, _)
+AND
+QRY_AESN_HpRepresentationSupported(_Representation)
 AND
 DB_AESN_ComponentApplication(_Combat, _Enemy, 1, _ComponentState)
 AND
@@ -446,6 +523,10 @@ AND
 NOT DB_AESN_ComponentPendingApply(_Combat, _Enemy, _, _)
 AND
 NOT DB_AESN_ReconcileFailure(_Combat, _Enemy, _)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
 DB_AESN_ReconcileResult(_Combat, _Enemy, "ROLLBACK_STARTED", "PendingApplication");
 DB_AESN_HpFailure(_Combat, _Enemy, "LoadReconcilePendingApplication");
@@ -489,6 +570,73 @@ AND
 NOT DB_AESN_EnemyComponent(_Combat, _, _, _)
 THEN
 PROC_AESN_FinalizeSchema1Migration(_Combat);
+
+QRY
+QRY_AESN_HpCommittedIdentity((GUIDSTRING)_Combat, (CHARACTER)_Enemy, 1)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpCommittedIdentity((GUIDSTRING)_Combat, (CHARACTER)_Enemy, 2)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 2, "HPCommitted", _, _Base, _, _Target, _Delta, _Delta)
+AND
+_Delta > 0
+AND
+_Delta <= 65535
+AND
+QRY_AESN_HpTotalOwnerAllowed(_Combat, _Enemy)
+AND
+DB_AESN_EnemyHpTotal(_Combat, _Enemy, _Delta, _Status)
+AND
+ConcatenateInteger("AESN_HP_TOTAL_", _Delta, _Status)
+AND
+HasActiveStatus(_Enemy, _Status, 1)
+AND
+IntegerSum(_Base, _Delta, _Target)
+AND
+GetMaxHitpoints(_Enemy, _Target)
+AND
+NOT DB_AESN_HpTotalPending(_, _Enemy, _, _, _)
+AND
+NOT DB_AESN_HpTotalUncertain(_, _Enemy, _, _, _, _)
+AND
+NOT DB_AESN_HpTotalRemoval(_Combat, _Enemy, _, _, _, _, _)
+AND
+NOT DB_AESN_HpReplan(_Combat, _Enemy, _, _, _)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpCommittedIdentity((GUIDSTRING)_Combat, (CHARACTER)_Enemy, 2)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 2, "HPCommitted", _, _Base, _, _Base, 0, 0)
+AND
+QRY_AESN_HpTotalZeroClear(_Combat, _Enemy)
+AND
+GetMaxHitpoints(_Enemy, _Base)
+AND
+NOT DB_AESN_HpTotalRemoval(_Combat, _Enemy, _, _, _, _, _)
+AND
+NOT DB_AESN_HpReplan(_Combat, _Enemy, _, _, _)
+THEN
+DB_NOOP(1);
+
+IF
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, _)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 2, _, _, _, _, _, _, _)
+THEN
+PROC_AESN_ReconcileHpTotal(_Combat, _Enemy);
+
+IF
+DB_AESN_ReconcileEnemyPending(_Combat, _Enemy, _)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 2, _, _, _, _, _, _, _)
+AND
+NOT QRY_AESN_HpCommittedIdentity(_Combat, _Enemy, 2)
+THEN
+PROC_AESN_RecordReconcileFailure(_Combat, _Enemy, "HpTotalIdentityOrPending");
 
 EXITSECTION
 

@@ -1,0 +1,724 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_HpTotalDesired((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, "");
+NOT DB_AESN_EnemyHpTotal((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, "");
+NOT DB_AESN_HpTotalPending((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "", "", 0);
+NOT DB_AESN_HpTotalEpoch((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0);
+NOT DB_AESN_HpTotalUncertain((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "", "", 0, "");
+NOT DB_AESN_HpTotalTimer((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "", 0);
+NOT DB_AESN_HpTotalRetired((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_HpTotalRemoval((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "", 0, "", 0, 0.0);
+KBSECTION
+
+// Total representation 2 backend. No planner activation or migration here.
+// Timeout retains Pending and Uncertain identity. Reconcile never heals/retries.
+// Retired IDs prevent ambiguous late apply acknowledgements authorizing reuse.
+// Removal capture: Owner, Enemy, Mode, Delta, Status, ExternalBase, Percentage.
+// Ordinary entry rejects mixed legacy ownership/pending state. Conversion must
+// finish its journaled legacy removal before entering this backend.
+
+QRY
+QRY_AESN_HpRepresentationSupported(1)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpRepresentationSupported(2)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalOtherOwner((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Other, _Enemy, _, _, _, _, _, _, _, _)
+AND
+_Other != _Owner
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalOtherOwner((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyHpTotal(_Other, _Enemy, _, _)
+AND
+_Other != _Owner
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalOtherOwner((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTotalPending(_Other, _Enemy, _, _, _)
+AND
+_Other != _Owner
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalOtherOwner((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTotalUncertain(_Other, _Enemy, _, _, _, _)
+AND
+_Other != _Owner
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalOwnerAllowed((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+NOT QRY_AESN_HpTotalOtherOwner(_Owner, _Enemy)
+AND
+NOT QRY_AESN_HpTotalAmbiguousTransaction(_Owner, _Enemy)
+AND
+NOT QRY_AESN_HpTotalAmbiguousOwned(_Owner, _Enemy)
+AND
+NOT DB_AESN_EnemyHpBit(_, _Enemy, _, _)
+AND
+NOT DB_AESN_HpPendingApply(_, _Enemy, _, _, _)
+AND
+NOT DB_AESN_HpPendingRemove(_, _Enemy, _, _, _, _)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalAmbiguousTransaction((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, _Version, _, _, _, _, _, _, _)
+AND
+_Version != 2
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalAmbiguousTransaction((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, _State, _, _, _, _, _, _)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, _OtherState, _, _, _, _, _, _)
+AND
+_OtherState != _State
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalAmbiguousOwned((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyHpTotal(_Owner, _Enemy, _, _Status)
+AND
+DB_AESN_EnemyHpTotal(_Owner, _Enemy, _, _OtherStatus)
+AND
+_OtherStatus != _Status
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalAmbiguousOwned((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyHpTotal(_Owner, _Enemy, _Delta, _)
+AND
+DB_AESN_EnemyHpTotal(_Owner, _Enemy, _OtherDelta, _)
+AND
+_OtherDelta != _Delta
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalOtherDesired((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (INTEGER)_Delta, (STRING)_Status)
+AND
+DB_AESN_HpTotalDesired(_Owner, _Enemy, _OtherDelta, _OtherStatus)
+AND
+_OtherStatus != _Status
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalOtherDesired((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (INTEGER)_Delta, (STRING)_Status)
+AND
+DB_AESN_HpTotalDesired(_Owner, _Enemy, _OtherDelta, _OtherStatus)
+AND
+_OtherDelta != _Delta
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalDesiredExact((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (INTEGER)_Delta, (STRING)_Status)
+AND
+_Delta > 0
+AND
+_Delta <= 65535
+AND
+ConcatenateInteger("AESN_HP_TOTAL_", _Delta, _Status)
+AND
+DB_AESN_HpTotalDesired(_Owner, _Enemy, _Delta, _Status)
+AND
+NOT QRY_AESN_HpTotalOtherDesired(_Owner, _Enemy, _Delta, _Status)
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_QueueHpTotal((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (INTEGER)_Delta)
+AND
+_Delta > 0
+AND
+_Delta <= 65535
+AND
+ConcatenateInteger("AESN_HP_TOTAL_", _Delta, _Status)
+THEN
+DB_AESN_HpTotalDesired(_Owner, _Enemy, _Delta, _Status);
+
+PROC
+PROC_AESN_BeginHpTotalApply((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, "Planned", _Before, _Base, _Percentage, _Target, 0, 0)
+AND
+QRY_AESN_HpTotalOwnerAllowed(_Owner, _Enemy)
+AND
+NOT DB_AESN_HpTotalPending(_, _Enemy, _, _, _)
+AND
+NOT DB_AESN_HpTotalUncertain(_, _Enemy, _, _, _, _)
+AND
+NOT DB_AESN_EnemyHpTotal(_, _Enemy, _, _)
+AND
+NOT DB_AESN_HpFailure(_Owner, _Enemy, _)
+AND
+NOT DB_AESN_HpTotalDesired(_Owner, _Enemy, _, _)
+AND
+_Base == _Target
+AND
+GetMaxHitpoints(_Enemy, _Target)
+AND
+GetHitpoints(_Enemy, _Current)
+AND
+_Current > 0
+AND
+IsDead(_Enemy, 0)
+THEN
+PROC_AESN_SetHpState(_Owner, _Enemy, "Planned", "HPCommitted", 0);
+
+PROC
+PROC_AESN_BeginHpTotalApply((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, "Planned", _Before, _Base, _Percentage, _Target, _Delta, 0)
+AND
+QRY_AESN_HpTotalOwnerAllowed(_Owner, _Enemy)
+AND
+NOT DB_AESN_HpTotalPending(_, _Enemy, _, _, _)
+AND
+NOT DB_AESN_HpTotalUncertain(_, _Enemy, _, _, _, _)
+AND
+NOT DB_AESN_EnemyHpTotal(_, _Enemy, _, _)
+AND
+NOT DB_AESN_HpFailure(_Owner, _Enemy, _)
+AND
+DB_AESN_HpTotalDesired(_Owner, _Enemy, _Delta, _Status)
+AND
+QRY_AESN_HpTotalDesiredExact(_Owner, _Enemy, _Delta, _Status)
+AND
+HasActiveStatus(_Enemy, _Status, 1)
+THEN
+DB_AESN_HpFailure(_Owner, _Enemy, "UnownedTotalConflict");
+
+PROC
+PROC_AESN_BeginHpTotalApply((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, "Planned", _Before, _Base, _Percentage, _Target, _Delta, 0)
+AND
+QRY_AESN_HpTotalOwnerAllowed(_Owner, _Enemy)
+AND
+NOT DB_AESN_HpTotalPending(_, _Enemy, _, _, _)
+AND
+NOT DB_AESN_HpTotalUncertain(_, _Enemy, _, _, _, _)
+AND
+NOT DB_AESN_EnemyHpTotal(_, _Enemy, _, _)
+AND
+NOT DB_AESN_HpFailure(_Owner, _Enemy, _)
+AND
+DB_AESN_HpTotalDesired(_Owner, _Enemy, _Delta, _Status)
+AND
+QRY_AESN_HpTotalDesiredExact(_Owner, _Enemy, _Delta, _Status)
+AND
+NOT DB_AESN_HpTotalRetired(_Enemy, _Status)
+AND
+IntegerSum(_Base, _Delta, _Target)
+AND
+GetMaxHitpoints(_Enemy, _Base)
+AND
+GetHitpoints(_Enemy, _Current)
+AND
+_Current > 0
+AND
+IsDead(_Enemy, 0)
+AND
+HasActiveStatus(_Enemy, _Status, 0)
+THEN
+PROC_AESN_SetHpState(_Owner, _Enemy, "Planned", "ApplyingHP", 0);
+PROC_AESN_EnsureHpTotalEpoch(_Enemy);
+PROC_AESN_StartHpTotalOperation(_Owner, _Enemy, "Apply", _Status);
+
+PROC
+PROC_AESN_EnsureHpTotalEpoch((CHARACTER)_Enemy)
+AND
+NOT DB_AESN_HpTotalEpoch(_Enemy, _)
+THEN
+DB_AESN_HpTotalEpoch(_Enemy, 0);
+
+PROC
+PROC_AESN_StartHpTotalOperation((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Operation, (STRING)_Status)
+AND
+DB_AESN_HpTotalEpoch(_Enemy, _Epoch)
+AND
+_Epoch < 2147483647
+AND
+IntegerSum(_Epoch, 1, _Next)
+AND
+ConcatenateInteger("AESN_HP_TOTAL_TIMEOUT_", _Next, _Timer)
+AND
+NOT DB_AESN_HpTotalPending(_, _Enemy, _, _, _)
+THEN
+NOT DB_AESN_HpTotalEpoch(_Enemy, _Epoch);
+DB_AESN_HpTotalEpoch(_Enemy, _Next);
+DB_AESN_HpTotalPending(_Owner, _Enemy, _Operation, _Status, _Next);
+DB_AESN_HpTotalTimer(_Enemy, _Timer, _Next);
+RealtimeObjectTimerLaunch(_Enemy, _Timer, 1000);
+PROC_AESN_IssueHpTotalOperation(_Owner, _Enemy, _Operation, _Status);
+
+PROC
+PROC_AESN_IssueHpTotalOperation((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "Apply", (STRING)_Status)
+THEN
+ApplyStatus(_Enemy, _Status, -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+
+PROC
+PROC_AESN_IssueHpTotalOperation((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "Remove", (STRING)_Status)
+THEN
+RemoveStatus(_Enemy, _Status, NULL_00000000-0000-0000-0000-000000000000);
+
+IF
+StatusApplied((GUIDSTRING)_Object, _Status, _, _)
+AND
+DB_AESN_HpTotalPending(_Owner, (CHARACTER)_Object, "Apply", _Status, _Epoch)
+THEN
+PROC_AESN_AcknowledgeHpTotalApply(_Owner, (CHARACTER)_Object, _Status, _Epoch);
+
+// Ownership can change after dispatch. Preserve this pending identity instead
+// of adopting an intervening contribution or writing HP against mixed records.
+PROC
+PROC_AESN_AcknowledgeHpTotalApply((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Status, (INTEGER)_Epoch)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, "ApplyingHP", _, _, _, _, _, 0)
+AND
+DB_AESN_HpTotalPending(_Owner, _Enemy, "Apply", _Status, _Epoch)
+AND
+DB_AESN_EnemyHpTotal(_, _Enemy, _, _)
+THEN
+PROC_AESN_MarkHpTotalUncertain(_Owner, _Enemy, "Apply", _Status, _Epoch, "OwnershipAppearedDuringApply");
+
+PROC
+PROC_AESN_AcknowledgeHpTotalApply((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Status, (INTEGER)_Epoch)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, "ApplyingHP", _Before, _Base, _Percentage, _Target, _Delta, 0)
+AND
+DB_AESN_HpTotalPending(_Owner, _Enemy, "Apply", _Status, _Epoch)
+AND
+NOT DB_AESN_HpTotalUncertain(_Owner, _Enemy, _, _, _, _)
+AND
+QRY_AESN_HpTotalOwnerAllowed(_Owner, _Enemy)
+AND
+QRY_AESN_HpTotalDesiredExact(_Owner, _Enemy, _Delta, _Status)
+AND
+HasActiveStatus(_Enemy, _Status, 1)
+AND
+NOT DB_AESN_EnemyHpTotal(_, _Enemy, _, _)
+AND
+IntegerSum(_Base, _Delta, _Target)
+AND
+GetMaxHitpoints(_Enemy, _Target)
+AND
+GetHitpoints(_Enemy, _Current)
+AND
+_Current > 0
+AND
+IsDead(_Enemy, 0)
+THEN
+DB_AESN_EnemyHpTotal(_Owner, _Enemy, _Delta, _Status);
+PROC_AESN_ClearHpTotalPending(_Owner, _Enemy, "Apply", _Status, _Epoch);
+SetHitpointsPercentage(_Enemy, _Percentage, "Guaranteed");
+PROC_AESN_SetHpState(_Owner, _Enemy, "ApplyingHP", "HPCommitted", _Delta);
+
+PROC
+PROC_AESN_AcknowledgeHpTotalApply((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Status, (INTEGER)_Epoch)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, "ApplyingHP", _Before, _Base, _Percentage, _Target, _Delta, 0)
+AND
+DB_AESN_HpTotalPending(_Owner, _Enemy, "Apply", _Status, _Epoch)
+AND
+NOT DB_AESN_HpTotalUncertain(_Owner, _Enemy, _, _, _, _)
+AND
+QRY_AESN_HpTotalOwnerAllowed(_Owner, _Enemy)
+AND
+QRY_AESN_HpTotalDesiredExact(_Owner, _Enemy, _Delta, _Status)
+AND
+HasActiveStatus(_Enemy, _Status, 1)
+AND
+GetMaxHitpoints(_Enemy, _Observed)
+AND
+_Observed != _Target
+THEN
+PROC_AESN_MarkHpTotalUncertain(_Owner, _Enemy, "Apply", _Status, _Epoch, "MaximumMismatch");
+
+PROC
+PROC_AESN_AcknowledgeHpTotalApply((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Status, (INTEGER)_Epoch)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, "ApplyingHP", _Before, _Base, _Percentage, _Target, _Delta, 0)
+AND
+DB_AESN_HpTotalPending(_Owner, _Enemy, "Apply", _Status, _Epoch)
+AND
+NOT DB_AESN_HpTotalUncertain(_Owner, _Enemy, _, _, _, _)
+AND
+QRY_AESN_HpTotalOwnerAllowed(_Owner, _Enemy)
+AND
+QRY_AESN_HpTotalDesiredExact(_Owner, _Enemy, _Delta, _Status)
+AND
+HasActiveStatus(_Enemy, _Status, 1)
+AND
+GetHitpoints(_Enemy, 0)
+THEN
+PROC_AESN_MarkHpTotalUncertain(_Owner, _Enemy, "Apply", _Status, _Epoch, "DiedDuringApply");
+
+PROC
+PROC_AESN_AcknowledgeHpTotalApply((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Status, (INTEGER)_Epoch)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, "ApplyingHP", _Before, _Base, _Percentage, _Target, _Delta, 0)
+AND
+DB_AESN_HpTotalPending(_Owner, _Enemy, "Apply", _Status, _Epoch)
+AND
+NOT DB_AESN_HpTotalUncertain(_Owner, _Enemy, _, _, _, _)
+AND
+QRY_AESN_HpTotalOwnerAllowed(_Owner, _Enemy)
+AND
+QRY_AESN_HpTotalDesiredExact(_Owner, _Enemy, _Delta, _Status)
+AND
+HasActiveStatus(_Enemy, _Status, 1)
+AND
+IsDead(_Enemy, 1)
+THEN
+PROC_AESN_MarkHpTotalUncertain(_Owner, _Enemy, "Apply", _Status, _Epoch, "DiedDuringApply");
+
+PROC
+PROC_AESN_ClearHpTotalPending((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Operation, (STRING)_Status, (INTEGER)_Epoch)
+AND
+DB_AESN_HpTotalPending(_Owner, _Enemy, _Operation, _Status, _Epoch)
+AND
+DB_AESN_HpTotalTimer(_Enemy, _Timer, _Epoch)
+THEN
+RealtimeObjectTimerCancel(_Enemy, _Timer);
+NOT DB_AESN_HpTotalTimer(_Enemy, _Timer, _Epoch);
+NOT DB_AESN_HpTotalPending(_Owner, _Enemy, _Operation, _Status, _Epoch);
+
+PROC
+PROC_AESN_MarkHpTotalUncertain((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Operation, (STRING)_Status, (INTEGER)_Epoch, (STRING)_Reason)
+AND
+DB_AESN_HpTotalPending(_Owner, _Enemy, _Operation, _Status, _Epoch)
+AND
+NOT DB_AESN_HpTotalUncertain(_Owner, _Enemy, _, _, _, _)
+THEN
+DB_AESN_HpTotalUncertain(_Owner, _Enemy, _Operation, _Status, _Epoch, _Reason);
+DB_AESN_HpFailure(_Owner, _Enemy, _Reason);
+
+IF
+StatusAttemptFailed((GUIDSTRING)_Object, _Status, _, _)
+AND
+DB_AESN_HpTotalPending(_Owner, (CHARACTER)_Object, "Apply", _Status, _Epoch)
+THEN
+PROC_AESN_MarkHpTotalUncertain(_Owner, (CHARACTER)_Object, "Apply", _Status, _Epoch, "StatusAttemptFailed");
+
+IF
+ObjectTimerFinished((GUIDSTRING)_Object, _Timer)
+AND
+DB_AESN_HpTotalTimer((CHARACTER)_Object, _Timer, _Epoch)
+AND
+DB_AESN_HpTotalPending(_Owner, (CHARACTER)_Object, _Operation, _Status, _Epoch)
+THEN
+PROC_AESN_MarkHpTotalUncertain(_Owner, (CHARACTER)_Object, _Operation, _Status, _Epoch, "Timeout");
+
+PROC
+PROC_AESN_ReconcileHpTotal((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTotalPending(_Owner, _Enemy, _Operation, _Status, _Epoch)
+THEN
+PROC_AESN_MarkHpTotalUncertain(_Owner, _Enemy, _Operation, _Status, _Epoch, "ReconcilePending");
+
+QRY
+QRY_AESN_HpTotalRemovalMode("Cleanup")
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalRemovalMode("Rollback")
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalRemovalMode("Replan")
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalRemovalState("HPCommitted")
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalRemovalState("ApplyingHP")
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalRemovalState("Failed")
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_BeginHpTotalRemove((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Mode)
+AND
+QRY_AESN_HpTotalOwnerAllowed(_Owner, _Enemy)
+AND
+QRY_AESN_HpTotalRemovalMode(_Mode)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, _State, _, _, _, _, _, _)
+AND
+QRY_AESN_HpTotalRemovalState(_State)
+AND
+NOT DB_AESN_HpTotalRemoval(_Owner, _Enemy, _, _, _, _, _)
+AND
+DB_AESN_EnemyHpTotal(_Owner, _Enemy, _Delta, _Status)
+AND
+NOT DB_AESN_HpTotalPending(_, _Enemy, _, _, _)
+THEN
+PROC_AESN_CaptureHpTotalRemoval(_Owner, _Enemy, _Mode, _Delta, _Status);
+
+PROC
+PROC_AESN_BeginHpTotalRemove((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Mode)
+AND
+QRY_AESN_HpTotalOwnerAllowed(_Owner, _Enemy)
+AND
+QRY_AESN_HpTotalRemovalMode(_Mode)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, _State, _, _, _, _, _, _)
+AND
+QRY_AESN_HpTotalRemovalState(_State)
+AND
+NOT DB_AESN_HpTotalRemoval(_Owner, _Enemy, _, _, _, _, _)
+AND
+DB_AESN_HpTotalUncertain(_Owner, _Enemy, "Apply", _Status, _Epoch, _Reason)
+AND
+DB_AESN_HpTotalDesired(_Owner, _Enemy, _Delta, _Status)
+AND
+QRY_AESN_HpTotalDesiredExact(_Owner, _Enemy, _Delta, _Status)
+AND
+HasActiveStatus(_Enemy, _Status, 1)
+THEN
+DB_AESN_HpTotalRetired(_Enemy, _Status);
+PROC_AESN_ClearHpTotalPending(_Owner, _Enemy, "Apply", _Status, _Epoch);
+NOT DB_AESN_HpTotalUncertain(_Owner, _Enemy, "Apply", _Status, _Epoch, _Reason);
+DB_AESN_EnemyHpTotal(_Owner, _Enemy, _Delta, _Status);
+PROC_AESN_CaptureHpTotalRemoval(_Owner, _Enemy, _Mode, _Delta, _Status);
+
+PROC
+PROC_AESN_CaptureHpTotalRemoval((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Mode, (INTEGER)_Delta, (STRING)_Status)
+AND
+HasActiveStatus(_Enemy, _Status, 1)
+AND
+_Delta > 0
+AND
+_Delta <= 65535
+AND
+ConcatenateInteger("AESN_HP_TOTAL_", _Delta, _Status)
+AND
+GetMaxHitpoints(_Enemy, _Maximum)
+AND
+IntegerSubtract(_Maximum, _Delta, _External)
+AND
+_External > 0
+AND
+GetHitpointsPercentage(_Enemy, _Captured)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, _State, _, _, _, _, _, _Applied)
+THEN
+DB_AESN_HpTotalRemoval(_Owner, _Enemy, _Mode, _Delta, _Status, _External, _Captured);
+PROC_AESN_SetHpState(_Owner, _Enemy, _State, "RemovingHPTotal", _Applied);
+PROC_AESN_EnsureHpTotalEpoch(_Enemy);
+PROC_AESN_StartHpTotalOperation(_Owner, _Enemy, "Remove", _Status);
+
+IF
+StatusRemoved((GUIDSTRING)_Object, _Status, _, _)
+AND
+DB_AESN_HpTotalPending(_Owner, (CHARACTER)_Object, "Remove", _Status, _Epoch)
+THEN
+PROC_AESN_AcknowledgeHpTotalRemove(_Owner, (CHARACTER)_Object, _Status, _Epoch);
+
+PROC
+PROC_AESN_AcknowledgeHpTotalRemove((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Status, (INTEGER)_Epoch)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, "RemovingHPTotal", _, _, _, _, _, _)
+AND
+DB_AESN_HpTotalRemoval(_Owner, _Enemy, _Mode, _Delta, _Status, _External, _Captured)
+AND
+DB_AESN_HpTotalPending(_Owner, _Enemy, "Remove", _Status, _Epoch)
+AND
+QRY_AESN_HpTotalOwnerAllowed(_Owner, _Enemy)
+AND
+NOT DB_AESN_HpTotalUncertain(_Owner, _Enemy, _, _, _, _)
+AND
+HasActiveStatus(_Enemy, _Status, 0)
+AND
+GetMaxHitpoints(_Enemy, _External)
+THEN
+PROC_AESN_ClearHpTotalPending(_Owner, _Enemy, "Remove", _Status, _Epoch);
+NOT DB_AESN_EnemyHpTotal(_Owner, _Enemy, _Delta, _Status);
+PROC_AESN_FinalizeHpTotalRemoval(_Owner, _Enemy, _Mode, _Captured);
+
+PROC
+PROC_AESN_AcknowledgeHpTotalRemove((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Status, (INTEGER)_Epoch)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, "RemovingHPTotal", _, _, _, _, _, _)
+AND
+DB_AESN_HpTotalRemoval(_Owner, _Enemy, _Mode, _Delta, _Status, _External, _Captured)
+AND
+DB_AESN_HpTotalPending(_Owner, _Enemy, "Remove", _Status, _Epoch)
+AND
+QRY_AESN_HpTotalOwnerAllowed(_Owner, _Enemy)
+AND
+NOT DB_AESN_HpTotalUncertain(_Owner, _Enemy, _, _, _, _)
+AND
+HasActiveStatus(_Enemy, _Status, 0)
+AND
+GetMaxHitpoints(_Enemy, _Observed)
+AND
+_Observed != _External
+THEN
+PROC_AESN_MarkHpTotalUncertain(_Owner, _Enemy, "Remove", _Status, _Epoch, "RemovalMaximumMismatch");
+
+PROC
+PROC_AESN_FinalizeHpTotalRemoval((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "Cleanup", (REAL)_Captured)
+AND
+GetHitpoints(_Enemy, _Current)
+AND
+_Current > 0
+AND
+IsDead(_Enemy, 0)
+THEN
+SetHitpointsPercentage(_Enemy, _Captured, "Guaranteed");
+
+PROC
+PROC_AESN_FinalizeHpTotalRemoval((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "Rollback", (REAL)_Captured)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, "RemovingHPTotal", _, _, _BeforePercentage, _, _, _)
+AND
+GetHitpoints(_Enemy, _Current)
+AND
+_Current > 0
+AND
+IsDead(_Enemy, 0)
+THEN
+SetHitpointsPercentage(_Enemy, _BeforePercentage, "Guaranteed");
+
+PROC
+PROC_AESN_FinalizeHpTotalRemoval((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "Cleanup", (REAL)_Captured)
+THEN
+PROC_AESN_DeleteHpRecords(_Owner, _Enemy);
+PROC_AESN_ClearHpTotalPlan(_Owner, _Enemy);
+
+PROC
+PROC_AESN_FinalizeHpTotalRemoval((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "Rollback", (REAL)_Captured)
+THEN
+PROC_AESN_SetHpState(_Owner, _Enemy, "RemovingHPTotal", "Failed", 0);
+PROC_AESN_ClearHpTotalPlan(_Owner, _Enemy);
+
+PROC
+PROC_AESN_FinalizeHpTotalRemoval((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "Replan", (REAL)_Captured)
+THEN
+PROC_AESN_SetHpState(_Owner, _Enemy, "RemovingHPTotal", "HpTotalRemoved", 0);
+
+PROC
+PROC_AESN_ClearHpTotalPlan((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTotalDesired(_Owner, _Enemy, _Delta, _Status)
+THEN
+NOT DB_AESN_HpTotalDesired(_Owner, _Enemy, _Delta, _Status);
+
+PROC
+PROC_AESN_ClearHpTotalPlan((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTotalRemoval(_Owner, _Enemy, _Mode, _Delta, _Status, _External, _Captured)
+THEN
+NOT DB_AESN_HpTotalRemoval(_Owner, _Enemy, _Mode, _Delta, _Status, _External, _Captured);
+
+QRY
+QRY_AESN_HpTotalAmbiguousTransaction((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, _, _Value, _, _, _, _, _)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, _, _OtherValue, _, _, _, _, _)
+AND
+_OtherValue != _Value
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalAmbiguousTransaction((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, _, _, _Value, _, _, _, _)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, _, _, _OtherValue, _, _, _, _)
+AND
+_OtherValue != _Value
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalAmbiguousTransaction((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, _, _, _, _Value, _, _, _)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, _, _, _, _OtherValue, _, _, _)
+AND
+_OtherValue != _Value
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalAmbiguousTransaction((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, _, _, _, _, _Value, _, _)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, _, _, _, _, _OtherValue, _, _)
+AND
+_OtherValue != _Value
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalAmbiguousTransaction((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, _, _, _, _, _, _Value, _)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, _, _, _, _, _, _OtherValue, _)
+AND
+_OtherValue != _Value
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTotalAmbiguousTransaction((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, _, _, _, _, _, _, _Value)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, _, _, _, _, _, _, _OtherValue)
+AND
+_OtherValue != _Value
+THEN
+DB_NOOP(1);
+
+EXITSECTION
+ENDEXITSECTION

@@ -3,6 +3,31 @@ SubGoalCombiner SGC_AND
 INITSECTION
 KBSECTION
 
+// Maintenance retries durable tracked owners, including out-of-range actors.
+// The entry procedure rechecks all live guards and remains disabled by default.
+IF
+LeftCombat((GUIDSTRING)_Object, _Combat)
+AND
+DB_AESN_HpMigrationDeferred(_Owner, (CHARACTER)_Object)
+THEN
+PROC_AESN_TryHpMigration(_Owner, (CHARACTER)_Object);
+
+IF
+TimerFinished("AESN_WORLD_SCAN")
+AND
+DB_AESN_WorldContext(_World)
+THEN
+PROC_AESN_RetryTrackedHpMigrations(_World);
+
+PROC
+PROC_AESN_RetryTrackedHpMigrations((GUIDSTRING)_World)
+AND
+DB_AESN_WorldTracked(_Enemy)
+AND
+DB_AESN_HpMigrationDeferred(_World, _Enemy)
+THEN
+PROC_AESN_TryHpMigration(_World, _Enemy);
+
 // Established saves do not replay INITSECTION. Reassert the durable owner,
 // discard timer-backed scheduler gates that cannot be trusted across a load,
 // and rebuild policy from the current permanent roster.
@@ -256,7 +281,9 @@ PROC_AESN_QueueWorldPolicyReplans((GUIDSTRING)_World, (INTEGER)_NewTier, (INTEGE
 AND
 QRY_AESN_WorldPolicyChanged(_World, _NewTier, _NewTargetHpPercent)
 AND
-DB_AESN_HpTransaction(_World, _Enemy, 1, "HPCommitted", _, _, _, _, _, _)
+DB_AESN_HpTransaction(_World, _Enemy, _Representation, "HPCommitted", _, _, _, _, _, _)
+AND
+QRY_AESN_HpRepresentationSupported(_Representation)
 AND
 DB_AESN_ComponentApplication(_World, _Enemy, 1, "FullyCommitted")
 AND
@@ -271,7 +298,9 @@ PROC_AESN_QueueWorldPolicyReplans((GUIDSTRING)_World, (INTEGER)_NewTier, (INTEGE
 AND
 QRY_AESN_WorldPolicyChanged(_World, _NewTier, _NewTargetHpPercent)
 AND
-DB_AESN_HpTransaction(_World, _Enemy, 1, "HPCommitted", _, _, _, _, _, _)
+DB_AESN_HpTransaction(_World, _Enemy, _Representation, "HPCommitted", _, _, _, _, _, _)
+AND
+QRY_AESN_HpRepresentationSupported(_Representation)
 AND
 DB_AESN_ComponentApplication(_World, _Enemy, 1, "FullyCommitted")
 AND
@@ -456,6 +485,10 @@ PROC
 PROC_AESN_RequestWorldCleanup((CHARACTER)_Enemy, (GUIDSTRING)_World)
 AND
 NOT DB_AESN_WorldCleanupRequested(_Enemy)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
 DB_AESN_WorldCleanupRequested(_Enemy);
 DB_AESN_WorldMutationPending(_Enemy);
@@ -488,7 +521,9 @@ NOT DB_AESN_WorldScanCompletionCount(_Count);
 IF
 DB_AESN_WorldContext(_World)
 AND
-DB_AESN_HpTransaction(_World, _Enemy, 1, "HPCommitted", _, _, _, _, _Delta, _Delta)
+DB_AESN_HpTransaction(_World, _Enemy, _Representation, "HPCommitted", _, _, _, _, _Delta, _Delta)
+AND
+QRY_AESN_HpRepresentationSupported(_Representation)
 AND
 DB_AESN_ComponentApplication(_World, _Enemy, 1, "FullyCommitted")
 AND
@@ -503,6 +538,10 @@ IF
 DB_AESN_WorldContext(_World)
 AND
 DB_AESN_MergeReplanRequired(_World, _Enemy)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
 DB_AESN_WorldMutationPending(_Enemy);
 PROC_AESN_ClearWorldReady(_Enemy);
@@ -530,7 +569,9 @@ DB_AESN_WorldContext(_World)
 AND
 GetMaxHitpoints(_Enemy, _ObservedMaximum)
 AND
-DB_AESN_HpTransaction(_World, _Enemy, 1, "HPCommitted", _, _, _, _TargetMaximum, _Delta, _AppliedSum)
+DB_AESN_HpTransaction(_World, _Enemy, _Representation, "HPCommitted", _, _, _, _TargetMaximum, _Delta, _AppliedSum)
+AND
+QRY_AESN_HpRepresentationSupported(_Representation)
 AND
 _ObservedMaximum != _TargetMaximum
 AND
@@ -547,7 +588,9 @@ DB_AESN_WorldContext(_World)
 AND
 GetMaxHitpoints(_Enemy, _ObservedMaximum)
 AND
-DB_AESN_HpTransaction(_World, _Enemy, 1, "HPCommitted", _, _, _, _TargetMaximum, _Delta, _AppliedSum)
+DB_AESN_HpTransaction(_World, _Enemy, _Representation, "HPCommitted", _, _, _, _TargetMaximum, _Delta, _AppliedSum)
+AND
+QRY_AESN_HpRepresentationSupported(_Representation)
 AND
 _ObservedMaximum != _TargetMaximum
 AND
@@ -628,6 +671,8 @@ AND
 NOT DB_AESN_EnemyComponent(_World, _Enemy, _, _)
 AND
 NOT DB_AESN_ComponentApplication(_World, _Enemy, _, _)
+AND
+QRY_AESN_HpRecordsRetirable(_World, _Enemy)
 THEN
 NOT DB_AESN_WorldCleanupRequested(_Enemy);
 PROC_AESN_ClearWorldReady(_Enemy);

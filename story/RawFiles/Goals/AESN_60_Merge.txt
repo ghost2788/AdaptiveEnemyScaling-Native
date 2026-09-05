@@ -7,6 +7,7 @@ NOT DB_AESN_MergeInProgress((GUIDSTRING)NULL_00000000-0000-0000-0000-00000000000
 NOT DB_AESN_MergePolicyMismatch((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, 0, 0, 0, 0, 0, 0);
 NOT DB_AESN_MergeReplanRequired((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
 NOT DB_AESN_CombatCleanupRequested((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_MergeHpConflict((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
 KBSECTION
 
 // Mark-before-migrate is the ownership barrier. CombatEnded for _OldCombat can
@@ -61,14 +62,31 @@ DB_NOOP(1);
 PROC
 PROC_AESN_MergeCombat((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
 THEN
+PROC_AESN_PreflightHpMerge(_OldCombat, _NewCombat);
+PROC_AESN_ApplyPreflightedMerge(_OldCombat, _NewCombat);
+
+PROC
+PROC_AESN_ApplyPreflightedMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_MergeInProgress(_OldCombat, _NewCombat)
+AND
+NOT DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _)
+THEN
+// Ranks are derived, not ownership. Rebuild them after the canonical ledger
+// and eligibility have migrated; never carry an old selection timer forward.
+PROC_AESN_CancelRelentlessSelection(_OldCombat);
+PROC_AESN_CancelRelentlessSelection(_NewCombat);
+PROC_AESN_DeleteRelentlessRanks(_OldCombat);
+PROC_AESN_DeleteRelentlessRanks(_NewCombat);
 PROC_AESN_ReconcileMergePolicy(_OldCombat, _NewCombat);
 PROC_AESN_MigrateRelentlessState(_OldCombat, _NewCombat);
-PROC_AESN_MigrateComponentState(_OldCombat, _NewCombat);
 PROC_AESN_MigrateHpState(_OldCombat, _NewCombat);
+PROC_AESN_MigrateComponentState(_OldCombat, _NewCombat);
 PROC_AESN_MigrateCombatState(_OldCombat, _NewCombat);
 PROC_AESN_MigrateRosterState(_OldCombat, _NewCombat);
 PROC_AESN_QueueCanonicalMergeReplans(_OldCombat, _NewCombat);
 NOT DB_AESN_MergeInProgress(_OldCombat, _NewCombat);
+PROC_AESN_RequestRelentlessSelection(_NewCombat);
 DebugLog("AESN_MERGE MIGRATION_COMPLETE markBeforeMigrate=1");
 
 // Old-only schema-2 snapshots are adopted exactly. Equal snapshots keep the
@@ -380,61 +398,566 @@ AND DB_AESN_CombatHardenedReady(_OldCombat, _Enemy)
 AND DB_AESN_CombatHardenedReady(_NewCombat, _Enemy)
 THEN NOT DB_AESN_CombatHardenedReady(_OldCombat, _Enemy);
 
-// HP planning, acknowledgement, application, removal, and cleanup state.
-PROC
-PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
-AND DB_AESN_HpTransaction(_OldCombat, _Enemy, _Version, _State, _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum)
-THEN NOT DB_AESN_HpTransaction(_OldCombat, _Enemy, _Version, _State, _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum); DB_AESN_HpTransaction(_NewCombat, _Enemy, _Version, _State, _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum);
+// Under the merge barrier, adjuncts move before the transaction.
+// Enemy-scoped epochs, timers and retired IDs keep their original identity.
 
 PROC
 PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
-AND DB_AESN_HpDesiredBit(_OldCombat, _Enemy, _Bit, _Status)
-THEN NOT DB_AESN_HpDesiredBit(_OldCombat, _Enemy, _Bit, _Status); DB_AESN_HpDesiredBit(_NewCombat, _Enemy, _Bit, _Status);
+AND
+DB_AESN_HpDesiredBit(_OldCombat, _Enemy, _Bit, _Status)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpDesiredBit(_OldCombat, _Enemy, _Bit, _Status)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
 
 PROC
 PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
-AND DB_AESN_HpPlanQueued(_OldCombat, _Enemy)
-THEN NOT DB_AESN_HpPlanQueued(_OldCombat, _Enemy); DB_AESN_HpPlanQueued(_NewCombat, _Enemy);
+AND
+DB_AESN_HpPlanQueued(_OldCombat, _Enemy)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpPlanQueued(_OldCombat, _Enemy)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
 
 PROC
 PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
-AND DB_AESN_HpFailure(_OldCombat, _Enemy, _Reason)
-THEN NOT DB_AESN_HpFailure(_OldCombat, _Enemy, _Reason); DB_AESN_HpFailure(_NewCombat, _Enemy, _Reason);
+AND
+DB_AESN_HpFailure(_OldCombat, _Enemy, _Reason)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpFailure(_OldCombat, _Enemy, _Reason)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
 
 PROC
 PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
-AND DB_AESN_HpPendingApply(_OldCombat, _Enemy, _Index, _Bit, _Status)
-THEN NOT DB_AESN_HpPendingApply(_OldCombat, _Enemy, _Index, _Bit, _Status); DB_AESN_HpPendingApply(_NewCombat, _Enemy, _Index, _Bit, _Status);
+AND
+DB_AESN_HpPendingApply(_OldCombat, _Enemy, _Index, _Bit, _Status)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpPendingApply(_OldCombat, _Enemy, _Index, _Bit, _Status)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
 
 PROC
 PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
-AND DB_AESN_EnemyHpBit(_OldCombat, _Enemy, _Bit, _Status)
-THEN NOT DB_AESN_EnemyHpBit(_OldCombat, _Enemy, _Bit, _Status); DB_AESN_EnemyHpBit(_NewCombat, _Enemy, _Bit, _Status);
+AND
+DB_AESN_EnemyHpBit(_OldCombat, _Enemy, _Bit, _Status)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_EnemyHpBit(_OldCombat, _Enemy, _Bit, _Status)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
 
 PROC
 PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
-AND DB_AESN_HpPendingRemove(_OldCombat, _Enemy, _Index, _Bit, _Status, _Mode)
-THEN NOT DB_AESN_HpPendingRemove(_OldCombat, _Enemy, _Index, _Bit, _Status, _Mode); DB_AESN_HpPendingRemove(_NewCombat, _Enemy, _Index, _Bit, _Status, _Mode);
+AND
+DB_AESN_HpPendingRemove(_OldCombat, _Enemy, _Index, _Bit, _Status, _Mode)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpPendingRemove(_OldCombat, _Enemy, _Index, _Bit, _Status, _Mode)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
 
 PROC
 PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
-AND DB_AESN_HpCleanup(_OldCombat, _Enemy, _Current, _Maximum, _Percentage)
-THEN NOT DB_AESN_HpCleanup(_OldCombat, _Enemy, _Current, _Maximum, _Percentage); DB_AESN_HpCleanup(_NewCombat, _Enemy, _Current, _Maximum, _Percentage);
+AND
+DB_AESN_HpCleanup(_OldCombat, _Enemy, _Current, _Maximum, _Percentage)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpCleanup(_OldCombat, _Enemy, _Current, _Maximum, _Percentage)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
 
 PROC
 PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
-AND DB_AESN_HpApplicationHold(_OldCombat, _Enemy)
-THEN NOT DB_AESN_HpApplicationHold(_OldCombat, _Enemy); DB_AESN_HpApplicationHold(_NewCombat, _Enemy);
+AND
+DB_AESN_HpApplicationHold(_OldCombat, _Enemy)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpApplicationHold(_OldCombat, _Enemy)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
 
 PROC
 PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
-AND DB_AESN_HpReplan(_OldCombat, _Enemy, _Version, _State, _CapturedPercentage)
-THEN NOT DB_AESN_HpReplan(_OldCombat, _Enemy, _Version, _State, _CapturedPercentage); DB_AESN_HpReplan(_NewCombat, _Enemy, _Version, _State, _CapturedPercentage);
+AND
+DB_AESN_HpReplan(_OldCombat, _Enemy, _Version, _State, _CapturedPercentage)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpReplan(_OldCombat, _Enemy, _Version, _State, _CapturedPercentage)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
 
 PROC
 PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
-AND DB_AESN_MergeReplanRequired(_OldCombat, _Enemy)
-THEN NOT DB_AESN_MergeReplanRequired(_OldCombat, _Enemy); DB_AESN_MergeReplanRequired(_NewCombat, _Enemy);
+AND
+DB_AESN_MergeReplanRequired(_OldCombat, _Enemy)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_MergeReplanRequired(_OldCombat, _Enemy)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpTotalDesired(_OldCombat, _Enemy, _Delta, _Status)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpTotalDesired(_OldCombat, _Enemy, _Delta, _Status)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_EnemyHpTotal(_OldCombat, _Enemy, _Delta, _Status)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_EnemyHpTotal(_OldCombat, _Enemy, _Delta, _Status)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpTotalPending(_OldCombat, _Enemy, _Operation, _Status, _Epoch)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpTotalPending(_OldCombat, _Enemy, _Operation, _Status, _Epoch)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpTotalUncertain(_OldCombat, _Enemy, _Operation, _Status, _Epoch, _Reason)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpTotalUncertain(_OldCombat, _Enemy, _Operation, _Status, _Epoch, _Reason)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpTotalRemoval(_OldCombat, _Enemy, _Mode, _Delta, _Status, _External, _Captured)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpTotalRemoval(_OldCombat, _Enemy, _Mode, _Delta, _Status, _External, _Captured)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpTransaction(_OldCombat, _Enemy, _Version, _State, _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpTransaction(_OldCombat, _Enemy, _Version, _State, _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_TransferHpTotalFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_MergeInProgress(_OldCombat, _NewCombat)
+AND
+_OldCombat != _NewCombat
+AND
+NOT QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+PROC_AESN_MoveHpMigrationFacts(_OldCombat, _NewCombat, _Enemy);
+PROC_AESN_MoveHpFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MoveHpFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpDesiredBit(_OldCombat, _Enemy, _Bit, _Status)
+THEN
+NOT DB_AESN_HpDesiredBit(_OldCombat, _Enemy, _Bit, _Status);
+DB_AESN_HpDesiredBit(_NewCombat, _Enemy, _Bit, _Status);
+
+PROC
+PROC_AESN_MoveHpFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpPlanQueued(_OldCombat, _Enemy)
+THEN
+NOT DB_AESN_HpPlanQueued(_OldCombat, _Enemy);
+DB_AESN_HpPlanQueued(_NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MoveHpFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpFailure(_OldCombat, _Enemy, _Reason)
+THEN
+NOT DB_AESN_HpFailure(_OldCombat, _Enemy, _Reason);
+DB_AESN_HpFailure(_NewCombat, _Enemy, _Reason);
+
+PROC
+PROC_AESN_MoveHpFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpPendingApply(_OldCombat, _Enemy, _Index, _Bit, _Status)
+THEN
+NOT DB_AESN_HpPendingApply(_OldCombat, _Enemy, _Index, _Bit, _Status);
+DB_AESN_HpPendingApply(_NewCombat, _Enemy, _Index, _Bit, _Status);
+
+PROC
+PROC_AESN_MoveHpFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyHpBit(_OldCombat, _Enemy, _Bit, _Status)
+THEN
+NOT DB_AESN_EnemyHpBit(_OldCombat, _Enemy, _Bit, _Status);
+DB_AESN_EnemyHpBit(_NewCombat, _Enemy, _Bit, _Status);
+
+PROC
+PROC_AESN_MoveHpFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpPendingRemove(_OldCombat, _Enemy, _Index, _Bit, _Status, _Mode)
+THEN
+NOT DB_AESN_HpPendingRemove(_OldCombat, _Enemy, _Index, _Bit, _Status, _Mode);
+DB_AESN_HpPendingRemove(_NewCombat, _Enemy, _Index, _Bit, _Status, _Mode);
+
+PROC
+PROC_AESN_MoveHpFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpCleanup(_OldCombat, _Enemy, _Current, _Maximum, _Percentage)
+THEN
+NOT DB_AESN_HpCleanup(_OldCombat, _Enemy, _Current, _Maximum, _Percentage);
+DB_AESN_HpCleanup(_NewCombat, _Enemy, _Current, _Maximum, _Percentage);
+
+PROC
+PROC_AESN_MoveHpFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpApplicationHold(_OldCombat, _Enemy)
+THEN
+NOT DB_AESN_HpApplicationHold(_OldCombat, _Enemy);
+DB_AESN_HpApplicationHold(_NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MoveHpFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpReplan(_OldCombat, _Enemy, _Version, _State, _CapturedPercentage)
+THEN
+NOT DB_AESN_HpReplan(_OldCombat, _Enemy, _Version, _State, _CapturedPercentage);
+DB_AESN_HpReplan(_NewCombat, _Enemy, _Version, _State, _CapturedPercentage);
+
+PROC
+PROC_AESN_MoveHpFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_MergeReplanRequired(_OldCombat, _Enemy)
+THEN
+NOT DB_AESN_MergeReplanRequired(_OldCombat, _Enemy);
+DB_AESN_MergeReplanRequired(_NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MoveHpFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTotalDesired(_OldCombat, _Enemy, _Delta, _Status)
+THEN
+NOT DB_AESN_HpTotalDesired(_OldCombat, _Enemy, _Delta, _Status);
+DB_AESN_HpTotalDesired(_NewCombat, _Enemy, _Delta, _Status);
+
+PROC
+PROC_AESN_MoveHpFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyHpTotal(_OldCombat, _Enemy, _Delta, _Status)
+THEN
+NOT DB_AESN_EnemyHpTotal(_OldCombat, _Enemy, _Delta, _Status);
+DB_AESN_EnemyHpTotal(_NewCombat, _Enemy, _Delta, _Status);
+
+PROC
+PROC_AESN_MoveHpFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTotalPending(_OldCombat, _Enemy, _Operation, _Status, _Epoch)
+THEN
+NOT DB_AESN_HpTotalPending(_OldCombat, _Enemy, _Operation, _Status, _Epoch);
+DB_AESN_HpTotalPending(_NewCombat, _Enemy, _Operation, _Status, _Epoch);
+
+PROC
+PROC_AESN_MoveHpFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTotalUncertain(_OldCombat, _Enemy, _Operation, _Status, _Epoch, _Reason)
+THEN
+NOT DB_AESN_HpTotalUncertain(_OldCombat, _Enemy, _Operation, _Status, _Epoch, _Reason);
+DB_AESN_HpTotalUncertain(_NewCombat, _Enemy, _Operation, _Status, _Epoch, _Reason);
+
+PROC
+PROC_AESN_MoveHpFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTotalRemoval(_OldCombat, _Enemy, _Mode, _Delta, _Status, _External, _Captured)
+THEN
+NOT DB_AESN_HpTotalRemoval(_OldCombat, _Enemy, _Mode, _Delta, _Status, _External, _Captured);
+DB_AESN_HpTotalRemoval(_NewCombat, _Enemy, _Mode, _Delta, _Status, _External, _Captured);
+
+PROC
+PROC_AESN_MoveHpFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_OldCombat, _Enemy, _Version, _State, _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum)
+THEN
+NOT DB_AESN_HpTransaction(_OldCombat, _Enemy, _Version, _State, _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum);
+DB_AESN_HpTransaction(_NewCombat, _Enemy, _Version, _State, _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpDesiredBit(_Other, _Enemy, _Bit, _Status)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpPlanQueued(_Other, _Enemy)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpFailure(_Other, _Enemy, _Reason)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpPendingApply(_Other, _Enemy, _Index, _Bit, _Status)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyHpBit(_Other, _Enemy, _Bit, _Status)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpPendingRemove(_Other, _Enemy, _Index, _Bit, _Status, _Mode)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpCleanup(_Other, _Enemy, _Current, _Maximum, _Percentage)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpApplicationHold(_Other, _Enemy)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpReplan(_Other, _Enemy, _Version, _State, _CapturedPercentage)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_MergeReplanRequired(_Other, _Enemy)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTotalDesired(_Other, _Enemy, _Delta, _Status)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyHpTotal(_Other, _Enemy, _Delta, _Status)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTotalPending(_Other, _Enemy, _Operation, _Status, _Epoch)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTotalUncertain(_Other, _Enemy, _Operation, _Status, _Epoch, _Reason)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTotalRemoval(_Other, _Enemy, _Mode, _Delta, _Status, _External, _Captured)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Other, _Enemy, _Version, _State, _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyComponent(_Other, _Enemy, _Kind, _Status)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_ComponentApplication(_Other, _Enemy, _Version, _State)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
 
 // Stat/action/bonus component state, including outstanding acknowledgements.
 PROC
@@ -495,6 +1018,7 @@ PROC
 PROC_AESN_RequestCombatCleanup((GUIDSTRING)_SurvivingCombat)
 THEN
 DB_AESN_CombatCleanupRequested(_SurvivingCombat);
+PROC_AESN_CancelRelentlessSelection(_SurvivingCombat);
 PROC_AESN_DispatchCombatEnemyCleanup(_SurvivingCombat);
 
 PROC
@@ -532,11 +1056,23 @@ AND
 NOT DB_AESN_EnemyComponent(_Combat, _, _, _)
 AND
 NOT DB_AESN_RelentlessApplication(_Combat, _, _, _, "Applying")
+AND
+NOT DB_AESN_EnemyHpTotal(_Combat, _, _, _)
+AND
+NOT DB_AESN_HpTotalPending(_Combat, _, _, _, _)
+AND
+NOT DB_AESN_HpTotalUncertain(_Combat, _, _, _, _, _)
 THEN
 PROC_AESN_FinalizeCombatCleanup(_Combat);
 
 PROC
 PROC_AESN_FinalizeCombatCleanup((GUIDSTRING)_Combat)
+AND
+NOT DB_AESN_EnemyHpTotal(_Combat, _, _, _)
+AND
+NOT DB_AESN_HpTotalPending(_Combat, _, _, _, _)
+AND
+NOT DB_AESN_HpTotalUncertain(_Combat, _, _, _, _, _)
 THEN
 NOT DB_AESN_CombatCleanupRequested(_Combat);
 PROC_AESN_DeleteCombatOwnedFacts(_Combat);
@@ -559,6 +1095,19 @@ AND DB_AESN_MergePolicyMismatch(_Source, _Combat, _OldAverage, _OldSize, _NewAve
 THEN NOT DB_AESN_MergePolicyMismatch(_Source, _Combat, _OldAverage, _OldSize, _NewAverage, _NewSize, _CanonicalAverage, _CanonicalSize);
 
 // Final cleanup removes only bookkeeping after exact per-enemy status cleanup.
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+THEN
+PROC_AESN_CancelRelentlessSelection(_Combat);
+PROC_AESN_DeleteRelentlessRanks(_Combat);
+
+PROC
+PROC_AESN_DeleteRelentlessRanks((GUIDSTRING)_Combat)
+AND
+DB_AESN_RelentlessRank(_Combat, _Enemy, _Priority)
+THEN
+NOT DB_AESN_RelentlessRank(_Combat, _Enemy, _Priority);
+
 PROC
 PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
 AND DB_AESN_RosterBuildOpen(_Combat)
@@ -664,6 +1213,287 @@ PROC
 PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
 AND DB_AESN_CombatDispatched(_Combat)
 THEN NOT DB_AESN_CombatDispatched(_Combat);
+
+PROC
+PROC_AESN_MoveHpMigrationFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_OldCombat, _Enemy, _Phase, _Current, _Maximum, _Base, _Delta, _Status, _Epoch)
+THEN
+NOT DB_AESN_HpMigration(_OldCombat, _Enemy, _Phase, _Current, _Maximum, _Base, _Delta, _Status, _Epoch);
+DB_AESN_HpMigration(_NewCombat, _Enemy, _Phase, _Current, _Maximum, _Base, _Delta, _Status, _Epoch);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Other, _Enemy, _Phase, _Current, _Maximum, _Base, _Delta, _Status, _Epoch)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpMigration(_OldCombat, _Enemy, _Phase, _Current, _Maximum, _Base, _Delta, _Status, _Epoch)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpMigration(_OldCombat, _Enemy, _Phase, _Current, _Maximum, _Base, _Delta, _Status, _Epoch)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MoveHpMigrationFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationBit(_OldCombat, _Enemy, _Bit, _Status, _State)
+THEN
+NOT DB_AESN_HpMigrationBit(_OldCombat, _Enemy, _Bit, _Status, _State);
+DB_AESN_HpMigrationBit(_NewCombat, _Enemy, _Bit, _Status, _State);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationBit(_Other, _Enemy, _Bit, _Status, _State)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpMigrationBit(_OldCombat, _Enemy, _Bit, _Status, _State)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpMigrationBit(_OldCombat, _Enemy, _Bit, _Status, _State)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MoveHpMigrationFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationCheckpoint(_OldCombat, _Enemy, _Phase, _Current, _Maximum)
+THEN
+NOT DB_AESN_HpMigrationCheckpoint(_OldCombat, _Enemy, _Phase, _Current, _Maximum);
+DB_AESN_HpMigrationCheckpoint(_NewCombat, _Enemy, _Phase, _Current, _Maximum);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationCheckpoint(_Other, _Enemy, _Phase, _Current, _Maximum)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpMigrationCheckpoint(_OldCombat, _Enemy, _Phase, _Current, _Maximum)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpMigrationCheckpoint(_OldCombat, _Enemy, _Phase, _Current, _Maximum)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MoveHpMigrationFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationConflict(_OldCombat, _Enemy, _Reason)
+THEN
+NOT DB_AESN_HpMigrationConflict(_OldCombat, _Enemy, _Reason);
+DB_AESN_HpMigrationConflict(_NewCombat, _Enemy, _Reason);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationConflict(_Other, _Enemy, _Reason)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpMigrationConflict(_OldCombat, _Enemy, _Reason)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpMigrationConflict(_OldCombat, _Enemy, _Reason)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MoveHpMigrationFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationDeferred(_OldCombat, _Enemy)
+THEN
+NOT DB_AESN_HpMigrationDeferred(_OldCombat, _Enemy);
+DB_AESN_HpMigrationDeferred(_NewCombat, _Enemy);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationDeferred(_Other, _Enemy)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpMigrationDeferred(_OldCombat, _Enemy)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpMigrationDeferred(_OldCombat, _Enemy)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MoveHpMigrationFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationPolicy(_OldCombat, _Enemy, _Size, _Effective, _Sum, _Average, _Tier, _Percent, _Action, _Bonus, _Cap, _Support)
+THEN
+NOT DB_AESN_HpMigrationPolicy(_OldCombat, _Enemy, _Size, _Effective, _Sum, _Average, _Tier, _Percent, _Action, _Bonus, _Cap, _Support);
+DB_AESN_HpMigrationPolicy(_NewCombat, _Enemy, _Size, _Effective, _Sum, _Average, _Tier, _Percent, _Action, _Bonus, _Cap, _Support);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationPolicy(_Other, _Enemy, _Size, _Effective, _Sum, _Average, _Tier, _Percent, _Action, _Bonus, _Cap, _Support)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpMigrationPolicy(_OldCombat, _Enemy, _Size, _Effective, _Sum, _Average, _Tier, _Percent, _Action, _Bonus, _Cap, _Support)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpMigrationPolicy(_OldCombat, _Enemy, _Size, _Effective, _Sum, _Average, _Tier, _Percent, _Action, _Bonus, _Cap, _Support)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MoveHpMigrationFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationComponent(_OldCombat, _Enemy, _Kind, _Status)
+THEN
+NOT DB_AESN_HpMigrationComponent(_OldCombat, _Enemy, _Kind, _Status);
+DB_AESN_HpMigrationComponent(_NewCombat, _Enemy, _Kind, _Status);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationComponent(_Other, _Enemy, _Kind, _Status)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpMigrationComponent(_OldCombat, _Enemy, _Kind, _Status)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpMigrationComponent(_OldCombat, _Enemy, _Kind, _Status)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MoveHpMigrationFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationTrace(_OldCombat, _Enemy, _Sequence, _Event, _Status, _Current, _Maximum, _Phase, _Operation, _PendingStatus, _PendingEpoch, _Action)
+THEN
+NOT DB_AESN_HpMigrationTrace(_OldCombat, _Enemy, _Sequence, _Event, _Status, _Current, _Maximum, _Phase, _Operation, _PendingStatus, _PendingEpoch, _Action);
+DB_AESN_HpMigrationTrace(_NewCombat, _Enemy, _Sequence, _Event, _Status, _Current, _Maximum, _Phase, _Operation, _PendingStatus, _PendingEpoch, _Action);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationTrace(_Other, _Enemy, _Sequence, _Event, _Status, _Current, _Maximum, _Phase, _Operation, _PendingStatus, _PendingEpoch, _Action)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_PreflightHpMerge((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpMigrationTrace(_OldCombat, _Enemy, _Sequence, _Event, _Status, _Current, _Maximum, _Phase, _Operation, _PendingStatus, _PendingEpoch, _Action)
+AND
+QRY_AESN_HpTransferConflict(_OldCombat, _Enemy)
+THEN
+DB_AESN_MergeHpConflict(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MigrateHpState((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
+AND
+DB_AESN_HpMigrationTrace(_OldCombat, _Enemy, _Sequence, _Event, _Status, _Current, _Maximum, _Phase, _Operation, _PendingStatus, _PendingEpoch, _Action)
+THEN
+PROC_AESN_TransferHpTotalFacts(_OldCombat, _NewCombat, _Enemy);
+
+PROC
+PROC_AESN_MoveHpMigrationFacts((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationHold(_Enemy, _OldCombat)
+THEN
+DB_AESN_HpMigrationHold(_Enemy, _NewCombat);
+NOT DB_AESN_HpMigrationHold(_Enemy, _OldCombat);
+
+QRY
+QRY_AESN_HpTransferConflict((GUIDSTRING)_OldCombat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationHold(_Enemy, _Other)
+AND
+_Other != _OldCombat
+THEN
+DB_NOOP(1);
 
 EXITSECTION
 

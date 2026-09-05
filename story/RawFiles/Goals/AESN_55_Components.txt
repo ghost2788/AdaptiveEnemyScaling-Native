@@ -13,13 +13,21 @@ KBSECTION
 // deliberately absent from this production path until its runtime proof gate
 // is satisfied.
 IF
-DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _, _, _)
+DB_AESN_HpTransaction(_Combat, _Enemy, _Representation, "HPCommitted", _, _, _, _, _Delta, _Delta)
+AND
+QRY_AESN_HpRepresentationSupported(_Representation)
+AND
+NOT DB_AESN_HpApplicationHold(_Combat, _Enemy)
 AND
 DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _HardenedTier, _, _, _, _, "Supported")
 AND
 NOT DB_AESN_ComponentStarted(_Combat, _Enemy)
 AND
+NOT DB_AESN_ComponentApplication(_Combat, _Enemy, _, _)
+AND
 NOT DB_AESN_MergeInProgress(_, _Combat)
+AND
+NOT DB_AESN_MergeInProgress(_Combat, _)
 THEN
 DB_AESN_ComponentStarted(_Combat, _Enemy);
 DB_AESN_ComponentApplication(_Combat, _Enemy, 1, "ApplyingStat");
@@ -147,6 +155,10 @@ AND
 DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
 AND
 DB_AESN_HpReplan(_Combat, _Enemy, 1, "RemovingComponents", _)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
 PROC_AESN_SetComponentState(_Combat, _Enemy, "FullyCommitted", "ReplanningComponents");
 PROC_AESN_RemoveNextComponent(_Combat, _Enemy);
@@ -169,6 +181,10 @@ AND
 DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
 AND
 NOT DB_AESN_ComponentPendingRemove(_Combat, _Enemy, _, _)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
 PROC_AESN_SetAnyComponentStateCleaning(_Combat, _Enemy);
 PROC_AESN_RemoveNextComponent(_Combat, _Enemy);

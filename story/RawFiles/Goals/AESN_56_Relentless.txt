@@ -6,13 +6,43 @@ NOT DB_AESN_RelentlessRecipient((GUIDSTRING)NULL_00000000-0000-0000-0000-0000000
 NOT DB_AESN_RelentlessApplication((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, "", "");
 NOT DB_AESN_RelentlessRejected((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
 NOT DB_AESN_CombatHardenedReady((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+// Priority: 2 boss, 1 curated elite, 0 ordinary. Nere returns IsBoss=0 in
+// the retail proof, so use his exact character identity, never his name/HP.
+DB_AESN_RelentlessPriorityOverride((CHARACTER)S_UND_TheDrowNere_06bf05c5-216b-4eaf-91f5-8f1dd3d57f30, 2);
+NOT DB_AESN_RelentlessRank((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0);
+NOT DB_AESN_RelentlessSelectionPending((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, "");
 KBSECTION
+
+// Existing saves have already executed INITSECTION. Restore static overrides
+// and restart the selection barrier without refunding or replacing recipients.
+IF
+SavegameLoaded()
+THEN
+DB_AESN_RelentlessPriorityOverride((CHARACTER)S_UND_TheDrowNere_06bf05c5-216b-4eaf-91f5-8f1dd3d57f30, 2);
+PROC_AESN_RestartRelentlessSelections();
+
+PROC
+PROC_AESN_RestartRelentlessSelections()
+AND
+DB_AESN_RelentlessLedger(_Combat, 2, _, _, _, _, _, _)
+THEN
+PROC_AESN_CancelRelentlessSelection(_Combat);
+PROC_AESN_RequestRelentlessSelection(_Combat);
 
 // The ledger is persistent even while the capability gate is closed. Its
 // spent counters are monotonic: death, late entry, save/load, and merge never
 // return budget or replace a recipient.
 IF
 DB_AESN_CombatSnapshotV2(_Combat, 2, _, _, _, _, _, _, _ActionBudget, _BonusActionBudget, _RecipientCap, "Supported")
+THEN
+PROC_AESN_InitializeRelentlessLedger(_Combat, _ActionBudget, _BonusActionBudget, _RecipientCap);
+
+// Keep the absence check inside a PROC, not the snapshot-triggered IF. A
+// negative DB check in that IF also fires when spending removes the old ledger
+// row, reseeding zero spent and authorizing an extra recipient. PROC conditions
+// are checked only when called; counter replacement cannot reinitialize them.
+PROC
+PROC_AESN_InitializeRelentlessLedger((GUIDSTRING)_Combat, (INTEGER)_ActionBudget, (INTEGER)_BonusActionBudget, (INTEGER)_RecipientCap)
 AND
 NOT DB_AESN_WorldContext(_Combat)
 AND
@@ -45,12 +75,226 @@ NOT DB_AESN_CombatHardenedReady(_Combat, _Enemy)
 THEN
 DB_AESN_CombatHardenedReady(_Combat, _Enemy);
 
-// Production allocation is fail-closed. Readiness proves exactly one complete
-// Hardened owner; the combat snapshot remains the sole budget authority.
+// Queue rather than allocate on readiness. The first pass waits for the combat
+// dispatch and a 500ms collection barrier. Classification covers ALL eligible
+// enemies, including bosses whose asynchronous Hardened transaction is pending.
 IF
 DB_AESN_CombatHardenedReady(_Combat, _Enemy)
 THEN
+PROC_AESN_RequestRelentlessSelection(_Combat);
+
+IF
+DB_AESN_EnemyEligible(_Combat, _Enemy)
+THEN
+PROC_AESN_RequestRelentlessSelection(_Combat);
+
+IF
+DB_AESN_CombatDispatched(_Combat)
+THEN
+PROC_AESN_RequestRelentlessSelection(_Combat);
+
+PROC
+PROC_AESN_RequestRelentlessSelection((GUIDSTRING)_Combat)
+AND
+DB_AESN_RelentlessCapability(1)
+AND
+DB_AESN_CombatDispatched(_Combat)
+AND
+DB_AESN_RelentlessLedger(_Combat, 2, _ActionBudget, _, _Cap, _ActionSpent, _, _RecipientSpent)
+AND
+_ActionSpent < _ActionBudget
+AND
+_RecipientSpent < _Cap
+AND
+CombatIsActive(_Combat, 1)
+AND
+NOT DB_AESN_WorldContext(_Combat)
+AND
+NOT DB_AESN_CombatRetired(_Combat)
+AND
+NOT DB_AESN_CombatCleanupRequested(_Combat)
+AND
+NOT DB_AESN_MergeInProgress(_, _Combat)
+AND
+NOT DB_AESN_RelentlessSelectionPending(_Combat, _)
+AND
+ConcatenateGUID("AESN_RELENTLESS_SELECT_", _Combat, _Timer)
+THEN
+DB_AESN_RelentlessSelectionPending(_Combat, _Timer);
+TimerLaunch(_Timer, 500);
+
+PROC
+PROC_AESN_CancelRelentlessSelection((GUIDSTRING)_Combat)
+AND
+DB_AESN_RelentlessSelectionPending(_Combat, _Timer)
+THEN
+TimerCancel(_Timer);
+NOT DB_AESN_RelentlessSelectionPending(_Combat, _Timer);
+
+IF
+TimerFinished(_Timer)
+AND
+DB_AESN_RelentlessSelectionPending(_Combat, _Timer)
+THEN
+NOT DB_AESN_RelentlessSelectionPending(_Combat, _Timer);
+PROC_AESN_RunRelentlessSelection(_Combat);
+
+PROC
+PROC_AESN_RunRelentlessSelection((GUIDSTRING)_Combat)
+AND
+DB_AESN_RelentlessCapability(1)
+AND
+CombatIsActive(_Combat, 1)
+AND
+NOT DB_AESN_CombatRetired(_Combat)
+AND
+NOT DB_AESN_CombatCleanupRequested(_Combat)
+AND
+NOT DB_AESN_MergeInProgress(_, _Combat)
+THEN
+PROC_AESN_ClassifyRelentlessCandidates(_Combat);
+PROC_AESN_DispatchRelentlessRank(_Combat, 2);
+PROC_AESN_DispatchRelentlessRank(_Combat, 1);
+PROC_AESN_DispatchRelentlessRank(_Combat, 0);
+PROC_AESN_ContinueRelentlessSelection(_Combat);
+
+PROC
+PROC_AESN_ClassifyRelentlessCandidates((GUIDSTRING)_Combat)
+AND
+DB_AESN_EnemyEligible(_Combat, _Enemy)
+AND
+NOT DB_AESN_RelentlessRank(_Combat, _Enemy, _)
+THEN
+PROC_AESN_ClassifyRelentlessEnemy(_Combat, _Enemy);
+
+PROC
+PROC_AESN_ClassifyRelentlessEnemy((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+IsBoss(_Enemy, 1)
+AND
+NOT DB_AESN_RelentlessRank(_Combat, _Enemy, _)
+THEN
+DB_AESN_RelentlessRank(_Combat, _Enemy, 2);
+
+PROC
+PROC_AESN_ClassifyRelentlessEnemy((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_RelentlessPriorityOverride(_Enemy, _Priority)
+AND
+_Priority >= 1
+AND
+_Priority <= 2
+AND
+NOT DB_AESN_RelentlessRank(_Combat, _Enemy, _)
+THEN
+DB_AESN_RelentlessRank(_Combat, _Enemy, _Priority);
+
+PROC
+PROC_AESN_ClassifyRelentlessEnemy((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+NOT DB_AESN_RelentlessRank(_Combat, _Enemy, _)
+THEN
+DB_AESN_RelentlessRank(_Combat, _Enemy, 0);
+
+// Pending does not require Hardened readiness: an unready higher-ranked enemy
+// holds lower ranks back. Failed/dead/departed/nonhostile candidates do not.
+QRY
+QRY_AESN_RelentlessCandidatePending((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyEligible(_Combat, _Enemy)
+AND
+DB_Is_InCombat(_Enemy, _Combat)
+AND
+IsDead(_Enemy, 0)
+AND
+QRY_AESN_IsEligibleHostile(_Enemy, _Combat)
+AND
+NOT DB_AESN_RelentlessRecipient(_Combat, _Enemy, _)
+AND
+NOT DB_AESN_RelentlessApplication(_Combat, _Enemy, _, _, _)
+AND
+NOT DB_AESN_RelentlessRejected(_Combat, _Enemy, _)
+AND
+NOT DB_AESN_HpFailure(_, _Enemy, _)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HigherRelentlessCandidatePending((GUIDSTRING)_Combat, (INTEGER)_Priority)
+AND
+DB_AESN_RelentlessRank(_Combat, _OtherEnemy, _OtherPriority)
+AND
+_OtherPriority > _Priority
+AND
+QRY_AESN_RelentlessCandidatePending(_Combat, _OtherEnemy)
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_DispatchRelentlessRank((GUIDSTRING)_Combat, (INTEGER)_Priority)
+AND
+DB_AESN_RelentlessRank(_Combat, _Enemy, _Priority)
+AND
+NOT QRY_AESN_HigherRelentlessCandidatePending(_Combat, _Priority)
+THEN
 PROC_AESN_ConsiderRelentlessCandidate(_Combat, _Enemy);
+
+// A pending Hardened operation may complete/fail, die, or leave while waiting.
+// Poll only while candidates AND unspent budget exist; no permanent heartbeat.
+// This also retries after save reconciliation releases its application holds.
+PROC
+PROC_AESN_ContinueRelentlessSelection((GUIDSTRING)_Combat)
+AND
+DB_AESN_RelentlessRank(_Combat, _Enemy, _)
+AND
+QRY_AESN_RelentlessCandidatePending(_Combat, _Enemy)
+THEN
+PROC_AESN_RequestRelentlessSelection(_Combat);
+
+// Readiness is historical. A merge/reload can keep that marker while exact
+// owned Hardened state is being rebuilt. Revalidate the current owner before
+// allocating, but leave a rebuilding boss pending to preserve its priority.
+QRY
+QRY_AESN_RelentlessHardenedCommitted((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _, _Delta, _Delta)
+AND
+DB_AESN_ComponentApplication(_Combat, _Enemy, 1, "FullyCommitted")
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_RelentlessHardenedCommitted((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_WorldContext(_World)
+AND
+DB_AESN_HpTransaction(_World, _Enemy, 1, "HPCommitted", _, _, _, _, _Delta, _Delta)
+AND
+DB_AESN_ComponentApplication(_World, _Enemy, 1, "FullyCommitted")
+THEN
+DB_NOOP(1);
+
+// HP representation 2 is the committed total-HP format. It retains the
+// Hardened component schema at 1, so only the transaction format changes.
+QRY
+QRY_AESN_RelentlessHardenedCommitted((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 2, "HPCommitted", _, _, _, _, _Delta, _Delta)
+AND
+DB_AESN_ComponentApplication(_Combat, _Enemy, 1, "FullyCommitted")
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_RelentlessHardenedCommitted((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_WorldContext(_World)
+AND
+DB_AESN_HpTransaction(_World, _Enemy, 2, "HPCommitted", _, _, _, _, _Delta, _Delta)
+AND
+DB_AESN_ComponentApplication(_World, _Enemy, 1, "FullyCommitted")
+THEN
+DB_NOOP(1);
 
 PROC
 PROC_AESN_ConsiderRelentlessCandidate((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
@@ -58,6 +302,24 @@ AND
 DB_AESN_CombatHardenedReady(_Combat, _Enemy)
 AND
 DB_AESN_EnemyEligible(_Combat, _Enemy)
+AND
+QRY_AESN_RelentlessCandidatePending(_Combat, _Enemy)
+AND
+QRY_AESN_RelentlessHardenedCommitted(_Combat, _Enemy)
+AND
+NOT DB_AESN_HpReplan(_, _Enemy, _, _, _)
+AND
+NOT DB_AESN_MergeReplanRequired(_, _Enemy)
+AND
+NOT DB_AESN_WorldCleanupRequested(_Enemy)
+AND
+NOT DB_AESN_HpCleanup(_, _Enemy, _, _, _)
+AND
+NOT DB_AESN_ComponentPendingRemove(_, _Enemy, _, _)
+AND
+NOT DB_AESN_HpApplicationHold(_, _Enemy)
+AND
+NOT DB_AESN_ReconcileEnemyPending(_, _Enemy, _)
 AND
 DB_AESN_RelentlessCapability(1)
 AND
@@ -70,6 +332,10 @@ AND
 NOT DB_AESN_RelentlessRejected(_Combat, _Enemy, _)
 AND
 NOT DB_AESN_MergeInProgress(_, _Combat)
+AND
+NOT DB_AESN_CombatRetired(_Combat)
+AND
+NOT DB_AESN_CombatCleanupRequested(_Combat)
 THEN
 PROC_AESN_CheckRelentlessResources(_Combat, _Enemy);
 
@@ -120,6 +386,10 @@ PROC_AESN_AllocateRelentless(_Combat, _Enemy);
 PROC
 PROC_AESN_AllocateRelentless((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
 AND
+NOT DB_AESN_RelentlessApplication(_Combat, _Enemy, _, _, _)
+AND
+NOT DB_AESN_RelentlessRecipient(_Combat, _Enemy, _)
+AND
 DB_AESN_RelentlessLedger(_Combat, 2, _ActionBudget, _BonusActionBudget, _RecipientCap, _ActionSpent, _BonusActionSpent, _RecipientSpent)
 AND
 _ActionSpent < _ActionBudget
@@ -143,6 +413,10 @@ RealtimeObjectTimerLaunch(_Enemy, "AESN_RELENTLESS_APPLY_TIMEOUT", 1000);
 // Tier I is selected only after all available Bonus-Action upgrades are spent.
 PROC
 PROC_AESN_AllocateRelentless((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+NOT DB_AESN_RelentlessApplication(_Combat, _Enemy, _, _, _)
+AND
+NOT DB_AESN_RelentlessRecipient(_Combat, _Enemy, _)
 AND
 DB_AESN_RelentlessLedger(_Combat, 2, _ActionBudget, _BonusActionBudget, _RecipientCap, _ActionSpent, _BonusActionSpent, _RecipientSpent)
 AND

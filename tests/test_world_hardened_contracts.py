@@ -117,7 +117,7 @@ class WorldHardenedContracts(unittest.TestCase):
         self.assertRegex(
             world,
             r"(?s)GetMaxHitpoints\(_Enemy, _ObservedMaximum\).*?"
-            r"DB_AESN_HpTransaction\(_World, _Enemy, 1, \"HPCommitted\", "
+            r"DB_AESN_HpTransaction\(_World, _Enemy, _Representation, \"HPCommitted\", "
             r"_, _, _, _TargetMaximum, _Delta, _AppliedSum\).*?"
             r"_ObservedMaximum != _TargetMaximum.*?"
             r"DB_AESN_MergeReplanRequired\(_World, _Enemy\)",
@@ -212,7 +212,7 @@ class WorldHardenedContracts(unittest.TestCase):
         )
         self.assertIsNotNone(initial_planner)
         self.assertIn(
-            "QRY_AESN_HardenedPlanOwnerAllowed(_Combat, _Enemy)",
+            "QRY_AESN_InitialHpPlanAllowed(_Combat, _Enemy)",
             initial_planner.group("guards"),
         )
         self.assertRegex(
@@ -330,7 +330,7 @@ class WorldHardenedContracts(unittest.TestCase):
         self.assertRegex(
             reconciliation,
             r"(?s)DB_AESN_ReconcileEnemyPending\(_Combat, _Enemy, 2\).*?"
-            r"DB_AESN_HpTransaction\(_Combat, _Enemy, 1, \"HPCommitted\".*?"
+            r"DB_AESN_HpTransaction\(_Combat, _Enemy, _Representation, \"HPCommitted\".*?"
             r"DB_AESN_ComponentApplication\(_Combat, _Enemy, 1, \"FullyCommitted\"\).*?"
             r"GetMaxHitpoints\(_Enemy, _TargetMaximum\).*?"
             r"NOT DB_AESN_WorldCleanupRequested\(_Enemy\).*?"
@@ -372,7 +372,7 @@ class WorldHardenedContracts(unittest.TestCase):
             r"(?s)PROC_AESN_ReplanEnemy.*?"
             r"GetMaxHitpoints\(_Enemy, _ObservedMaximum\).*?"
             r"IntegerSubtract\(_ObservedMaximum, _AppliedSum, _ExternalBase\).*?"
-            r"DB_AESN_HpTransaction\(_Combat, _Enemy, 1, \"HPCommitted\", "
+            r"DB_AESN_HpTransaction\(_Combat, _Enemy, _Representation, \"HPCommitted\", "
             r"_BeforeCurrent, _ExternalBase, _BeforePercentage",
         )
         self.assertRegex(

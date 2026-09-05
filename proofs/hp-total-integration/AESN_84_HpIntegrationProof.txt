@@ -1,0 +1,1930 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+// Disabled source-only first-removal trace. NEVER a production converter.
+NOT DB_AESN_HpIntegrationEnabled(1);
+NOT DB_AESN_HpIntegrationStarted(1);
+NOT DB_AESN_HpIntegrationOwner((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_HpIntegrationSpawn((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0);
+NOT DB_AESN_HpIntegrationAttempt(0);
+NOT DB_AESN_HpIntegrationReturned((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0);
+NOT DB_AESN_HpIntegrationFixture((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, (FACTION)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_HpIntegrationState((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_HpIntegrationBaseline((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, 0);
+NOT DB_AESN_HpIntegrationPending((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_HpIntegrationRequested((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_HpIntegrationAck((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_HpIntegrationWoundSeen((CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_HpIntegrationSetterCount((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0);
+NOT DB_AESN_HpIntegrationFailure((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_HpIntegrationSeeding((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_HpIntegrationObservation((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "", 0, 0);
+NOT DB_AESN_HpIntegrationSequence((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0);
+NOT DB_AESN_HpIntegrationTrace((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, "", "", 0, 0, "", 0);
+NOT DB_AESN_HpIntegrationDiagnosticCaptured((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_HpIntegrationPrerequisite((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "", "", "");
+NOT DB_AESN_HpIntegrationDiagnosticValue((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "", 0);
+NOT DB_AESN_HpIntegrationDiagnosticGuid((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "", (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+DB_AESN_HpIntegrationSample(1, 13, "SelfHealingDisabled");
+DB_AESN_HpIntegrationSample(111, 69, "NormalSelfHealing");
+DB_AESN_HpIntegrationPhase("Baseline");
+DB_AESN_HpIntegrationPhase("Legacy");
+DB_AESN_HpIntegrationPhase("Wound");
+DB_AESN_HpIntegrationPhase("Migrate");
+DB_AESN_HpIntegrationBit(1, 1, "AESN_HP_BIT_00001");
+DB_AESN_HpIntegrationBit(111, 1, "AESN_HP_BIT_00001");
+DB_AESN_HpIntegrationBit(111, 2, "AESN_HP_BIT_00002");
+DB_AESN_HpIntegrationBit(111, 4, "AESN_HP_BIT_00004");
+DB_AESN_HpIntegrationBit(111, 8, "AESN_HP_BIT_00008");
+DB_AESN_HpIntegrationBit(111, 32, "AESN_HP_BIT_00032");
+DB_AESN_HpIntegrationBit(111, 64, "AESN_HP_BIT_00064");
+KBSECTION
+
+IF
+SavegameLoaded()
+THEN
+PROC_AESN_HpIntegrationLoad();
+
+PROC
+PROC_AESN_HpIntegrationLoad()
+AND
+DB_AESN_HpIntegrationEnabled(1)
+THEN
+PROC_AESN_HpIntegrationAbort();
+PROC_AESN_HpIntegrationReload();
+PROC_AESN_HpIntegrationStart();
+
+PROC
+PROC_AESN_HpIntegrationAbort()
+AND
+DB_AESN_HpIntegrationPending(_NPC, _Phase)
+THEN
+DB_AESN_HpIntegrationFailure(_NPC, "InterruptedSetupOrReload");
+
+PROC
+PROC_AESN_HpIntegrationAbort()
+AND
+DB_AESN_HpIntegrationSeeding(_NPC, _Owner)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, _, _)
+THEN
+DB_AESN_HpIntegrationFailure(_NPC, "InterruptedSeeding");
+NOT DB_AESN_HpApplicationHold(_Owner, _NPC);
+NOT DB_AESN_HpIntegrationSeeding(_NPC, _Owner);
+
+PROC
+PROC_AESN_HpIntegrationAbort()
+AND
+DB_AESN_HpIntegrationSpawn(_Anchor, _Amount)
+THEN
+DB_AESN_HpIntegrationFailure(_Anchor, "InterruptedSpawn");
+
+PROC
+PROC_AESN_HpIntegrationAbort()
+AND
+DB_AESN_HpIntegrationAttempt(_Amount)
+AND
+NOT DB_AESN_HpIntegrationFixture(_, _Amount, _)
+AND
+GetHostCharacter(_Host)
+THEN
+DB_AESN_HpIntegrationFailure(_Host, "SpawnAttemptWithoutAcceptedActor");
+
+PROC
+PROC_AESN_HpIntegrationStart()
+AND
+NOT DB_AESN_HpIntegrationStarted(1)
+AND
+DB_AESN_HpIntegrationEnabled(1)
+AND
+DB_AESN_WorldContext(_Owner)
+AND
+NOT QRY_AESN_HpIntegrationOtherWorld(_Owner)
+AND
+GetHostCharacter(_Host)
+AND
+IsDead(_Host, 0)
+AND
+IsInCombat(_Host, 0)
+THEN
+DB_AESN_HpIntegrationStarted(1);
+DB_AESN_HpIntegrationOwner(_Owner);
+DB_AESN_HpIntegrationSpawn(_Host, 1);
+RealtimeObjectTimerLaunch(_Host, "AESN_HpIntegration_Spawn", 2000);
+
+QRY
+QRY_AESN_HpIntegrationOtherWorld((GUIDSTRING)_Owner)
+AND
+DB_AESN_WorldContext(_Other)
+AND
+_Other != _Owner
+THEN
+DB_NOOP(1);
+
+IF
+ObjectTimerFinished((GUIDSTRING)_Object, "AESN_HpIntegration_Spawn")
+AND
+DB_AESN_HpIntegrationEnabled(1)
+AND
+DB_AESN_HpIntegrationSpawn((CHARACTER)_Object, _Amount)
+AND
+NOT DB_AESN_HpIntegrationFailure((CHARACTER)_Object, _)
+THEN
+NOT DB_AESN_HpIntegrationSpawn((CHARACTER)_Object, _Amount);
+PROC_AESN_HpIntegrationSpawn((CHARACTER)_Object, _Amount);
+
+PROC
+PROC_AESN_HpIntegrationSpawn((CHARACTER)_Anchor, (INTEGER)_Amount)
+AND
+DB_AESN_HpIntegrationEnabled(1)
+AND
+DB_AESN_HpIntegrationSample(_Amount, _, _)
+AND
+NOT DB_AESN_HpIntegrationAttempt(_Amount)
+AND
+NOT DB_AESN_HpIntegrationFixture(_, _Amount, _)
+AND
+GetHostCharacter(_Host)
+AND
+IsDead(_Host, 0)
+AND
+IsInCombat(_Host, 0)
+AND
+IsDead(_Anchor, 0)
+AND
+IsInCombat(_Anchor, 0)
+THEN
+DB_AESN_HpIntegrationAttempt(_Amount);
+PROC_AESN_HpIntegrationCreate(_Anchor, _Amount);
+
+PROC
+PROC_AESN_HpIntegrationCreate((CHARACTER)_Anchor, (INTEGER)_Amount)
+AND
+GetHostCharacter(_Host)
+AND
+GetFaction(_Host, _Faction)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, _Anchor, 0, 1, "", 1, _Object)
+THEN
+DB_AESN_HpIntegrationReturned((CHARACTER)_Object, _Amount);
+PROC_AESN_HpIntegrationSetup((CHARACTER)_Object, _Amount, _Faction);
+PROC_AESN_HpIntegrationRejectReturn((CHARACTER)_Object, _Amount);
+
+PROC
+PROC_AESN_HpIntegrationRejectReturn((CHARACTER)_NPC, (INTEGER)_Amount)
+AND
+DB_AESN_HpIntegrationReturned(_NPC, _Amount)
+THEN
+DB_AESN_HpIntegrationFailure(_NPC, "RejectedNativeSpawnResult");
+
+// Reject unexpected ownership rather than adopting/erasing it. Creation may
+// produce native events before returning; their ordering is NOT assumed.
+QRY
+QRY_AESN_HpIntegrationUnowned((CHARACTER)_NPC)
+AND
+NOT DB_AESN_EnemyEligible(_, _NPC)
+AND
+NOT DB_AESN_HpPlanQueued(_, _NPC)
+AND
+NOT DB_AESN_HpDesiredBit(_, _NPC, _, _)
+AND
+NOT DB_AESN_HpFailure(_, _NPC, _)
+AND
+NOT DB_AESN_ComponentStarted(_, _NPC)
+AND
+NOT DB_AESN_HpTotalEpoch(_NPC, _)
+AND
+NOT DB_AESN_HpTotalRetired(_NPC, _)
+AND
+NOT DB_AESN_MergeReplanRequired(_, _NPC)
+AND
+NOT DB_AESN_HpTransaction(_, _NPC, _, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_EnemyHpBit(_, _NPC, _, _)
+AND
+NOT DB_AESN_EnemyHpTotal(_, _NPC, _, _)
+AND
+NOT DB_AESN_EnemyComponent(_, _NPC, _, _)
+AND
+NOT DB_AESN_ComponentApplication(_, _NPC, _, _)
+AND
+NOT DB_AESN_ComponentPendingApply(_, _NPC, _, _)
+AND
+NOT DB_AESN_ComponentPendingRemove(_, _NPC, _, _)
+AND
+NOT DB_AESN_HpPendingApply(_, _NPC, _, _, _)
+AND
+NOT DB_AESN_HpPendingRemove(_, _NPC, _, _, _, _)
+AND
+NOT DB_AESN_HpTotalPending(_, _NPC, _, _, _)
+AND
+NOT DB_AESN_HpTotalUncertain(_, _NPC, _, _, _, _)
+AND
+NOT DB_AESN_HpTotalDesired(_, _NPC, _, _)
+AND
+NOT DB_AESN_HpTotalRemoval(_, _NPC, _, _, _, _, _)
+AND
+NOT DB_AESN_HpApplicationHold(_, _NPC)
+AND
+NOT DB_AESN_HpMigrationHold(_NPC, _)
+AND
+NOT DB_AESN_HpMigration(_, _NPC, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_HpReplan(_, _NPC, _, _, _)
+AND
+NOT DB_AESN_HpCleanup(_, _NPC, _, _, _)
+AND
+NOT DB_AESN_WorldTracked(_NPC)
+AND
+NOT DB_AESN_WorldMutationPending(_NPC)
+AND
+NOT DB_AESN_WorldCleanupRequested(_NPC)
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_HpIntegrationSetup((CHARACTER)_NPC, (INTEGER)_Amount, (FACTION)_Faction)
+AND
+DB_AESN_HpIntegrationEnabled(1)
+AND
+DB_AESN_HpIntegrationReturned(_NPC, _Amount)
+AND
+DB_AESN_HpIntegrationSample(_Amount, _, _)
+AND
+NOT DB_AESN_HpIntegrationFixture(_NPC, _, _)
+AND
+NOT DB_AESN_HpIntegrationFixture(_, _Amount, _)
+AND
+GetHostCharacter(_Host)
+AND
+_NPC != _Host
+AND
+IsDead(_NPC, 0)
+AND
+IsInCombat(_NPC, 0)
+AND
+QRY_AESN_HpIntegrationUnowned(_NPC)
+THEN
+NOT DB_AESN_HpIntegrationReturned(_NPC, _Amount);
+DB_AESN_HpIntegrationFixture(_NPC, _Amount, _Faction);
+DB_AESN_HpIntegrationState(_NPC, "Baseline");
+DB_AESN_HpIntegrationSequence(_NPC, 0);
+SetFaction(_NPC, _Faction);
+SetCanFight(_NPC, 0);
+SetCanJoinCombat(_NPC, 0);
+PROC_AESN_HpIntegrationHealing(_NPC, _Amount);
+PROC_AESN_HpIntegrationWait(_NPC, "Baseline");
+PROC_AESN_HpIntegrationNext(_NPC, _Amount);
+
+PROC
+PROC_AESN_HpIntegrationHealing((CHARACTER)_NPC, 1)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, 1, _)
+THEN
+PROC_SelfHealing_Disable(_NPC);
+
+PROC
+PROC_AESN_HpIntegrationNext((CHARACTER)_NPC, 1)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, 1, _)
+THEN
+DB_AESN_HpIntegrationSpawn(_NPC, 111);
+RealtimeObjectTimerLaunch(_NPC, "AESN_HpIntegration_Spawn", 500);
+
+QRY
+QRY_AESN_HpIntegrationSafe((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationEnabled(1)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, _, _Faction)
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+GetHostCharacter(_Host)
+AND
+_NPC != _Host
+AND
+GetFaction(_NPC, _Faction)
+AND
+CanFight(_NPC, 0)
+AND
+CanJoinCombat(_NPC, 0)
+AND
+QRY_AESN_HpIntegrationHealingGood(_NPC)
+AND
+IsDead(_NPC, 0)
+AND
+IsInCombat(_NPC, 0)
+AND
+QRY_AESN_HpIntegrationUnowned(_NPC)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpIntegrationHealingGood((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, 1, _)
+AND
+NOT QRY_SelfHealing_IsEnabled(_NPC)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpIntegrationHealingGood((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, 111, _)
+AND
+QRY_SelfHealing_IsEnabled(_NPC)
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_HpIntegrationWait((CHARACTER)_NPC, (STRING)_Phase)
+AND
+Concatenate("AESN_HpIntegration_", _Phase, _Timer)
+THEN
+DB_AESN_HpIntegrationPending(_NPC, _Phase);
+RealtimeObjectTimerLaunch(_NPC, _Timer, 500);
+
+IF
+ObjectTimerFinished((GUIDSTRING)_Object, _Timer)
+AND
+DB_AESN_HpIntegrationEnabled(1)
+AND
+DB_AESN_HpIntegrationPhase(_Phase)
+AND
+Concatenate("AESN_HpIntegration_", _Phase, _Timer)
+AND
+DB_AESN_HpIntegrationPending((CHARACTER)_Object, _Phase)
+AND
+NOT DB_AESN_HpIntegrationFailure((CHARACTER)_Object, _)
+THEN
+NOT DB_AESN_HpIntegrationPending((CHARACTER)_Object, _Phase);
+PROC_AESN_HpIntegrationStep((CHARACTER)_Object, _Phase);
+
+PROC
+PROC_AESN_HpIntegrationStep((CHARACTER)_NPC, (STRING)_Phase)
+AND
+DB_AESN_HpIntegrationState(_NPC, _Phase)
+AND
+NOT QRY_AESN_HpIntegrationGood(_NPC, _Phase)
+THEN
+PROC_AESN_HpIntegrationCapturePrerequisites(_NPC, _Phase);
+DB_AESN_HpIntegrationFailure(_NPC, _Phase);
+
+PROC
+PROC_AESN_HpIntegrationStep((CHARACTER)_NPC, (STRING)_Phase)
+AND
+DB_AESN_HpIntegrationState(_NPC, _Phase)
+AND
+QRY_AESN_HpIntegrationGood(_NPC, _Phase)
+THEN
+PROC_AESN_HpIntegrationRecord(_NPC, _Phase);
+PROC_AESN_HpIntegrationAdvance(_NPC, _Phase);
+
+QRY
+QRY_AESN_HpIntegrationGood((CHARACTER)_NPC, "Baseline")
+AND
+QRY_AESN_HpIntegrationSafe(_NPC)
+AND
+GetHitpoints(_NPC, _Current)
+AND
+GetMaxHitpoints(_NPC, _Maximum)
+AND
+_Current == _Maximum
+AND
+_Maximum > 0
+AND
+_Maximum < 1000000
+AND
+HasActiveStatus(_NPC, "AESN_HP_TOTAL_7", 0)
+AND
+HasActiveStatus(_NPC, "AESN_HARDENED_FOE_01", 0)
+AND
+NOT QRY_AESN_HpIntegrationAnyLegacy(_NPC)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, _Amount, _)
+AND
+ConcatenateInteger("AESN_HP_TOTAL_", _Amount, _Total)
+AND
+HasActiveStatus(_NPC, _Total, 0)
+AND
+DB_AESN_HpIntegrationSample(_Amount, _Wounded, _)
+AND
+IntegerSum(_Maximum, 7, _External)
+AND
+IntegerSum(_External, _Amount, _Target)
+AND
+_Wounded < _Target
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpIntegrationAnyLegacy((CHARACTER)_NPC)
+AND
+DB_AESN_HpBitOrder(_, _, _Status)
+AND
+HasActiveStatus(_NPC, _Status, 1)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpIntegrationMissing((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationRequested(_NPC, _Status)
+AND
+NOT DB_AESN_HpIntegrationAck(_NPC, _Status)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpIntegrationMissing((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationRequested(_NPC, _Status)
+AND
+NOT HasActiveStatus(_NPC, _Status, 1)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpIntegrationUnexpectedBit((CHARACTER)_NPC, (INTEGER)_Amount)
+AND
+DB_AESN_HpBitOrder(_, _Bit, _Status)
+AND
+HasActiveStatus(_NPC, _Status, 1)
+AND
+NOT DB_AESN_HpIntegrationBit(_Amount, _Bit, _Status)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpIntegrationLegacyGood((CHARACTER)_NPC)
+AND
+QRY_AESN_HpIntegrationSafe(_NPC)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, _Amount, _)
+AND
+DB_AESN_HpIntegrationBaseline(_NPC, _, _Base)
+AND
+IntegerSum(_Base, 7, _External)
+AND
+IntegerSum(_External, _Amount, _Target)
+AND
+GetMaxHitpoints(_NPC, _Target)
+AND
+GetHitpoints(_NPC, _Current)
+AND
+_Current > 0
+AND
+_Current <= _Target
+AND
+HasActiveStatus(_NPC, "AESN_HP_TOTAL_7", 1)
+AND
+HasActiveStatus(_NPC, "AESN_HARDENED_FOE_01", 1)
+AND
+ConcatenateInteger("AESN_HP_TOTAL_", _Amount, _Total)
+AND
+HasActiveStatus(_NPC, _Total, 0)
+AND
+NOT QRY_AESN_HpIntegrationMissing(_NPC)
+AND
+NOT QRY_AESN_HpIntegrationUnexpectedBit(_NPC, _Amount)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpIntegrationGood((CHARACTER)_NPC, "Legacy")
+AND
+QRY_AESN_HpIntegrationLegacyGood(_NPC)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpIntegrationGood((CHARACTER)_NPC, "Wound")
+AND
+QRY_AESN_HpIntegrationLegacyGood(_NPC)
+AND
+DB_AESN_HpIntegrationWoundSeen(_NPC)
+AND
+DB_AESN_HpIntegrationSetterCount(_NPC, 1)
+AND
+QRY_AESN_HpIntegrationWoundGood(_NPC)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpIntegrationWoundGood((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, 1, _)
+AND
+GetHitpoints(_NPC, 13)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpIntegrationWoundGood((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, 111, _)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpIntegrationGood((CHARACTER)_NPC, "Migrate")
+AND
+QRY_AESN_HpIntegrationLegacyGood(_NPC)
+AND
+DB_AESN_HpIntegrationWoundSeen(_NPC)
+AND
+DB_AESN_HpIntegrationSetterCount(_NPC, 1)
+AND
+DB_AESN_HpIntegrationOwner(_Owner)
+AND
+DB_AESN_WorldContext(_Owner)
+AND
+NOT QRY_AESN_HpIntegrationOtherWorld(_Owner)
+AND
+DB_AESN_CombatSnapshotV2(_Owner, 2, _, _, _, _, _, _, _, _, _, "Supported")
+AND
+NOT DB_AESN_MergeInProgress(_Owner, _)
+AND
+NOT DB_AESN_MergeInProgress(_, _Owner)
+AND
+NOT DB_AESN_CombatCleanupRequested(_Owner)
+AND
+NOT DB_AESN_HpMigrationEnabled(1)
+AND
+NOT DB_AESN_HpTotalIntegrationEnabled(1)
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_HpIntegrationAdvance((CHARACTER)_NPC, "Baseline")
+AND
+DB_AESN_HpIntegrationState(_NPC, "Baseline")
+AND
+QRY_AESN_HpIntegrationGood(_NPC, "Baseline")
+AND
+GetHitpoints(_NPC, _Current)
+AND
+GetMaxHitpoints(_NPC, _Maximum)
+THEN
+DB_AESN_HpIntegrationBaseline(_NPC, _Current, _Maximum);
+NOT DB_AESN_HpIntegrationState(_NPC, "Baseline");
+DB_AESN_HpIntegrationState(_NPC, "Legacy");
+PROC_AESN_HpIntegrationRequest(_NPC, "AESN_HP_TOTAL_7");
+PROC_AESN_HpIntegrationRequest(_NPC, "AESN_HARDENED_FOE_01");
+PROC_AESN_HpIntegrationRequestBits(_NPC);
+PROC_AESN_HpIntegrationWait(_NPC, "Legacy");
+
+PROC
+PROC_AESN_HpIntegrationRequestBits((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, _Amount, _)
+AND
+DB_AESN_HpIntegrationBit(_Amount, _, _Status)
+THEN
+PROC_AESN_HpIntegrationRequest(_NPC, _Status);
+
+PROC
+PROC_AESN_HpIntegrationRequest((CHARACTER)_NPC, (STRING)_Status)
+AND
+QRY_AESN_HpIntegrationSafe(_NPC)
+AND
+DB_AESN_HpIntegrationState(_NPC, "Legacy")
+AND
+NOT DB_AESN_HpIntegrationRequested(_NPC, _Status)
+THEN
+DB_AESN_HpIntegrationRequested(_NPC, _Status);
+PROC_AESN_HpIntegrationTrace(_NPC, "SetupStatusRequest", _Status, 0);
+ApplyStatus(_NPC, _Status, -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+
+IF
+StatusApplied((GUIDSTRING)_Object, _Status, _Cause, _Action)
+AND
+DB_AESN_HpIntegrationFixture((CHARACTER)_Object, _, _)
+AND
+DB_AESN_HpIntegrationRequested((CHARACTER)_Object, _Status)
+AND
+DB_AESN_HpIntegrationState((CHARACTER)_Object, "Legacy")
+THEN
+DB_AESN_HpIntegrationAck((CHARACTER)_Object, _Status);
+
+PROC
+PROC_AESN_HpIntegrationAdvance((CHARACTER)_NPC, "Legacy")
+AND
+DB_AESN_HpIntegrationState(_NPC, "Legacy")
+AND
+QRY_AESN_HpIntegrationGood(_NPC, "Legacy")
+AND
+DB_AESN_HpIntegrationFixture(_NPC, _Amount, _)
+AND
+DB_AESN_HpIntegrationSample(_Amount, _Wounded, _)
+AND
+NOT DB_AESN_HpIntegrationSetterCount(_NPC, _)
+THEN
+NOT DB_AESN_HpIntegrationState(_NPC, "Legacy");
+DB_AESN_HpIntegrationState(_NPC, "Wound");
+DB_AESN_HpIntegrationSetterCount(_NPC, 1);
+PROC_AESN_HpIntegrationTrace(_NPC, "SetupHpSetterRequest", "", 0);
+SetHitpoints(_NPC, _Wounded, "Guaranteed");
+PROC_AESN_HpIntegrationWait(_NPC, "Wound");
+
+IF
+HitpointsChanged((GUIDSTRING)_Object, _Percentage)
+AND
+DB_AESN_HpIntegrationFixture((CHARACTER)_Object, _, _)
+AND
+DB_AESN_HpIntegrationState((CHARACTER)_Object, "Wound")
+THEN
+DB_AESN_HpIntegrationWoundSeen((CHARACTER)_Object);
+
+PROC
+PROC_AESN_HpIntegrationAdvance((CHARACTER)_NPC, "Wound")
+AND
+DB_AESN_HpIntegrationState(_NPC, "Wound")
+AND
+QRY_AESN_HpIntegrationGood(_NPC, "Wound")
+THEN
+NOT DB_AESN_HpIntegrationState(_NPC, "Wound");
+DB_AESN_HpIntegrationState(_NPC, "Inspect");
+PROC_AESN_HpIntegrationRecord(_NPC, "Inspect");
+DebugLog("AESN_UI04 Inspect: both samples must be Inspect. Save a NEW disposable save, inspect, then reload ONCE.");
+
+PROC
+PROC_AESN_HpIntegrationReload()
+AND
+DB_AESN_HpIntegrationFixture(_One, 1, _)
+AND
+DB_AESN_HpIntegrationFixture(_Many, 111, _)
+AND
+DB_AESN_HpIntegrationState(_One, "Inspect")
+AND
+DB_AESN_HpIntegrationState(_Many, "Inspect")
+AND
+NOT DB_AESN_HpIntegrationFailure(_One, _)
+AND
+NOT DB_AESN_HpIntegrationFailure(_Many, _)
+THEN
+PROC_AESN_HpIntegrationArm(_One);
+PROC_AESN_HpIntegrationArm(_Many);
+
+PROC
+PROC_AESN_HpIntegrationArm((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationState(_NPC, "Inspect")
+THEN
+NOT DB_AESN_HpIntegrationState(_NPC, "Inspect");
+DB_AESN_HpIntegrationState(_NPC, "Migrate");
+PROC_AESN_HpIntegrationWait(_NPC, "Migrate");
+
+// No native wait under a setup hold. Only these newly recorded actors are seeded;
+// transaction is LAST. Owner policy remains untouched test context, not balance.
+PROC
+PROC_AESN_HpIntegrationAdvance((CHARACTER)_NPC, "Migrate")
+AND
+DB_AESN_HpIntegrationState(_NPC, "Migrate")
+AND
+QRY_AESN_HpIntegrationGood(_NPC, "Migrate")
+AND
+DB_AESN_HpIntegrationOwner(_Owner)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, _Amount, _)
+AND
+DB_AESN_HpIntegrationBaseline(_NPC, _, _Base)
+AND
+IntegerSum(_Base, 7, _External)
+AND
+GetHitpoints(_NPC, _Current)
+AND
+GetMaxHitpoints(_NPC, _Maximum)
+AND
+GetHitpointsPercentage(_NPC, _Percentage)
+THEN
+DB_AESN_HpIntegrationSeeding(_NPC, _Owner);
+DB_AESN_HpApplicationHold(_Owner, _NPC);
+DB_AESN_WorldTracked(_NPC);
+PROC_AESN_HpIntegrationSeedBits(_NPC, _Owner, _Amount);
+DB_AESN_EnemyComponent(_Owner, _NPC, "Stat", "AESN_HARDENED_FOE_01");
+DB_AESN_ComponentApplication(_Owner, _NPC, 1, "FullyCommitted");
+DB_AESN_HpTransaction(_Owner, _NPC, 1, "HPCommitted", _Current, _External, _Percentage, _Maximum, _Amount, _Amount);
+NOT DB_AESN_HpApplicationHold(_Owner, _NPC);
+NOT DB_AESN_HpIntegrationSeeding(_NPC, _Owner);
+NOT DB_AESN_HpIntegrationState(_NPC, "Migrate");
+DB_AESN_HpIntegrationState(_NPC, "Journal");
+PROC_AESN_ValidateHpMigration(_Owner, _NPC);
+PROC_AESN_HpIntegrationEntryResult(_NPC, _Owner);
+
+PROC
+PROC_AESN_HpIntegrationSeedBits((CHARACTER)_NPC, (GUIDSTRING)_Owner, (INTEGER)_Amount)
+AND
+DB_AESN_HpIntegrationSeeding(_NPC, _Owner)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, _Amount, _)
+AND
+DB_AESN_HpIntegrationBit(_Amount, _Bit, _Status)
+THEN
+DB_AESN_EnemyHpBit(_Owner, _NPC, _Bit, _Status);
+
+PROC
+PROC_AESN_HpIntegrationEntryResult((CHARACTER)_NPC, (GUIDSTRING)_Owner)
+AND
+NOT DB_AESN_HpMigration(_Owner, _NPC, _, _, _, _, _, _, _)
+THEN
+DB_AESN_HpIntegrationFailure(_NPC, "GuardedEntryRejected");
+
+// Only inhibits NEXT request. Does not cancel first intent or force a phase.
+// Native DB trigger ordering remains a Toolkit/retail acceptance gate.
+IF
+DB_AESN_HpMigrationTrace(_Owner, _NPC, _Sequence, "NativeRequest", _Status, _Current, _Maximum, _Phase, "MigrationRemoveLegacy", _PendingStatus, _Epoch, _Action)
+AND
+DB_AESN_HpIntegrationEnabled(1)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, _, _)
+AND
+DB_AESN_HpIntegrationState(_NPC, "Journal")
+THEN
+DB_AESN_HpMigrationPause(_NPC);
+
+PROC
+PROC_AESN_HpIntegrationRecord((CHARACTER)_NPC, (STRING)_Phase)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, _, _)
+AND
+GetHitpoints(_NPC, _Current)
+AND
+GetMaxHitpoints(_NPC, _Maximum)
+THEN
+DB_AESN_HpIntegrationObservation(_NPC, _Phase, _Current, _Maximum);
+
+PROC
+PROC_AESN_HpIntegrationTrace((CHARACTER)_NPC, (STRING)_Event, (STRING)_Status, (INTEGER)_Action)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, _, _)
+AND
+DB_AESN_HpIntegrationSequence(_NPC, _Sequence)
+AND
+IntegerSum(_Sequence, 1, _Next)
+AND
+DB_AESN_HpIntegrationState(_NPC, _Phase)
+AND
+GetHitpoints(_NPC, _Current)
+AND
+GetMaxHitpoints(_NPC, _Maximum)
+THEN
+NOT DB_AESN_HpIntegrationSequence(_NPC, _Sequence);
+DB_AESN_HpIntegrationSequence(_NPC, _Next);
+DB_AESN_HpIntegrationTrace(_NPC, _Next, _Event, _Status, _Current, _Maximum, _Phase, _Action);
+
+IF
+StatusApplied((GUIDSTRING)_Object, _Status, _Cause, _Action)
+AND
+DB_AESN_HpIntegrationFixture((CHARACTER)_Object, _, _)
+THEN
+PROC_AESN_HpIntegrationTrace((CHARACTER)_Object, "StatusApplied", _Status, _Action);
+
+IF
+StatusRemoved((GUIDSTRING)_Object, _Status, _Cause, _Action)
+AND
+DB_AESN_HpIntegrationFixture((CHARACTER)_Object, _, _)
+THEN
+PROC_AESN_HpIntegrationTrace((CHARACTER)_Object, "StatusRemoved", _Status, _Action);
+
+IF
+StatusAttemptFailed((GUIDSTRING)_Object, _Status, _Cause, _Action)
+AND
+DB_AESN_HpIntegrationFixture((CHARACTER)_Object, _, _)
+THEN
+PROC_AESN_HpIntegrationTrace((CHARACTER)_Object, "StatusAttemptFailed", _Status, _Action);
+
+IF
+HitpointsChanged((GUIDSTRING)_Object, _Percentage)
+AND
+DB_AESN_HpIntegrationFixture((CHARACTER)_Object, _, _)
+THEN
+PROC_AESN_HpIntegrationTrace((CHARACTER)_Object, "HitpointsChanged", "", 0);
+
+IF
+CastedSpell((GUIDSTRING)_Object, _Spell, _SpellType, _SpellElement, _StoryActionID)
+AND
+DB_AESN_HpIntegrationFixture((CHARACTER)_Object, _, _)
+THEN
+PROC_AESN_HpIntegrationTrace((CHARACTER)_Object, "CastedSpell", _Spell, _StoryActionID);
+
+IF
+EnteredCombat((GUIDSTRING)_Object, _Combat)
+AND
+DB_AESN_HpIntegrationFixture((CHARACTER)_Object, _, _)
+THEN
+PROC_AESN_HpIntegrationTrace((CHARACTER)_Object, "EnteredCombat", "", 0);
+
+IF
+Dying((CHARACTER)_Object)
+AND
+DB_AESN_HpIntegrationFixture((CHARACTER)_Object, _, _)
+THEN
+PROC_AESN_HpIntegrationTrace((CHARACTER)_Object, "Dying", "", 0);
+
+IF
+Died((CHARACTER)_Object)
+AND
+DB_AESN_HpIntegrationFixture((CHARACTER)_Object, _, _)
+THEN
+PROC_AESN_HpIntegrationTrace((CHARACTER)_Object, "Died", "", 0);
+
+IF
+AttackedBy((CHARACTER)_Object, _OwnerOfAttack, _Attacker, _DamageType, _Damage, _Cause, _Action)
+AND
+DB_AESN_HpIntegrationFixture((CHARACTER)_Object, _, _)
+THEN
+PROC_AESN_HpIntegrationTrace((CHARACTER)_Object, "AttackedBy", _DamageType, _Action);
+
+IF
+DB_AESN_HpMigrationConflict(_Owner, _NPC, _Reason)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, _, _)
+THEN
+PROC_AESN_HpIntegrationTrace(_NPC, "JournalConflict", _Reason, 0);
+
+// Persisted fact readers support inspection and avoid deleting late evidence.
+PROC
+PROC_AESN_HpIntegrationDump()
+AND
+DB_AESN_HpIntegrationTrace(_NPC, _Seq, _Event, _Status, _Current, _Maximum, _Phase, _Action)
+THEN
+DebugLog("AESN_UI04 fixture trace: inspect DB_AESN_HpIntegrationTrace for exact values");
+
+PROC
+PROC_AESN_HpIntegrationDump()
+AND
+DB_AESN_HpIntegrationFixture(_NPC, _Amount, _)
+AND
+DB_AESN_HpIntegrationSample(_Amount, _Wounded, _Healing)
+AND
+DB_AESN_HpIntegrationObservation(_NPC, _Phase, _Current, _Maximum)
+THEN
+DebugLog("AESN_UI04 sample observation: exact amounts, healing mode and current/max are persisted");
+
+PROC
+PROC_AESN_HpIntegrationDump()
+AND
+DB_AESN_HpIntegrationOwner(_Owner)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, _, _)
+THEN
+PROC_AESN_DumpHpMigrationTrace(_Owner, _NPC);
+
+// Diagnostic-only reload snapshot. The failed Step calls this BEFORE Failure
+// poisons Safe. No new guard, native request, repair, retry or qualification token.
+// All existing QRY/advance bodies above are unchanged. Never recapture failed saves.
+PROC
+PROC_AESN_HpIntegrationCapturePrerequisites((CHARACTER)_NPC, "Migrate")
+AND
+DB_AESN_HpIntegrationState(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+NOT DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, _)
+THEN
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate");
+PROC_AESN_HpIntegrationReadPrerequisites(_NPC);
+PROC_AESN_HpIntegrationReadStatuses(_NPC);
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+NOT QRY_AESN_HpIntegrationSafe(_NPC)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Safe", "", "Failed");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+NOT QRY_AESN_HpIntegrationLegacyGood(_NPC)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "LegacyGood", "", "Failed");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+NOT QRY_AESN_HpIntegrationHealingGood(_NPC)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "HealingGood", "", "Failed");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+NOT QRY_AESN_HpIntegrationUnowned(_NPC)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "", "Failed");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+CanFight(_NPC, _Actual)
+THEN
+DB_AESN_HpIntegrationDiagnosticValue(_NPC, "CanFight", _Actual);
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+CanFight(_NPC, _Actual)
+AND
+_Actual != 0
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "CanFight", "", "Mismatch");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+NOT CanFight(_NPC, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "CanFight", "", "Unavailable");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+CanJoinCombat(_NPC, _Actual)
+THEN
+DB_AESN_HpIntegrationDiagnosticValue(_NPC, "CanJoinCombat", _Actual);
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+CanJoinCombat(_NPC, _Actual)
+AND
+_Actual != 0
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "CanJoinCombat", "", "Mismatch");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+NOT CanJoinCombat(_NPC, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "CanJoinCombat", "", "Unavailable");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+IsDead(_NPC, _Actual)
+THEN
+DB_AESN_HpIntegrationDiagnosticValue(_NPC, "IsDead", _Actual);
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+IsDead(_NPC, _Actual)
+AND
+_Actual != 0
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "IsDead", "", "Mismatch");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+NOT IsDead(_NPC, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "IsDead", "", "Unavailable");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+IsInCombat(_NPC, _Actual)
+THEN
+DB_AESN_HpIntegrationDiagnosticValue(_NPC, "IsInCombat", _Actual);
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+IsInCombat(_NPC, _Actual)
+AND
+_Actual != 0
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "IsInCombat", "", "Mismatch");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+NOT IsInCombat(_NPC, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "IsInCombat", "", "Unavailable");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+GetHostCharacter(_Host)
+THEN
+DB_AESN_HpIntegrationDiagnosticGuid(_NPC, "HostActual", (GUIDSTRING)_Host);
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+GetHostCharacter(_Host)
+AND
+_NPC == _Host
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "GetHostCharacter", "", "Mismatch");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+NOT GetHostCharacter(_)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "GetHostCharacter", "", "Unavailable");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+GetFaction(_NPC, _Actual)
+THEN
+DB_AESN_HpIntegrationDiagnosticGuid(_NPC, "FactionActual", (GUIDSTRING)_Actual);
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, _, _Expected)
+THEN
+DB_AESN_HpIntegrationDiagnosticGuid(_NPC, "FactionExpected", (GUIDSTRING)_Expected);
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, _, _Expected)
+AND
+GetFaction(_NPC, _Actual)
+AND
+_Actual != _Expected
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "GetFaction", "", "Mismatch");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+NOT GetFaction(_NPC, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "GetFaction", "", "Unavailable");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+QRY_SelfHealing_IsEnabled(_NPC)
+THEN
+DB_AESN_HpIntegrationDiagnosticValue(_NPC, "SelfHealingPredicate", 1);
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+NOT QRY_SelfHealing_IsEnabled(_NPC)
+THEN
+DB_AESN_HpIntegrationDiagnosticValue(_NPC, "SelfHealingPredicate", 0);
+
+// Truth-only SelfHealing predicate has no distinguishable unavailable output.
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+GetHitpoints(_NPC, _Actual)
+THEN
+DB_AESN_HpIntegrationDiagnosticValue(_NPC, "GetHitpoints", _Actual);
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+NOT GetHitpoints(_NPC, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "GetHitpoints", "", "Unavailable");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+GetMaxHitpoints(_NPC, _Actual)
+THEN
+DB_AESN_HpIntegrationDiagnosticValue(_NPC, "GetMaxHitpoints", _Actual);
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+NOT GetMaxHitpoints(_NPC, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "GetMaxHitpoints", "", "Unavailable");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+GetHitpoints(_NPC, _Actual)
+AND
+_Actual <= 0
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "GetHitpoints", "", "Mismatch");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+GetHitpoints(_NPC, _Actual)
+AND
+GetMaxHitpoints(_NPC, _Maximum)
+AND
+_Actual > _Maximum
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "GetHitpoints", "", "Mismatch");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, _Amount, _)
+AND
+DB_AESN_HpIntegrationBaseline(_NPC, _, _Base)
+AND
+IntegerSum(_Base, 7, _External)
+AND
+IntegerSum(_External, _Amount, _Target)
+THEN
+DB_AESN_HpIntegrationDiagnosticValue(_NPC, "ExpectedMaximum", _Target);
+DB_AESN_HpIntegrationDiagnosticValue(_NPC, "BaselineMaximum", _Base);
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, _Amount, _)
+AND
+DB_AESN_HpIntegrationBaseline(_NPC, _, _Base)
+AND
+IntegerSum(_Base, 7, _External)
+AND
+IntegerSum(_External, _Amount, _Target)
+AND
+GetMaxHitpoints(_NPC, _Actual)
+AND
+_Actual != _Target
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "GetMaxHitpoints", "", "Mismatch");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+NOT DB_AESN_HpIntegrationEnabled(1)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Enabled", "", "Missing");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+NOT DB_AESN_HpIntegrationFixture(_NPC, _, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Fixture", "", "Missing");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+NOT DB_AESN_HpIntegrationBaseline(_NPC, _, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Baseline", "", "Missing");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+NOT DB_AESN_HpIntegrationWoundSeen(_NPC)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "WoundSeen", "", "Missing");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+NOT DB_AESN_HpIntegrationSetterCount(_NPC, 1)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "SetterCountOne", "", "Missing");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+NOT DB_AESN_HpIntegrationOwner(_)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Owner", "", "Missing");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpIntegrationSetterCount(_NPC, _Actual)
+THEN
+DB_AESN_HpIntegrationDiagnosticValue(_NPC, "SetterCount", _Actual);
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpIntegrationOwner(_Owner)
+THEN
+DB_AESN_HpIntegrationDiagnosticGuid(_NPC, "Owner", (GUIDSTRING)_Owner);
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpIntegrationOwner(_Owner)
+AND
+NOT DB_AESN_WorldContext(_Owner)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "WorldContext", "", "Missing");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpIntegrationOwner(_Owner)
+AND
+QRY_AESN_HpIntegrationOtherWorld(_Owner)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "OtherWorld", "", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpIntegrationOwner(_Owner)
+AND
+NOT DB_AESN_CombatSnapshotV2(_Owner, 2, _, _, _, _, _, _, _, _, _, "Supported")
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "SupportedPolicy", "", "Missing");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpIntegrationOwner(_Owner)
+AND
+DB_AESN_MergeInProgress(_Owner, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "MergeOutgoing", "", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpIntegrationOwner(_Owner)
+AND
+DB_AESN_MergeInProgress(_, _Owner)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "MergeIncoming", "", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpIntegrationOwner(_Owner)
+AND
+DB_AESN_CombatCleanupRequested(_Owner)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "OwnerCleanup", "", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpMigrationEnabled(1)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "AutomaticMigrationGate", "", "Enabled");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpTotalIntegrationEnabled(1)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "TotalIntegrationGate", "", "Enabled");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_EnemyEligible(_, _NPC)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_EnemyEligible", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpPlanQueued(_, _NPC)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_HpPlanQueued", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpDesiredBit(_, _NPC, _, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_HpDesiredBit", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpFailure(_, _NPC, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_HpFailure", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_ComponentStarted(_, _NPC)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_ComponentStarted", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpTotalEpoch(_NPC, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_HpTotalEpoch", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpTotalRetired(_NPC, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_HpTotalRetired", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_MergeReplanRequired(_, _NPC)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_MergeReplanRequired", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpTransaction(_, _NPC, _, _, _, _, _, _, _, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_HpTransaction", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_EnemyHpBit(_, _NPC, _, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_EnemyHpBit", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_EnemyHpTotal(_, _NPC, _, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_EnemyHpTotal", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_EnemyComponent(_, _NPC, _, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_EnemyComponent", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_ComponentApplication(_, _NPC, _, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_ComponentApplication", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_ComponentPendingApply(_, _NPC, _, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_ComponentPendingApply", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_ComponentPendingRemove(_, _NPC, _, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_ComponentPendingRemove", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpPendingApply(_, _NPC, _, _, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_HpPendingApply", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpPendingRemove(_, _NPC, _, _, _, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_HpPendingRemove", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpTotalPending(_, _NPC, _, _, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_HpTotalPending", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpTotalUncertain(_, _NPC, _, _, _, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_HpTotalUncertain", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpTotalDesired(_, _NPC, _, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_HpTotalDesired", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpTotalRemoval(_, _NPC, _, _, _, _, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_HpTotalRemoval", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpApplicationHold(_, _NPC)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_HpApplicationHold", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpMigrationHold(_NPC, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_HpMigrationHold", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpMigration(_, _NPC, _, _, _, _, _, _, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_HpMigration", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpReplan(_, _NPC, _, _, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_HpReplan", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpCleanup(_, _NPC, _, _, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_HpCleanup", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_WorldTracked(_NPC)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_WorldTracked", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_WorldMutationPending(_NPC)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_WorldMutationPending", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadPrerequisites((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_WorldCleanupRequested(_NPC)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "Unowned", "DB_AESN_WorldCleanupRequested", "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadStatuses((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpIntegrationRequested(_NPC, _Status)
+THEN
+PROC_AESN_HpIntegrationReadStatus(_NPC, _Status, 1);
+
+PROC
+PROC_AESN_HpIntegrationReadStatuses((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, _Amount, _)
+THEN
+PROC_AESN_HpIntegrationReadStatus(_NPC, "AESN_HP_TOTAL_7", 1);
+PROC_AESN_HpIntegrationReadStatus(_NPC, "AESN_HARDENED_FOE_01", 1);
+
+PROC
+PROC_AESN_HpIntegrationReadStatuses((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, _Amount, _)
+AND
+ConcatenateInteger("AESN_HP_TOTAL_", _Amount, _Status)
+THEN
+PROC_AESN_HpIntegrationReadStatus(_NPC, _Status, 0);
+
+PROC
+PROC_AESN_HpIntegrationReadStatuses((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpIntegrationRequested(_NPC, _Status)
+AND
+NOT DB_AESN_HpIntegrationAck(_NPC, _Status)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "StatusAck", _Status, "Missing");
+
+PROC
+PROC_AESN_HpIntegrationReadStatuses((CHARACTER)_NPC)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+DB_AESN_HpIntegrationFixture(_NPC, _Amount, _)
+AND
+QRY_AESN_HpIntegrationUnexpectedBit(_NPC, _Amount)
+AND
+DB_AESN_HpBitOrder(_, _Bit, _Status)
+AND
+HasActiveStatus(_NPC, _Status, 1)
+AND
+NOT DB_AESN_HpIntegrationBit(_Amount, _Bit, _Status)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "UnexpectedBit", _Status, "Present");
+
+PROC
+PROC_AESN_HpIntegrationReadStatus((CHARACTER)_NPC, (STRING)_Status, (INTEGER)_Expected)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+HasActiveStatus(_NPC, _Status, _Actual)
+THEN
+DB_AESN_HpIntegrationDiagnosticValue(_NPC, _Status, _Actual);
+
+PROC
+PROC_AESN_HpIntegrationReadStatus((CHARACTER)_NPC, (STRING)_Status, (INTEGER)_Expected)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+HasActiveStatus(_NPC, _Status, _Actual)
+AND
+_Actual != _Expected
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "HasActiveStatus", _Status, "Mismatch");
+
+PROC
+PROC_AESN_HpIntegrationReadStatus((CHARACTER)_NPC, (STRING)_Status, (INTEGER)_Expected)
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, "Migrate")
+AND
+NOT DB_AESN_HpIntegrationFailure(_NPC, _)
+AND
+NOT HasActiveStatus(_NPC, _Status, _)
+THEN
+DB_AESN_HpIntegrationPrerequisite(_NPC, "HasActiveStatus", _Status, "Unavailable");
+
+// Diagnostic DB readers/type anchors. These are not success tokens or guards.
+PROC
+PROC_AESN_HpIntegrationDump()
+AND
+DB_AESN_HpIntegrationDiagnosticCaptured(_NPC, _Phase)
+AND
+DB_AESN_HpIntegrationPrerequisite(_NPC, _Check, _Detail, _Result)
+THEN
+DebugLog("AESN_UI04 prerequisite failure snapshot: inspect saved named checks/results");
+
+PROC
+PROC_AESN_HpIntegrationDump()
+AND
+DB_AESN_HpIntegrationDiagnosticValue(_NPC, _Key, _Value)
+THEN
+DebugLog("AESN_UI04 prerequisite integer/status observation persisted");
+
+PROC
+PROC_AESN_HpIntegrationDump()
+AND
+DB_AESN_HpIntegrationDiagnosticGuid(_NPC, _Key, _Value)
+THEN
+DebugLog("AESN_UI04 prerequisite GUID/faction observation persisted");
+
+
+EXITSECTION
+ENDEXITSECTION

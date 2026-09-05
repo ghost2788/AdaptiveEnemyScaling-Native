@@ -31,13 +31,19 @@ KBSECTION
 IF
 DB_AESN_MergeReplanRequired(_Combat, _Enemy)
 AND
-DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _, _, _)
+DB_AESN_HpTransaction(_Combat, _Enemy, _Representation, "HPCommitted", _, _, _, _, _, _)
+AND
+QRY_AESN_HpRepresentationSupported(_Representation)
 AND
 DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
 AND
 DB_AESN_ComponentApplication(_Combat, _Enemy, 1, "FullyCommitted")
 AND
 NOT DB_AESN_HpReplan(_Combat, _Enemy, _, _, _)
+AND
+NOT DB_AESN_HpApplicationHold(_Combat, _Enemy)
+AND
+NOT DB_AESN_MergeInProgress(_Combat, _)
 AND
 NOT DB_AESN_MergeInProgress(_, _Combat)
 THEN
@@ -46,13 +52,19 @@ PROC_AESN_ReplanEnemy(_Combat, _Enemy);
 IF
 DB_AESN_MergeReplanRequired(_Combat, _Enemy)
 AND
-DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _, _, _)
+DB_AESN_HpTransaction(_Combat, _Enemy, _Representation, "HPCommitted", _, _, _, _, _, _)
+AND
+QRY_AESN_HpRepresentationSupported(_Representation)
 AND
 NOT DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
 AND
 NOT DB_AESN_ComponentApplication(_Combat, _Enemy, _, _)
 AND
 NOT DB_AESN_HpReplan(_Combat, _Enemy, _, _, _)
+AND
+NOT DB_AESN_HpApplicationHold(_Combat, _Enemy)
+AND
+NOT DB_AESN_MergeInProgress(_Combat, _)
 AND
 NOT DB_AESN_MergeInProgress(_, _Combat)
 THEN
@@ -63,7 +75,9 @@ PROC_AESN_ReplanEnemy((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
 AND
 DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
 AND
-DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum)
+DB_AESN_HpTransaction(_Combat, _Enemy, _Representation, "HPCommitted", _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum)
+AND
+QRY_AESN_HpRepresentationSupported(_Representation)
 AND
 GetMaxHitpoints(_Enemy, _ObservedMaximum)
 AND
@@ -74,10 +88,20 @@ AND
 GetHitpointsPercentage(_Enemy, _CapturedPercentage)
 AND
 NOT DB_AESN_HpReplan(_Combat, _Enemy, _, _, _)
+AND
+NOT DB_AESN_HpApplicationHold(_Combat, _Enemy)
+AND
+NOT DB_AESN_MergeInProgress(_Combat, _)
+AND
+NOT DB_AESN_MergeInProgress(_, _Combat)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
-NOT DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum);
-DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _BeforeCurrent, _ExternalBase, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum);
 DB_AESN_HpReplan(_Combat, _Enemy, 1, "RemovingComponents", _CapturedPercentage);
+NOT DB_AESN_HpTransaction(_Combat, _Enemy, _Representation, "HPCommitted", _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum);
+DB_AESN_HpTransaction(_Combat, _Enemy, _Representation, "HPCommitted", _BeforeCurrent, _ExternalBase, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum);
 PROC_AESN_BeginComponentReplan(_Combat, _Enemy);
 
 PROC
@@ -85,7 +109,9 @@ PROC_AESN_ReplanEnemy((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
 AND
 NOT DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
 AND
-DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum)
+DB_AESN_HpTransaction(_Combat, _Enemy, _Representation, "HPCommitted", _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum)
+AND
+QRY_AESN_HpRepresentationSupported(_Representation)
 AND
 GetMaxHitpoints(_Enemy, _ObservedMaximum)
 AND
@@ -96,16 +122,28 @@ AND
 GetHitpointsPercentage(_Enemy, _CapturedPercentage)
 AND
 NOT DB_AESN_HpReplan(_Combat, _Enemy, _, _, _)
+AND
+NOT DB_AESN_HpApplicationHold(_Combat, _Enemy)
+AND
+NOT DB_AESN_MergeInProgress(_Combat, _)
+AND
+NOT DB_AESN_MergeInProgress(_, _Combat)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
-NOT DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum);
-DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _BeforeCurrent, _ExternalBase, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum);
 DB_AESN_HpReplan(_Combat, _Enemy, 1, "RemovingComponents", _CapturedPercentage);
+NOT DB_AESN_HpTransaction(_Combat, _Enemy, _Representation, "HPCommitted", _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum);
+DB_AESN_HpTransaction(_Combat, _Enemy, _Representation, "HPCommitted", _BeforeCurrent, _ExternalBase, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum);
 PROC_AESN_BeginHpReplanRemoval(_Combat, _Enemy);
 
 PROC
 PROC_AESN_ReplanEnemy((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
 AND
-DB_AESN_HpTransaction(_Combat, _Enemy, 1, "HPCommitted", _, _, _, _, _, _AppliedSum)
+DB_AESN_HpTransaction(_Combat, _Enemy, _Representation, "HPCommitted", _, _, _, _, _, _AppliedSum)
+AND
+QRY_AESN_HpRepresentationSupported(_Representation)
 AND
 GetMaxHitpoints(_Enemy, _ObservedMaximum)
 AND
@@ -114,6 +152,16 @@ AND
 _ExternalBase <= 0
 AND
 NOT DB_AESN_HpReplan(_Combat, _Enemy, _, _, _)
+AND
+NOT DB_AESN_HpApplicationHold(_Combat, _Enemy)
+AND
+NOT DB_AESN_MergeInProgress(_Combat, _)
+AND
+NOT DB_AESN_MergeInProgress(_, _Combat)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
 DB_AESN_HpFailure(_Combat, _Enemy, "UnsafeExternalBase");
 NOT DB_AESN_MergeReplanRequired(_Combat, _Enemy);
@@ -150,6 +198,10 @@ AND
 _Delta > 0
 AND
 NOT DB_AESN_HpApplicationHold(_Combat, _Enemy)
+AND
+NOT DB_AESN_MergeInProgress(_Combat, _)
+AND
+NOT DB_AESN_MergeInProgress(_, _Combat)
 THEN
 PROC_AESN_SetHpState(_Combat, _Enemy, "Planned", "ApplyingHP", 0);
 PROC_AESN_ApplyNextHpBit(_Combat, _Enemy, 15);
@@ -163,6 +215,10 @@ AND
 NOT DB_AESN_HpApplicationHold(_Combat, _Enemy)
 AND
 NOT DB_AESN_HpReplan(_Combat, _Enemy, 1, "ApplyingNew", _)
+AND
+NOT DB_AESN_MergeInProgress(_Combat, _)
+AND
+NOT DB_AESN_MergeInProgress(_, _Combat)
 THEN
 PROC_AESN_SetHpState(_Combat, _Enemy, "Planned", "HPCommitted", 0);
 DebugLog("AESN_HP COMMIT delta=0,percentageWrite=0");
@@ -177,6 +233,10 @@ AND
 DB_AESN_HpReplan(_Combat, _Enemy, 1, "ApplyingNew", _CapturedPercentage)
 AND
 NOT DB_AESN_HpApplicationHold(_Combat, _Enemy)
+AND
+NOT DB_AESN_MergeInProgress(_Combat, _)
+AND
+NOT DB_AESN_MergeInProgress(_, _Combat)
 THEN
 SetHitpointsPercentage(_Enemy, _CapturedPercentage, "Guaranteed");
 PROC_AESN_SetHpState(_Combat, _Enemy, "Planned", "HPCommitted", 0);
@@ -365,12 +425,16 @@ DebugLog("AESN_HP ROLLBACK appliedBits=0,percentageWrite=0");
 PROC
 PROC_AESN_RemoveNextHpBit((GUIDSTRING)_Combat, (CHARACTER)_Enemy, (INTEGER)_Index, (STRING)_Mode)
 AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, _, _, _, _, _, _, _)
+AND
 _Index < 0
 THEN
 PROC_AESN_FinalizeHpRemoval(_Combat, _Enemy, _Mode);
 
 PROC
 PROC_AESN_RemoveNextHpBit((GUIDSTRING)_Combat, (CHARACTER)_Enemy, (INTEGER)_Index, (STRING)_Mode)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, _, _, _, _, _, _, _)
 AND
 _Index >= 0
 AND
@@ -386,6 +450,8 @@ RealtimeObjectTimerLaunch(_Enemy, "AESN_HP_REMOVE_TIMEOUT", 1000);
 
 PROC
 PROC_AESN_RemoveNextHpBit((GUIDSTRING)_Combat, (CHARACTER)_Enemy, (INTEGER)_Index, (STRING)_Mode)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 1, _, _, _, _, _, _, _)
 AND
 _Index >= 0
 AND
@@ -544,6 +610,10 @@ AND
 GetHitpointsPercentage(_Enemy, _CleanupPercentage)
 AND
 NOT DB_AESN_HpCleanup(_Combat, _Enemy, _, _, _)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
 THEN
 DB_AESN_HpCleanup(_Combat, _Enemy, _CleanupCurrent, _CleanupMaximum, _CleanupPercentage);
 PROC_AESN_SetHpState(_Combat, _Enemy, "HPCommitted", "CleaningHP", _AppliedSum);
@@ -601,46 +671,222 @@ DB_AESN_HpFailure(_Combat, _Enemy, "MaximumMismatch");
 PROC_AESN_SetHpState(_Combat, _Enemy, "CleaningHP", "CleanupFailed", _AppliedSum);
 
 PROC
-PROC_AESN_DeleteHpRecords((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+PROC_AESN_DeleteResolvedHpRecords((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
 AND
 DB_AESN_HpTransaction(_Combat, _Enemy, _Version, _State, _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum)
 THEN
 NOT DB_AESN_HpTransaction(_Combat, _Enemy, _Version, _State, _BeforeCurrent, _BeforeMaximum, _BeforePercentage, _TargetMaximum, _Delta, _AppliedSum);
 
 PROC
-PROC_AESN_DeleteHpRecords((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+PROC_AESN_DeleteResolvedHpRecords((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
 AND
 DB_AESN_HpDesiredBit(_Combat, _Enemy, _Bit, _Status)
 THEN
 NOT DB_AESN_HpDesiredBit(_Combat, _Enemy, _Bit, _Status);
 
 PROC
-PROC_AESN_DeleteHpRecords((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+PROC_AESN_DeleteResolvedHpRecords((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
 AND
 DB_AESN_HpPlanQueued(_Combat, _Enemy)
 THEN
 NOT DB_AESN_HpPlanQueued(_Combat, _Enemy);
 
 PROC
-PROC_AESN_DeleteHpRecords((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+PROC_AESN_DeleteResolvedHpRecords((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
 AND
 DB_AESN_EnemyHpBit(_Combat, _Enemy, _Bit, _Status)
 THEN
 NOT DB_AESN_EnemyHpBit(_Combat, _Enemy, _Bit, _Status);
 
 PROC
-PROC_AESN_DeleteHpRecords((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+PROC_AESN_DeleteResolvedHpRecords((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
 AND
 DB_AESN_HpCleanup(_Combat, _Enemy, _CleanupCurrent, _CleanupMaximum, _CleanupPercentage)
 THEN
 NOT DB_AESN_HpCleanup(_Combat, _Enemy, _CleanupCurrent, _CleanupMaximum, _CleanupPercentage);
 
 PROC
-PROC_AESN_DeleteHpRecords((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+PROC_AESN_DeleteResolvedHpRecords((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
 AND
 DB_AESN_ComponentStarted(_Combat, _Enemy)
 THEN
 NOT DB_AESN_ComponentStarted(_Combat, _Enemy);
+
+// Total dispatch starts after desired data is complete.
+IF
+DB_AESN_HpPlanQueued(_Combat, _Enemy)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 2, "Planned", _, _, _, _, _Delta, 0)
+AND
+_Delta > 0
+AND
+NOT DB_AESN_HpApplicationHold(_Combat, _Enemy)
+AND
+NOT DB_AESN_MergeInProgress(_, _Combat)
+AND
+NOT DB_AESN_MergeInProgress(_Combat, _)
+THEN
+PROC_AESN_BeginHpTotalApply(_Combat, _Enemy);
+
+IF
+DB_AESN_HpPlanQueued(_Combat, _Enemy)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 2, "Planned", _, _, _, _, 0, 0)
+AND
+NOT DB_AESN_HpReplan(_Combat, _Enemy, 1, "ApplyingNew", _)
+AND
+NOT DB_AESN_HpApplicationHold(_Combat, _Enemy)
+AND
+NOT DB_AESN_MergeInProgress(_, _Combat)
+AND
+NOT DB_AESN_MergeInProgress(_Combat, _)
+THEN
+PROC_AESN_BeginHpTotalApply(_Combat, _Enemy);
+
+QRY
+QRY_AESN_HpTotalZeroClear((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+QRY_AESN_HpTotalOwnerAllowed(_Combat, _Enemy)
+AND
+NOT DB_AESN_EnemyHpTotal(_, _Enemy, _, _)
+AND
+NOT DB_AESN_HpTotalPending(_, _Enemy, _, _, _)
+AND
+NOT DB_AESN_HpTotalUncertain(_, _Enemy, _, _, _, _)
+AND
+NOT DB_AESN_HpTotalDesired(_Combat, _Enemy, _, _)
+THEN
+DB_NOOP(1);
+
+// Zero replacement owes the captured percentage's single final write.
+IF
+DB_AESN_HpPlanQueued(_Combat, _Enemy)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 2, "Planned", _, _Base, _, _Base, 0, 0)
+AND
+DB_AESN_HpReplan(_Combat, _Enemy, 1, "ApplyingNew", _Captured)
+AND
+QRY_AESN_HpTotalZeroClear(_Combat, _Enemy)
+AND
+NOT DB_AESN_HpApplicationHold(_Combat, _Enemy)
+AND
+NOT DB_AESN_HpFailure(_Combat, _Enemy, _)
+AND
+NOT DB_AESN_MergeInProgress(_, _Combat)
+AND
+NOT DB_AESN_MergeInProgress(_Combat, _)
+AND
+GetMaxHitpoints(_Enemy, _Base)
+AND
+GetHitpoints(_Enemy, _Current)
+AND
+_Current > 0
+AND
+IsDead(_Enemy, 0)
+THEN
+SetHitpointsPercentage(_Enemy, _Captured, "Guaranteed");
+PROC_AESN_BeginHpTotalApply(_Combat, _Enemy);
+
+PROC
+PROC_AESN_BeginHpReplanRemoval((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpReplan(_Combat, _Enemy, 1, "RemovingComponents", _Captured)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 2, "HPCommitted", _, _, _, _, _Delta, _Delta)
+AND
+_Delta > 0
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
+THEN
+PROC_AESN_SetHpReplanState(_Combat, _Enemy, "RemovingComponents", "RemovingHP");
+PROC_AESN_BeginHpTotalRemove(_Combat, _Enemy, "Replan");
+
+PROC
+PROC_AESN_BeginHpReplanRemoval((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpReplan(_Combat, _Enemy, 1, "RemovingComponents", _Captured)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 2, "HPCommitted", _, _Base, _, _Target, 0, 0)
+AND
+QRY_AESN_HpTotalZeroClear(_Combat, _Enemy)
+AND
+GetMaxHitpoints(_Enemy, _Base)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
+THEN
+PROC_AESN_SetHpReplanState(_Combat, _Enemy, "RemovingComponents", "RemovingHP");
+PROC_AESN_SetHpState(_Combat, _Enemy, "HPCommitted", "HpTotalRemoved", 0);
+
+// Consume the original replan capture only after backend removal verification.
+IF
+DB_AESN_HpTransaction(_Combat, _Enemy, 2, "HpTotalRemoved", _, _, _, _, _, 0)
+AND
+DB_AESN_HpReplan(_Combat, _Enemy, 1, "RemovingHP", _Captured)
+AND
+QRY_AESN_HpRecordsRetirable(_Combat, _Enemy)
+THEN
+PROC_AESN_SetHpReplanState(_Combat, _Enemy, "RemovingHP", "PlanningNew");
+PROC_AESN_ClearHpTotalPlan(_Combat, _Enemy);
+PROC_AESN_DeleteHpRecords(_Combat, _Enemy);
+PROC_AESN_PlanEnemyForReplan(_Enemy, _Combat, _Captured);
+
+PROC
+PROC_AESN_CleanupEnemy((CHARACTER)_Enemy, (GUIDSTRING)_Combat)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 2, _State, _, _, _, _, _, _)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
+THEN
+PROC_AESN_BeginHpTotalRemove(_Combat, _Enemy, "Cleanup");
+
+PROC
+PROC_AESN_CleanupEnemy((CHARACTER)_Enemy, (GUIDSTRING)_Combat)
+AND
+DB_AESN_HpTransaction(_Combat, _Enemy, 2, "HPCommitted", _, _Base, _, _Base, 0, 0)
+AND
+QRY_AESN_HpTotalZeroClear(_Combat, _Enemy)
+AND
+NOT DB_AESN_EnemyComponent(_Combat, _Enemy, _, _)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
+THEN
+PROC_AESN_DeleteHpRecords(_Combat, _Enemy);
+
+QRY
+QRY_AESN_HpRecordsRetirable((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+NOT DB_AESN_EnemyHpTotal(_, _Enemy, _, _)
+AND
+NOT DB_AESN_HpTotalPending(_, _Enemy, _, _, _)
+AND
+NOT DB_AESN_HpTotalUncertain(_, _Enemy, _, _, _, _)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_DeleteHpRecords((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+QRY_AESN_HpRecordsRetirable(_Combat, _Enemy)
+THEN
+PROC_AESN_RetireHpEligibility(_Combat, _Enemy);
+PROC_AESN_DeleteResolvedHpRecords(_Combat, _Enemy);
+
+PROC
+PROC_AESN_RetireHpEligibility((GUIDSTRING)_Combat, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyEligible(_Combat, _Enemy)
+THEN
+NOT DB_AESN_EnemyEligible(_Combat, _Enemy);
 
 EXITSECTION
 

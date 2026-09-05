@@ -1,0 +1,38 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+// Observation-only and disabled in repository sources. The sync tool may
+// enable this exact gate only for an explicitly staged acceptance build.
+NOT DB_AESN_BossPriorityHarnessEnabled(1);
+NOT DB_AESN_BossPriorityHarnessObserved((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+KBSECTION
+
+// The native query is not yet a production dependency. This proof observes
+// its result only after AES has independently completed Hardened ownership.
+IF
+DB_AESN_BossPriorityHarnessEnabled(1)
+AND
+DB_AESN_CombatHardenedReady(_Combat, _Enemy)
+AND
+IsBoss(_Enemy, 1)
+AND
+NOT DB_AESN_BossPriorityHarnessObserved(_Combat, _Enemy, _)
+THEN
+DB_AESN_BossPriorityHarnessObserved(_Combat, _Enemy, "Boss");
+DebugLog("AESN_BOSS_PRIORITY_PROOF PASS nativeIsBoss=1,hardenedReady=1");
+
+IF
+DB_AESN_BossPriorityHarnessEnabled(1)
+AND
+DB_AESN_CombatHardenedReady(_Combat, _Enemy)
+AND
+IsBoss(_Enemy, 0)
+AND
+NOT DB_AESN_BossPriorityHarnessObserved(_Combat, _Enemy, _)
+THEN
+DB_AESN_BossPriorityHarnessObserved(_Combat, _Enemy, "NonBoss");
+DebugLog("AESN_BOSS_PRIORITY_PROOF OBSERVE nativeIsBoss=0,hardenedReady=1");
+
+EXITSECTION
+
+ENDEXITSECTION

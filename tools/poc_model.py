@@ -47,6 +47,11 @@ class HpTransactionPlan:
     restored_current: int
     outcome: str
 
+    @property
+    def total_status(self) -> str | None:
+        """Exact representation-2 status; bits remain available for legacy readers."""
+        return f"AESN_HP_TOTAL_{self.delta}" if self.delta > 0 else None
+
 
 @dataclass(frozen=True)
 class HardenedRefreshPlan:
@@ -76,6 +81,20 @@ class ReloadDecision:
     action: str
     reason: str
     mutate: bool
+
+
+@dataclass(frozen=True)
+class RelentlessCandidate:
+    identity: str
+    priority: int
+    action_points: float = 1.0
+    bonus_action_points: float = 1.0
+
+
+@dataclass(frozen=True)
+class RelentlessRecipient:
+    identity: str
+    tier: int
 
 
 def _policy_from_summary(eligible_size: int, average_level: int) -> Policy:
@@ -169,6 +188,34 @@ def build_policy(levels: Iterable[int]) -> Policy:
         recipient_cap=policy.recipient_cap,
         clamped=policy.clamped,
     )
+
+
+def select_relentless_recipients(
+    candidates: Iterable[RelentlessCandidate],
+    *,
+    action_budget: int,
+    bonus_action_budget: int,
+    recipient_cap: int,
+) -> tuple[RelentlessRecipient, ...]:
+    """Allocate frozen Relentless budgets to highest-priority safe candidates."""
+    ordered = sorted(candidates, key=lambda candidate: candidate.priority, reverse=True)
+    recipients: list[RelentlessRecipient] = []
+    action_spent = 0
+    bonus_action_spent = 0
+
+    for candidate in ordered:
+        if action_spent >= action_budget or len(recipients) >= recipient_cap:
+            break
+        if candidate.action_points > 1.0 or candidate.bonus_action_points > 1.0:
+            continue
+
+        tier = 2 if bonus_action_spent < bonus_action_budget else 1
+        recipients.append(RelentlessRecipient(candidate.identity, tier))
+        action_spent += 1
+        if tier == 2:
+            bonus_action_spent += 1
+
+    return tuple(recipients)
 
 
 def target_maximum(base_maximum: int, policy: Policy) -> int:
@@ -324,7 +371,7 @@ def plan_hp_target(
     *,
     alive: bool,
 ) -> HpTransactionPlan:
-    """Validate one immutable target and derive its exact fork-owned bit plan."""
+    """Validate one immutable target and describe exact total and legacy bit representations."""
     values = (current, base_maximum, target)
     if any(not isinstance(value, int) or isinstance(value, bool) for value in values):
         raise PolicyError("HP values must be integers")

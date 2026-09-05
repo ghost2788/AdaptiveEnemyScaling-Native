@@ -12,6 +12,10 @@ NOT DB_AESN_CombatSnapshot((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000
 // rejects targets already above the normal 1/1 baseline.
 DB_AESN_RelentlessCapability(1);
 
+// New allocations use the reviewed exact-total representation. Existing
+// committed legacy rows are retained by reconciliation; this is not migration.
+DB_AESN_HpTotalIntegrationEnabled(1);
+
 NOT DB_AESN_DiagnosticOnce("");
 KBSECTION
 
@@ -35,6 +39,7 @@ IF
 SavegameLoaded()
 THEN
 DB_AESN_RelentlessCapability(1);
+DB_AESN_HpTotalIntegrationEnabled(1);
 
 PROC
 PROC_AESN_RecordDiagnostic((STRING)_Key)

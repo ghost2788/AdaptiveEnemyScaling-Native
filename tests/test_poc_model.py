@@ -177,6 +177,54 @@ class PocModelTests(unittest.TestCase):
                     tier_two,
                 )
 
+    def test_relentless_selection_gives_boss_first_claim_on_single_slot(self):
+        model = load_model(self)
+        if not hasattr(model, "select_relentless_recipients"):
+            self.fail("boss-priority Relentless allocator is missing")
+
+        recipients = model.select_relentless_recipients(
+            (
+                model.RelentlessCandidate("duergar_guard", priority=0),
+                model.RelentlessCandidate("nere", priority=2),
+            ),
+            action_budget=1,
+            bonus_action_budget=1,
+            recipient_cap=1,
+        )
+
+        self.assertEqual(
+            recipients,
+            (model.RelentlessRecipient("nere", tier=2),),
+        )
+
+    def test_relentless_selection_preserves_budget_and_resource_safety(self):
+        model = load_model(self)
+        if not hasattr(model, "select_relentless_recipients"):
+            self.fail("boss-priority Relentless allocator is missing")
+
+        recipients = model.select_relentless_recipients(
+            (
+                model.RelentlessCandidate(
+                    "boss_with_extra_action",
+                    priority=2,
+                    action_points=2.0,
+                ),
+                model.RelentlessCandidate("elite", priority=1),
+                model.RelentlessCandidate("normal", priority=0),
+            ),
+            action_budget=2,
+            bonus_action_budget=1,
+            recipient_cap=2,
+        )
+
+        self.assertEqual(
+            recipients,
+            (
+                model.RelentlessRecipient("elite", tier=2),
+                model.RelentlessRecipient("normal", tier=1),
+            ),
+        )
+
     def test_build_policy_rejects_empty_or_non_positive_levels(self):
         model = load_model(self)
 

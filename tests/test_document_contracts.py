@@ -39,7 +39,7 @@ class DocumentContracts(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn('value="Adaptive Enemy Scaling"', meta)
         self.assertIn('value="ghost2788"', meta)
-        self.assertIn('value="36028797018963973"', meta)
+        self.assertIn('value="36028797018963977"', meta)
 
     def test_upstream_hashes_are_exact(self):
         text = (ROOT / "UPSTREAM.md").read_text(encoding="utf-8")
@@ -1254,7 +1254,7 @@ class DocumentContracts(unittest.TestCase):
 
         self.assertIn("PROC_AESN_PlanEnemyForReplan", hp_plan)
         self.assertIn(
-            'DB_AESN_HpTransaction(_Combat, _Enemy, 1, "Planned", '
+            'PROC_AESN_StoreHpPlan(_Combat, _Enemy, '
             "_BeforeCurrent, _BeforeMaximum, _CapturedPercentage,",
             hp_plan,
         )

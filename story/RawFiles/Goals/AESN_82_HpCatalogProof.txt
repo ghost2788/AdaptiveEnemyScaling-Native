@@ -1,0 +1,582 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+// Qualification harness only. Checked-in source is deliberately disabled.
+NOT DB_AESN_HpCatalogEnabled(1);
+NOT DB_AESN_HpCatalogStarted(1);
+NOT DB_AESN_HpCatalogVersion(0);
+NOT DB_AESN_HpCatalogSpawn((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0);
+NOT DB_AESN_HpCatalogFixture((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0);
+NOT DB_AESN_HpCatalogState((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, 0, "");
+NOT DB_AESN_HpCatalogFillPending((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, 0);
+NOT DB_AESN_HpCatalogObservation((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, "", 0, 0, 0);
+NOT DB_AESN_HpCatalogFailure((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, "");
+DB_AESN_HpCatalogSample(0, "");
+DB_AESN_HpCatalogSample(1, "AESN_HP_TOTAL_1");
+DB_AESN_HpCatalogSample(111, "AESN_HP_TOTAL_111");
+DB_AESN_HpCatalogSample(32768, "AESN_HP_TOTAL_32768");
+DB_AESN_HpCatalogSample(65535, "AESN_HP_TOTAL_65535");
+DB_AESN_HpCatalogNext(0, 1);
+DB_AESN_HpCatalogNext(1, 111);
+DB_AESN_HpCatalogNext(111, 32768);
+DB_AESN_HpCatalogNext(32768, 65535);
+DB_AESN_HpCatalogNext(65535, -1);
+KBSECTION
+
+// Enable only a staged proof gate on a new, out-of-combat save.
+IF
+SavegameLoaded()
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+NOT DB_AESN_HpCatalogStarted(1)
+AND
+GetHostCharacter(_Host)
+AND
+IsInCombat(_Host, 0)
+THEN
+DB_AESN_HpCatalogStarted(1);
+DB_AESN_HpCatalogVersion(1);
+DB_AESN_HpCatalogSpawn(_Host, 0);
+RealtimeObjectTimerLaunch(_Host, "AESN_HP_CATALOG_SPAWN", 2000);
+
+IF
+ObjectTimerFinished((CHARACTER)_Anchor, "AESN_HP_CATALOG_SPAWN")
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogSpawn(_Anchor, _Amount)
+AND
+IsDead(_Anchor, 0)
+AND
+IsInCombat(_Anchor, 0)
+AND
+GetFaction(_Anchor, _Faction)
+AND
+CreateAtObject((CHARACTERROOT)Kobolds_Melee_Drunk_45e31b7d-32ec-4f3d-8067-79061aeec77b, _Anchor, 0, 1, "", 1, _Object)
+THEN
+NOT DB_AESN_HpCatalogSpawn(_Anchor, _Amount);
+PROC_AESN_HpCatalogSetup((CHARACTER)_Object, _Faction, _Amount);
+
+PROC
+PROC_AESN_HpCatalogSetup((CHARACTER)_NPC, (FACTION)_Faction, (INTEGER)_Amount)
+THEN
+SetFaction(_NPC, _Faction);
+SetCanFight(_NPC, 0);
+SetCanJoinCombat(_NPC, 0);
+DB_AESN_HpCatalogFixture(_NPC, _Amount);
+RealtimeObjectTimerLaunch(_NPC, "AESN_HP_CATALOG_BASELINE", 500);
+PROC_AESN_HpCatalogNextSpawn(_NPC, _Amount);
+
+PROC
+PROC_AESN_HpCatalogNextSpawn((CHARACTER)_NPC, (INTEGER)_Amount)
+AND
+DB_AESN_HpCatalogNext(_Amount, _NextAmount)
+AND
+_NextAmount >= 0
+THEN
+DB_AESN_HpCatalogSpawn(_NPC, _NextAmount);
+RealtimeObjectTimerLaunch(_NPC, "AESN_HP_CATALOG_SPAWN", 500);
+
+IF
+ObjectTimerFinished((CHARACTER)_NPC, "AESN_HP_CATALOG_BASELINE")
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogFixture(_NPC, _Amount)
+AND
+NOT DB_AESN_HpCatalogState(_NPC, _, _, _)
+AND
+NOT DB_AESN_HpCatalogFailure(_NPC, _Amount, _)
+AND
+IsInCombat(_NPC, 0)
+AND
+IsDead(_NPC, 1)
+THEN
+DB_AESN_HpCatalogFailure(_NPC, _Amount, "Baseline");
+
+IF
+ObjectTimerFinished((CHARACTER)_NPC, "AESN_HP_CATALOG_BASELINE")
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogFixture(_NPC, _Amount)
+AND
+NOT DB_AESN_HpCatalogState(_NPC, _, _, _)
+AND
+NOT DB_AESN_HpCatalogFailure(_NPC, _Amount, _)
+AND
+IsInCombat(_NPC, 0)
+AND
+IsDead(_NPC, 0)
+AND
+GetMaxHitpoints(_NPC, _Base)
+AND
+_Base <= 0
+THEN
+DB_AESN_HpCatalogFailure(_NPC, _Amount, "Baseline");
+
+IF
+ObjectTimerFinished((CHARACTER)_NPC, "AESN_HP_CATALOG_BASELINE")
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogFixture(_NPC, _Amount)
+AND
+NOT DB_AESN_HpCatalogState(_NPC, _, _, _)
+AND
+NOT DB_AESN_HpCatalogFailure(_NPC, _Amount, _)
+AND
+IsInCombat(_NPC, 0)
+AND
+IsDead(_NPC, 0)
+AND
+GetMaxHitpoints(_NPC, _Base)
+AND
+_Base > 0
+AND
+GetHitpoints(_NPC, _Current)
+AND
+_Current <= 0
+THEN
+DB_AESN_HpCatalogFailure(_NPC, _Amount, "Baseline");
+
+IF
+ObjectTimerFinished((CHARACTER)_NPC, "AESN_HP_CATALOG_BASELINE")
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogFixture(_NPC, _Amount)
+AND
+NOT DB_AESN_HpCatalogState(_NPC, _, _, _)
+AND
+NOT DB_AESN_HpCatalogFailure(_NPC, _Amount, _)
+AND
+IsInCombat(_NPC, 0)
+AND
+IsDead(_NPC, 0)
+AND
+GetMaxHitpoints(_NPC, _Base)
+AND
+_Base > 0
+AND
+GetHitpoints(_NPC, _Current)
+AND
+_Current > 0
+AND
+_Current != _Base
+THEN
+DB_AESN_HpCatalogFailure(_NPC, _Amount, "Baseline");
+
+IF
+ObjectTimerFinished((CHARACTER)_NPC, "AESN_HP_CATALOG_BASELINE")
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogFixture(_NPC, _Amount)
+AND
+NOT DB_AESN_HpCatalogState(_NPC, _, _, _)
+AND
+NOT DB_AESN_HpCatalogFailure(_NPC, _Amount, _)
+AND
+IsInCombat(_NPC, 0)
+AND
+IsDead(_NPC, 0)
+AND
+GetMaxHitpoints(_NPC, _Base)
+AND
+_Base > 0
+AND
+GetHitpoints(_NPC, _Current)
+AND
+_Current == _Base
+THEN
+DB_AESN_HpCatalogObservation(_NPC, _Amount, "Baseline", _Base, _Current, _Base);
+DB_AESN_HpCatalogState(_NPC, _Amount, _Base, "Applying");
+DB_AESN_HpCatalogFillPending(_NPC, _Amount, _Base);
+PROC_AESN_HpCatalogApply(_NPC, _Amount);
+
+PROC
+PROC_AESN_HpCatalogApply((CHARACTER)_NPC, (INTEGER)_Amount)
+AND
+NOT DB_AESN_HpCatalogSample(_Amount, _)
+THEN
+DB_AESN_HpCatalogFailure(_NPC, _Amount, "Unsupported");
+
+PROC
+PROC_AESN_HpCatalogApply((CHARACTER)_NPC, (INTEGER)_Amount)
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogFixture(_NPC, _Amount)
+AND
+DB_AESN_HpCatalogState(_NPC, _Amount, _, "Applying")
+AND
+NOT DB_AESN_HpCatalogFailure(_NPC, _Amount, _)
+AND
+IsDead(_NPC, 0)
+AND
+IsInCombat(_NPC, 0)
+AND
+DB_AESN_HpCatalogSample(_Amount, _Status)
+AND
+_Amount > 0
+THEN
+ApplyStatus(_NPC, _Status, -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+RealtimeObjectTimerLaunch(_NPC, "AESN_HP_CATALOG_SETTLE", 500);
+
+PROC
+PROC_AESN_HpCatalogApply((CHARACTER)_NPC, 0)
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogFixture(_NPC, 0)
+AND
+DB_AESN_HpCatalogState(_NPC, 0, _, "Applying")
+AND
+NOT DB_AESN_HpCatalogFailure(_NPC, 0, _)
+AND
+IsDead(_NPC, 0)
+AND
+IsInCombat(_NPC, 0)
+THEN
+RealtimeObjectTimerLaunch(_NPC, "AESN_HP_CATALOG_SETTLE", 500);
+
+IF
+ObjectTimerFinished((CHARACTER)_NPC, "AESN_HP_CATALOG_SETTLE")
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogState(_NPC, _Amount, _Base, "Applying")
+AND
+DB_AESN_HpCatalogFillPending(_NPC, _Amount, _Base)
+AND
+NOT DB_AESN_HpCatalogFailure(_NPC, _Amount, _)
+AND
+IsDead(_NPC, 1)
+THEN
+DB_AESN_HpCatalogFailure(_NPC, _Amount, "Settle");
+
+IF
+ObjectTimerFinished((CHARACTER)_NPC, "AESN_HP_CATALOG_SETTLE")
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogState(_NPC, _Amount, _Base, "Applying")
+AND
+DB_AESN_HpCatalogFillPending(_NPC, _Amount, _Base)
+AND
+NOT DB_AESN_HpCatalogFailure(_NPC, _Amount, _)
+AND
+IsDead(_NPC, 0)
+AND
+IsInCombat(_NPC, 0)
+AND
+GetHitpoints(_NPC, _Current)
+AND
+_Current <= 0
+THEN
+DB_AESN_HpCatalogFailure(_NPC, _Amount, "Settle");
+
+IF
+ObjectTimerFinished((CHARACTER)_NPC, "AESN_HP_CATALOG_SETTLE")
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogState(_NPC, _Amount, _Base, "Applying")
+AND
+DB_AESN_HpCatalogFillPending(_NPC, _Amount, _Base)
+AND
+NOT DB_AESN_HpCatalogFailure(_NPC, _Amount, _)
+AND
+IsDead(_NPC, 0)
+AND
+IsInCombat(_NPC, 0)
+AND
+GetHitpoints(_NPC, _Current)
+AND
+_Current > 0
+THEN
+NOT DB_AESN_HpCatalogFillPending(_NPC, _Amount, _Base);
+SetHitpointsPercentage(_NPC, 100.0, "Guaranteed");
+RealtimeObjectTimerLaunch(_NPC, "AESN_HP_CATALOG_APPLIED", 500);
+
+IF
+ObjectTimerFinished((CHARACTER)_NPC, "AESN_HP_CATALOG_APPLIED")
+THEN
+PROC_AESN_HpCatalogCheck(_NPC, "Applying", 1);
+
+// Inspect is the checkpoint: make separate saves/screenshots before reload.
+IF
+SavegameLoaded()
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogState(_NPC, _Amount, _Base, "Inspect")
+AND
+NOT DB_AESN_HpCatalogFailure(_NPC, _Amount, _)
+AND
+IsDead(_NPC, 0)
+AND
+IsInCombat(_NPC, 0)
+THEN
+NOT DB_AESN_HpCatalogState(_NPC, _Amount, _Base, "Inspect");
+DB_AESN_HpCatalogState(_NPC, _Amount, _Base, "Reloading");
+RealtimeObjectTimerLaunch(_NPC, "AESN_HP_CATALOG_RELOADED", 2000);
+
+IF
+ObjectTimerFinished((CHARACTER)_NPC, "AESN_HP_CATALOG_RELOADED")
+THEN
+PROC_AESN_HpCatalogCheck(_NPC, "Reloading", 1);
+
+IF
+ObjectTimerFinished((CHARACTER)_NPC, "AESN_HP_CATALOG_REMOVED")
+THEN
+PROC_AESN_HpCatalogCheck(_NPC, "Removing", 0);
+
+IF
+ObjectTimerFinished((CHARACTER)_NPC, "AESN_HP_CATALOG_CLEANED")
+THEN
+PROC_AESN_HpCatalogCheck(_NPC, "Cleaning", 0);
+
+PROC
+PROC_AESN_HpCatalogCheck((CHARACTER)_NPC, (STRING)_Phase, (INTEGER)_UseAmount)
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogState(_NPC, _Amount, _Base, _Phase)
+AND
+NOT DB_AESN_HpCatalogFailure(_NPC, _Amount, _)
+AND
+IsDead(_NPC, 0)
+AND
+IsInCombat(_NPC, 0)
+AND
+_UseAmount == 1
+AND
+IntegerSum(_Base, _Amount, _Expected)
+AND
+GetMaxHitpoints(_NPC, _Maximum)
+AND
+GetHitpoints(_NPC, _Current)
+THEN
+DB_AESN_HpCatalogObservation(_NPC, _Amount, _Phase, _Expected, _Current, _Maximum);
+
+PROC
+PROC_AESN_HpCatalogCheck((CHARACTER)_NPC, (STRING)_Phase, 0)
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogState(_NPC, _Amount, _Base, _Phase)
+AND
+NOT DB_AESN_HpCatalogFailure(_NPC, _Amount, _)
+AND
+IsDead(_NPC, 0)
+AND
+IsInCombat(_NPC, 0)
+AND
+GetMaxHitpoints(_NPC, _Maximum)
+AND
+GetHitpoints(_NPC, _Current)
+THEN
+DB_AESN_HpCatalogObservation(_NPC, _Amount, _Phase, _Base, _Current, _Maximum);
+
+// Every recorded observation is consumed; only the active phase may advance.
+IF
+DB_AESN_HpCatalogObservation(_NPC, _Amount, _Phase, _Expected, _Current, _Maximum)
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogState(_NPC, _Amount, _Base, _Phase)
+AND
+NOT DB_AESN_HpCatalogFailure(_NPC, _Amount, _)
+AND
+IsDead(_NPC, 0)
+AND
+IsInCombat(_NPC, 0)
+AND
+_Maximum != _Expected
+THEN
+DB_AESN_HpCatalogFailure(_NPC, _Amount, _Phase);
+
+IF
+DB_AESN_HpCatalogObservation(_NPC, _Amount, _Phase, _Expected, _Current, _Maximum)
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogState(_NPC, _Amount, _Base, _Phase)
+AND
+NOT DB_AESN_HpCatalogFailure(_NPC, _Amount, _)
+AND
+IsDead(_NPC, 0)
+AND
+IsInCombat(_NPC, 0)
+AND
+_Maximum == _Expected
+AND
+_Current != _Expected
+THEN
+DB_AESN_HpCatalogFailure(_NPC, _Amount, _Phase);
+
+IF
+DB_AESN_HpCatalogObservation(_NPC, _Amount, _Phase, _Expected, _Current, _Maximum)
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogState(_NPC, _Amount, _Base, _Phase)
+AND
+NOT DB_AESN_HpCatalogFailure(_NPC, _Amount, _)
+AND
+IsDead(_NPC, 0)
+AND
+IsInCombat(_NPC, 0)
+AND
+_Maximum == _Expected
+AND
+_Current == _Expected
+THEN
+PROC_AESN_HpCatalogAdvance(_NPC, _Amount, _Base, _Phase);
+
+PROC
+PROC_AESN_HpCatalogAdvance((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, "Applying")
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogState(_NPC, _Amount, _Base, "Applying")
+AND
+NOT DB_AESN_HpCatalogFailure(_NPC, _Amount, _)
+AND
+IsDead(_NPC, 0)
+AND
+IsInCombat(_NPC, 0)
+THEN
+NOT DB_AESN_HpCatalogState(_NPC, _Amount, _Base, "Applying");
+DB_AESN_HpCatalogState(_NPC, _Amount, _Base, "Inspect");
+DebugLog("AESN_HP_CATALOG INSPECT save and screenshot each fixture before reload");
+
+PROC
+PROC_AESN_HpCatalogAdvance((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, "Reloading")
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogState(_NPC, _Amount, _Base, "Reloading")
+AND
+NOT DB_AESN_HpCatalogFailure(_NPC, _Amount, _)
+AND
+IsDead(_NPC, 0)
+AND
+IsInCombat(_NPC, 0)
+THEN
+NOT DB_AESN_HpCatalogState(_NPC, _Amount, _Base, "Reloading");
+DB_AESN_HpCatalogState(_NPC, _Amount, _Base, "Removing");
+PROC_AESN_HpCatalogRemove(_NPC, _Amount);
+
+PROC
+PROC_AESN_HpCatalogRemove((CHARACTER)_NPC, (INTEGER)_Amount)
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogSample(_Amount, _Status)
+AND
+_Amount > 0
+AND
+IsDead(_NPC, 0)
+AND
+IsInCombat(_NPC, 0)
+THEN
+RemoveStatus(_NPC, _Status, NULL_00000000-0000-0000-0000-000000000000);
+RealtimeObjectTimerLaunch(_NPC, "AESN_HP_CATALOG_REMOVED", 500);
+
+PROC
+PROC_AESN_HpCatalogRemove((CHARACTER)_NPC, 0)
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+IsDead(_NPC, 0)
+AND
+IsInCombat(_NPC, 0)
+THEN
+RealtimeObjectTimerLaunch(_NPC, "AESN_HP_CATALOG_REMOVED", 500);
+
+PROC
+PROC_AESN_HpCatalogAdvance((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, "Removing")
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogState(_NPC, _Amount, _Base, "Removing")
+AND
+NOT DB_AESN_HpCatalogFailure(_NPC, _Amount, _)
+AND
+IsDead(_NPC, 0)
+AND
+IsInCombat(_NPC, 0)
+THEN
+NOT DB_AESN_HpCatalogState(_NPC, _Amount, _Base, "Removing");
+DB_AESN_HpCatalogState(_NPC, _Amount, _Base, "Cleaning");
+RealtimeObjectTimerLaunch(_NPC, "AESN_HP_CATALOG_CLEANED", 500);
+
+PROC
+PROC_AESN_HpCatalogAdvance((CHARACTER)_NPC, (INTEGER)_Amount, (INTEGER)_Base, "Cleaning")
+AND
+DB_AESN_HpCatalogEnabled(1)
+AND
+DB_AESN_HpCatalogVersion(1)
+AND
+DB_AESN_HpCatalogState(_NPC, _Amount, _Base, "Cleaning")
+AND
+NOT DB_AESN_HpCatalogFailure(_NPC, _Amount, _)
+AND
+IsDead(_NPC, 0)
+AND
+IsInCombat(_NPC, 0)
+THEN
+NOT DB_AESN_HpCatalogState(_NPC, _Amount, _Base, "Cleaning");
+DB_AESN_HpCatalogState(_NPC, _Amount, _Base, "Complete");
+DebugLog("AESN_HP_CATALOG PASS source-level observations recorded");
+
+EXITSECTION
+ENDEXITSECTION

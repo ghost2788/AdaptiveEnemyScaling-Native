@@ -1,0 +1,1784 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+NOT DB_AESN_HpMigrationHold((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, (GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_HpMigration((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "", 0, 0, 0, 0, "", 0);
+NOT DB_AESN_HpMigrationBit((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, "", "");
+NOT DB_AESN_HpMigrationCheckpoint((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "", 0, 0);
+NOT DB_AESN_HpMigrationConflict((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "");
+NOT DB_AESN_HpMigrationDeferred((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_HpMigrationEnabled(0);
+NOT DB_AESN_HpMigrationPause((CHARACTER)NULL_00000000-0000-0000-0000-000000000000);
+NOT DB_AESN_HpMigrationTrace((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, "", "", 0, 0, "", "", "", 0, 0);
+NOT DB_AESN_HpMigrationTraceSequence((CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0);
+NOT DB_AESN_HpMigrationComponent((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, "", "");
+NOT DB_AESN_HpMigrationPolicy((GUIDSTRING)NULL_00000000-0000-0000-0000-000000000000, (CHARACTER)NULL_00000000-0000-0000-0000-000000000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, "");
+KBSECTION
+// Task3A: OFF by default. No HP setter or caller-attested causal token exists.
+// Status acknowledgements are observations, not proof of absence of damage or
+// healing. ALL unclassified HP events conflict, including while AES is pending.
+// Pause is enemy-scoped and can only inhibit advancement, never bypass guards.
+// TotalPresent always stops at NativeCausalityUnqualified (Task3B/4A gate).
+
+QRY
+QRY_AESN_HpMigrationOwnerActive((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_WorldContext(_Owner)
+AND
+DB_AESN_WorldTracked(_Enemy)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationOwnerActive((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+NOT DB_AESN_WorldContext(_Owner)
+AND
+CombatIsActive(_Owner, 1)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationEnvironment((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+QRY_AESN_HpMigrationOwnerActive(_Owner, _Enemy)
+AND
+NOT DB_Is_InCombat(_Enemy, _)
+AND
+NOT DB_AESN_HpReplan(_, _Enemy, _, _, _)
+AND
+NOT DB_AESN_HpCleanup(_, _Enemy, _, _, _)
+AND
+NOT DB_AESN_HpPendingApply(_, _Enemy, _, _, _)
+AND
+NOT DB_AESN_HpPendingRemove(_, _Enemy, _, _, _, _)
+AND
+NOT DB_AESN_HpTotalRemoval(_, _Enemy, _, _, _, _, _)
+AND
+NOT DB_AESN_MergeReplanRequired(_, _Enemy)
+AND
+NOT DB_AESN_MergeInProgress(_Owner, _)
+AND
+NOT DB_AESN_MergeInProgress(_, _Owner)
+AND
+NOT DB_AESN_CombatCleanupRequested(_Owner)
+AND
+NOT DB_AESN_WorldCleanupRequested(_Enemy)
+AND
+NOT DB_AESN_HpApplicationHold(_, _Enemy)
+AND
+NOT DB_AESN_ComponentPendingApply(_, _Enemy, _, _)
+AND
+NOT DB_AESN_ComponentPendingRemove(_, _Enemy, _, _)
+AND
+NOT DB_AESN_HpFailure(_, _Enemy, _)
+AND
+NOT QRY_AESN_HpTransferConflict(_Owner, _Enemy)
+AND
+DB_AESN_ComponentApplication(_Owner, _Enemy, 1, "FullyCommitted")
+AND
+NOT QRY_AESN_HpMigrationUnstableComponents(_Owner, _Enemy)
+AND
+GetHitpoints(_Enemy, _Current)
+AND
+_Current > 0
+AND
+IsDead(_Enemy, 0)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationBadBit((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyHpBit(_Owner, _Enemy, _Bit, _Status)
+AND
+NOT DB_AESN_HpBitOrder(_, _Bit, _Status)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationBadBit((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyHpBit(_Owner, _Enemy, _, _Status)
+AND
+NOT HasActiveStatus(_Enemy, _Status, 1)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationBadBit((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpBitOrder(_, _Bit, _Status)
+AND
+HasActiveStatus(_Enemy, _Status, 1)
+AND
+NOT DB_AESN_EnemyHpBit(_Owner, _Enemy, _Bit, _Status)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationBadComponent((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyComponent(_Owner, _Enemy, _, _Status)
+AND
+NOT HasActiveStatus(_Enemy, _Status, 1)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationAmbiguous((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, _Value, _, _, _, _, _, _, _)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, _Other, _, _, _, _, _, _, _)
+AND
+_Value != _Other
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationAmbiguous((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, _, _Value, _, _, _, _, _, _)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, _, _Other, _, _, _, _, _, _)
+AND
+_Value != _Other
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationAmbiguous((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, _, _, _Value, _, _, _, _, _)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, _, _, _Other, _, _, _, _, _)
+AND
+_Value != _Other
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationAmbiguous((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, _, _, _, _Value, _, _, _, _)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, _, _, _, _Other, _, _, _, _)
+AND
+_Value != _Other
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationAmbiguous((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, _, _, _, _, _Value, _, _, _)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, _, _, _, _, _Other, _, _, _)
+AND
+_Value != _Other
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationAmbiguous((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, _, _, _, _, _, _Value, _, _)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, _, _, _, _, _, _Other, _, _)
+AND
+_Value != _Other
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationAmbiguous((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, _, _, _, _, _, _, _Value, _)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, _, _, _, _, _, _, _Other, _)
+AND
+_Value != _Other
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationAmbiguous((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, _, _, _, _, _, _, _, _Value)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, _, _, _, _, _, _, _, _Other)
+AND
+_Value != _Other
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_TryHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationEnabled(1)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 1, "HPCommitted", _, _, _, _, _, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
+THEN
+DB_AESN_HpMigrationDeferred(_Owner, _Enemy);
+PROC_AESN_ValidateHpMigration(_Owner, _Enemy);
+
+PROC
+PROC_AESN_ValidateHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 1, "HPCommitted", _Before, _Base, _Percentage, _Maximum, _Delta, _Delta)
+AND
+_Base > 0
+AND
+_Delta >= 0
+AND
+_Delta <= 65535
+AND
+IntegerSum(_Base, _Delta, _Maximum)
+AND
+GetMaxHitpoints(_Enemy, _Maximum)
+AND
+GetHitpoints(_Enemy, _Current)
+AND
+_Current <= _Maximum
+AND
+DB_AESN_CombatSnapshotV2(_Owner, 2, _Size, _Effective, _Sum, _Average, _Tier, _Percent, _Action, _Bonus, _Cap, "Supported")
+AND
+QRY_AESN_HpMigrationEnvironment(_Owner, _Enemy)
+AND
+NOT QRY_AESN_HpMigrationAmbiguous(_Owner, _Enemy)
+AND
+NOT QRY_AESN_HpMigrationBadBit(_Owner, _Enemy)
+AND
+NOT QRY_AESN_HpMigrationBadComponent(_Owner, _Enemy)
+AND
+NOT DB_AESN_EnemyHpTotal(_, _Enemy, _, _)
+AND
+NOT DB_AESN_HpTotalDesired(_, _Enemy, _, _)
+AND
+NOT DB_AESN_HpTotalPending(_, _Enemy, _, _, _)
+AND
+NOT DB_AESN_HpTotalUncertain(_, _Enemy, _, _, _, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+THEN
+PROC_AESN_SumHpMigrationBits(_Owner, _Enemy, 15, 0);
+
+PROC
+PROC_AESN_SumHpMigrationBits((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (INTEGER)_Index, (INTEGER)_Sum)
+AND
+_Index >= 0
+AND
+DB_AESN_HpBitOrder(_Index, _Bit, _Status)
+AND
+DB_AESN_EnemyHpBit(_Owner, _Enemy, _Bit, _Status)
+AND
+IntegerSum(_Sum, _Bit, _NextSum)
+AND
+IntegerSubtract(_Index, 1, _Next)
+THEN
+PROC_AESN_SumHpMigrationBits(_Owner, _Enemy, _Next, _NextSum);
+
+PROC
+PROC_AESN_SumHpMigrationBits((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (INTEGER)_Index, (INTEGER)_Sum)
+AND
+_Index >= 0
+AND
+DB_AESN_HpBitOrder(_Index, _Bit, _Status)
+AND
+NOT DB_AESN_EnemyHpBit(_Owner, _Enemy, _Bit, _Status)
+AND
+IntegerSubtract(_Index, 1, _Next)
+THEN
+PROC_AESN_SumHpMigrationBits(_Owner, _Enemy, _Next, _Sum);
+
+PROC
+PROC_AESN_SumHpMigrationBits((GUIDSTRING)_Owner, (CHARACTER)_Enemy, -1, (INTEGER)_OwnedSum)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 1, "HPCommitted", _Before, _Base, _Percentage, _Maximum, _Delta, _Delta)
+AND
+_Base > 0
+AND
+_Delta >= 0
+AND
+_Delta <= 65535
+AND
+IntegerSum(_Base, _Delta, _Maximum)
+AND
+GetMaxHitpoints(_Enemy, _Maximum)
+AND
+GetHitpoints(_Enemy, _Current)
+AND
+_Current <= _Maximum
+AND
+DB_AESN_CombatSnapshotV2(_Owner, 2, _Size, _Effective, _Sum, _Average, _Tier, _Percent, _Action, _Bonus, _Cap, "Supported")
+AND
+QRY_AESN_HpMigrationEnvironment(_Owner, _Enemy)
+AND
+NOT QRY_AESN_HpMigrationAmbiguous(_Owner, _Enemy)
+AND
+NOT QRY_AESN_HpMigrationBadBit(_Owner, _Enemy)
+AND
+NOT QRY_AESN_HpMigrationBadComponent(_Owner, _Enemy)
+AND
+NOT DB_AESN_EnemyHpTotal(_, _Enemy, _, _)
+AND
+NOT DB_AESN_HpTotalDesired(_, _Enemy, _, _)
+AND
+NOT DB_AESN_HpTotalPending(_, _Enemy, _, _, _)
+AND
+NOT DB_AESN_HpTotalUncertain(_, _Enemy, _, _, _, _)
+AND
+NOT DB_AESN_HpMigration(_, _Enemy, _, _, _, _, _, _, _)
+AND
+NOT DB_AESN_HpMigrationHold(_Enemy, _)
+AND
+_OwnedSum == _Delta
+THEN
+PROC_AESN_CaptureHpMigration(_Owner, _Enemy);
+
+PROC
+PROC_AESN_CaptureHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 1, "HPCommitted", _Before, _Base, _Percentage, _Maximum, _Delta, _Delta)
+AND
+_Delta == 0
+AND
+NOT DB_AESN_EnemyHpBit(_, _Enemy, _, _)
+THEN
+DB_AESN_HpMigrationHold(_Enemy, _Owner);
+NOT DB_AESN_HpTransaction(_Owner, _Enemy, 1, "HPCommitted", _Before, _Base, _Percentage, _Maximum, _Delta, _Delta);
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, "HPCommitted", _Before, _Base, _Percentage, _Maximum, 0, 0);
+NOT DB_AESN_HpMigrationDeferred(_Owner, _Enemy);
+NOT DB_AESN_HpMigrationHold(_Enemy, _Owner);
+
+PROC
+PROC_AESN_CaptureHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 1, "HPCommitted", _Before, _Base, _Percentage, _Maximum, _Delta, _Delta)
+AND
+_Delta > 0
+AND
+ConcatenateInteger("AESN_HP_TOTAL_", _Delta, _Total)
+AND
+HasActiveStatus(_Enemy, _Total, 0)
+AND
+NOT DB_AESN_HpTotalRetired(_Enemy, _Total)
+AND
+GetHitpoints(_Enemy, _Captured)
+THEN
+DB_AESN_HpMigrationHold(_Enemy, _Owner);
+PROC_AESN_EnsureHpTotalEpoch(_Enemy);
+PROC_AESN_StoreHpMigration(_Owner, _Enemy, _Captured, _Maximum, _Base, _Delta, _Total);
+
+PROC
+PROC_AESN_StoreHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (INTEGER)_Captured, (INTEGER)_Maximum, (INTEGER)_Base, (INTEGER)_Delta, (STRING)_Total)
+AND
+DB_AESN_HpTotalEpoch(_Enemy, _Epoch)
+THEN
+DB_AESN_HpMigration(_Owner, _Enemy, "Captured", _Captured, _Maximum, _Base, _Delta, _Total, _Epoch);
+DB_AESN_HpMigrationCheckpoint(_Owner, _Enemy, "Captured", _Captured, _Maximum);
+PROC_AESN_FreezeHpMigrationBits(_Owner, _Enemy);
+PROC_AESN_FreezeHpMigrationContext(_Owner, _Enemy);
+PROC_AESN_SetHpState(_Owner, _Enemy, "HPCommitted", "Migrating", _Delta);
+NOT DB_AESN_HpMigrationDeferred(_Owner, _Enemy);
+PROC_AESN_AdvanceHpMigration(_Owner, _Enemy);
+
+PROC
+PROC_AESN_FreezeHpMigrationBits((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyHpBit(_Owner, _Enemy, _Bit, _Status)
+THEN
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, "Owned");
+
+PROC
+PROC_AESN_FreezeHpMigrationContext((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_CombatSnapshotV2(_Owner, 2, _Size, _Effective, _Sum, _Average, _Tier, _Percent, _Action, _Bonus, _Cap, "Supported")
+THEN
+DB_AESN_HpMigrationPolicy(_Owner, _Enemy, _Size, _Effective, _Sum, _Average, _Tier, _Percent, _Action, _Bonus, _Cap, "Supported");
+
+PROC
+PROC_AESN_FreezeHpMigrationContext((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyComponent(_Owner, _Enemy, _Kind, _Status)
+THEN
+DB_AESN_HpMigrationComponent(_Owner, _Enemy, _Kind, _Status);
+
+QRY
+QRY_AESN_HpMigrationContextExact((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationPolicy(_Owner, _Enemy, _Size, _Effective, _Sum, _Average, _Tier, _Percent, _Action, _Bonus, _Cap, "Supported")
+AND
+DB_AESN_CombatSnapshotV2(_Owner, 2, _Size, _Effective, _Sum, _Average, _Tier, _Percent, _Action, _Bonus, _Cap, "Supported")
+AND
+NOT QRY_AESN_HpMigrationComponentChanged(_Owner, _Enemy)
+AND
+QRY_AESN_HpMigrationEnvironment(_Owner, _Enemy)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationComponentChanged((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationComponent(_Owner, _Enemy, _Kind, _Status)
+AND
+NOT DB_AESN_EnemyComponent(_Owner, _Enemy, _Kind, _Status)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationComponentChanged((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyComponent(_Owner, _Enemy, _Kind, _Status)
+AND
+NOT DB_AESN_HpMigrationComponent(_Owner, _Enemy, _Kind, _Status)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationComponentChanged((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+QRY_AESN_HpMigrationBadComponent(_Owner, _Enemy)
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_DispatchHpMigrationAdvance((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+AND
+DB_AESN_HpMigrationHold(_Enemy, _Owner)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 1, "Migrating", _, _Base, _, _Maximum, _Delta, _Delta)
+AND
+NOT DB_AESN_HpMigrationConflict(_Owner, _Enemy, _)
+AND
+NOT DB_AESN_HpTotalUncertain(_, _Enemy, _, _, _, _)
+AND
+QRY_AESN_HpMigrationContextExact(_Owner, _Enemy)
+AND
+NOT DB_AESN_HpMigrationPause(_Enemy)
+AND
+NOT DB_AESN_HpTotalPending(_, _Enemy, _, _, _)
+AND
+_Phase == "Captured"
+AND
+GetHitpoints(_Enemy, _Captured)
+AND
+GetMaxHitpoints(_Enemy, _Maximum)
+AND
+NOT QRY_AESN_HpMigrationBadBit(_Owner, _Enemy)
+THEN
+PROC_AESN_SetHpMigrationPhase(_Owner, _Enemy, "Captured", "RemovingLegacy");
+PROC_AESN_RemoveNextMigrationBit(_Owner, _Enemy, 15);
+
+PROC
+PROC_AESN_DispatchHpMigrationAdvance((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+AND
+DB_AESN_HpMigrationHold(_Enemy, _Owner)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 1, "Migrating", _, _Base, _, _Maximum, _Delta, _Delta)
+AND
+NOT DB_AESN_HpMigrationConflict(_Owner, _Enemy, _)
+AND
+NOT DB_AESN_HpTotalUncertain(_, _Enemy, _, _, _, _)
+AND
+QRY_AESN_HpMigrationContextExact(_Owner, _Enemy)
+AND
+NOT DB_AESN_HpMigrationPause(_Enemy)
+AND
+NOT DB_AESN_HpTotalPending(_, _Enemy, _, _, _)
+AND
+_Phase == "RemovingLegacy"
+AND
+QRY_AESN_HpMigrationQuiescentCurrentExact(_Owner, _Enemy)
+THEN
+PROC_AESN_RemoveNextMigrationBit(_Owner, _Enemy, 15);
+
+PROC
+PROC_AESN_SetHpMigrationPhase((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Old, (STRING)_New)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Old, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+THEN
+NOT DB_AESN_HpMigration(_Owner, _Enemy, _Old, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch);
+DB_AESN_HpMigration(_Owner, _Enemy, _New, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch);
+PROC_AESN_RecordHpMigrationCheckpoint(_Owner, _Enemy, _New);
+
+PROC
+PROC_AESN_RecordHpMigrationCheckpoint((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Phase)
+AND
+GetHitpoints(_Enemy, _Current)
+AND
+GetMaxHitpoints(_Enemy, _Maximum)
+THEN
+DB_AESN_HpMigrationCheckpoint(_Owner, _Enemy, _Phase, _Current, _Maximum);
+PROC_AESN_TraceHpMigration(_Owner, _Enemy, "Checkpoint", _Phase);
+
+PROC
+PROC_AESN_RemoveNextMigrationBit((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (INTEGER)_Index)
+AND
+_Index >= 0
+AND
+DB_AESN_HpBitOrder(_Index, _Bit, _Status)
+AND
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, "Owned")
+AND
+DB_AESN_EnemyHpBit(_Owner, _Enemy, _Bit, _Status)
+AND
+HasActiveStatus(_Enemy, _Status, 1)
+AND
+NOT DB_AESN_HpTotalPending(_, _Enemy, _, _, _)
+THEN
+NOT DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, "Owned");
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, "PendingRemove");
+PROC_AESN_StartHpTotalOperation(_Owner, _Enemy, "MigrationRemoveLegacy", _Status);
+
+PROC
+PROC_AESN_RemoveNextMigrationBit((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (INTEGER)_Index)
+AND
+_Index >= 0
+AND
+DB_AESN_HpBitOrder(_Index, _Bit, _Status)
+AND
+NOT DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, "Owned")
+AND
+NOT DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, "PendingRemove")
+AND
+IntegerSubtract(_Index, 1, _Next)
+THEN
+PROC_AESN_RemoveNextMigrationBit(_Owner, _Enemy, _Next);
+
+PROC
+PROC_AESN_RemoveNextMigrationBit((GUIDSTRING)_Owner, (CHARACTER)_Enemy, -1)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+AND
+DB_AESN_HpMigrationHold(_Enemy, _Owner)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 1, "Migrating", _, _Base, _, _Maximum, _Delta, _Delta)
+AND
+NOT DB_AESN_HpMigrationConflict(_Owner, _Enemy, _)
+AND
+NOT DB_AESN_HpTotalUncertain(_, _Enemy, _, _, _, _)
+AND
+QRY_AESN_HpMigrationContextExact(_Owner, _Enemy)
+AND
+_Phase == "RemovingLegacy"
+AND
+NOT DB_AESN_EnemyHpBit(_, _Enemy, _, _)
+AND
+NOT DB_AESN_HpTotalPending(_, _Enemy, _, _, _)
+AND
+GetMaxHitpoints(_Enemy, _Base)
+THEN
+PROC_AESN_SetHpMigrationPhase(_Owner, _Enemy, "RemovingLegacy", "LegacyRemoved");
+PROC_AESN_AdvanceHpMigration(_Owner, _Enemy);
+
+PROC
+PROC_AESN_DispatchHpMigrationAdvance((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+AND
+DB_AESN_HpMigrationHold(_Enemy, _Owner)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 1, "Migrating", _, _Base, _, _Maximum, _Delta, _Delta)
+AND
+NOT DB_AESN_HpMigrationConflict(_Owner, _Enemy, _)
+AND
+NOT DB_AESN_HpTotalUncertain(_, _Enemy, _, _, _, _)
+AND
+QRY_AESN_HpMigrationContextExact(_Owner, _Enemy)
+AND
+_Phase == "LegacyRemoved"
+AND
+NOT DB_AESN_HpMigrationPause(_Enemy)
+AND
+NOT DB_AESN_EnemyHpBit(_, _Enemy, _, _)
+AND
+NOT DB_AESN_HpTotalPending(_, _Enemy, _, _, _)
+AND
+NOT DB_AESN_EnemyHpTotal(_, _Enemy, _, _)
+AND
+HasActiveStatus(_Enemy, _Total, 0)
+AND
+GetMaxHitpoints(_Enemy, _Base)
+AND
+QRY_AESN_HpMigrationQuiescentCurrentExact(_Owner, _Enemy)
+THEN
+PROC_AESN_SetHpMigrationPhase(_Owner, _Enemy, "LegacyRemoved", "ApplyingTotal");
+PROC_AESN_StartHpTotalOperation(_Owner, _Enemy, "MigrationApplyTotal", _Total);
+
+PROC
+PROC_AESN_IssueHpTotalOperation((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "MigrationRemoveLegacy", (STRING)_Status)
+AND
+DB_AESN_HpMigrationHold(_Enemy, _Owner)
+AND
+DB_AESN_HpTotalPending(_Owner, _Enemy, "MigrationRemoveLegacy", _Status, _)
+AND
+NOT DB_AESN_HpMigrationConflict(_Owner, _Enemy, _)
+THEN
+PROC_AESN_TraceHpMigration(_Owner, _Enemy, "NativeRequest", _Status);
+RemoveStatus(_Enemy, _Status, NULL_00000000-0000-0000-0000-000000000000);
+
+PROC
+PROC_AESN_IssueHpTotalOperation((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "MigrationApplyTotal", (STRING)_Status)
+AND
+DB_AESN_HpMigrationHold(_Enemy, _Owner)
+AND
+DB_AESN_HpTotalPending(_Owner, _Enemy, "MigrationApplyTotal", _Status, _)
+AND
+NOT DB_AESN_HpMigrationConflict(_Owner, _Enemy, _)
+THEN
+PROC_AESN_TraceHpMigration(_Owner, _Enemy, "NativeRequest", _Status);
+ApplyStatus(_Enemy, _Status, -1.0, 1, NULL_00000000-0000-0000-0000-000000000000);
+
+IF
+StatusRemoved((GUIDSTRING)_Object, _Status, _Cause, _Action)
+AND
+DB_AESN_HpMigration(_Owner, (CHARACTER)_Object, _, _, _, _, _, _, _)
+THEN
+PROC_AESN_TraceNativeHpMigration(_Owner, (CHARACTER)_Object, "StatusRemoved", _Status, _Action);
+PROC_AESN_RouteMigrationStatus(_Owner, (CHARACTER)_Object, "StatusRemoved", _Status);
+
+IF
+StatusApplied((GUIDSTRING)_Object, _Status, _Cause, _Action)
+AND
+DB_AESN_HpMigration(_Owner, (CHARACTER)_Object, _, _, _, _, _, _, _)
+THEN
+PROC_AESN_TraceNativeHpMigration(_Owner, (CHARACTER)_Object, "StatusApplied", _Status, _Action);
+PROC_AESN_RouteMigrationStatus(_Owner, (CHARACTER)_Object, "StatusApplied", _Status);
+
+PROC
+PROC_AESN_AcknowledgeMigrationRemove((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Status, (INTEGER)_OperationEpoch)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+AND
+DB_AESN_HpMigrationHold(_Enemy, _Owner)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 1, "Migrating", _, _Base, _, _Maximum, _Delta, _Delta)
+AND
+NOT DB_AESN_HpMigrationConflict(_Owner, _Enemy, _)
+AND
+NOT DB_AESN_HpTotalUncertain(_, _Enemy, _, _, _, _)
+AND
+QRY_AESN_HpMigrationContextExact(_Owner, _Enemy)
+AND
+_Phase == "RemovingLegacy"
+AND
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, "PendingRemove")
+AND
+DB_AESN_HpTotalPending(_Owner, _Enemy, "MigrationRemoveLegacy", _Status, _OperationEpoch)
+AND
+HasActiveStatus(_Enemy, _Status, 0)
+AND
+DB_AESN_EnemyHpBit(_Owner, _Enemy, _Bit, _Status)
+AND
+QRY_AESN_HpMigrationJournalExact(_Owner, _Enemy)
+AND
+NOT QRY_AESN_HpMigrationLiveBitsChanged(_Owner, _Enemy)
+AND
+QRY_AESN_HpMigrationMaximumExact(_Owner, _Enemy, _Bit)
+THEN
+NOT DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, "PendingRemove");
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, "Removed");
+NOT DB_AESN_EnemyHpBit(_Owner, _Enemy, _Bit, _Status);
+PROC_AESN_ClearHpTotalPending(_Owner, _Enemy, "MigrationRemoveLegacy", _Status, _OperationEpoch);
+PROC_AESN_RecordHpMigrationCheckpoint(_Owner, _Enemy, _Status);
+PROC_AESN_AdvanceHpMigration(_Owner, _Enemy);
+
+PROC
+PROC_AESN_AcknowledgeMigrationTotal((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Status, (INTEGER)_OperationEpoch)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+AND
+DB_AESN_HpMigrationHold(_Enemy, _Owner)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 1, "Migrating", _, _Base, _, _Maximum, _Delta, _Delta)
+AND
+NOT DB_AESN_HpMigrationConflict(_Owner, _Enemy, _)
+AND
+NOT DB_AESN_HpTotalUncertain(_, _Enemy, _, _, _, _)
+AND
+QRY_AESN_HpMigrationContextExact(_Owner, _Enemy)
+AND
+_Phase == "ApplyingTotal"
+AND
+_Status == _Total
+AND
+DB_AESN_HpTotalPending(_Owner, _Enemy, "MigrationApplyTotal", _Status, _OperationEpoch)
+AND
+HasActiveStatus(_Enemy, _Total, 1)
+AND
+GetMaxHitpoints(_Enemy, _Maximum)
+AND
+NOT DB_AESN_EnemyHpBit(_, _Enemy, _, _)
+AND
+NOT DB_AESN_EnemyHpTotal(_, _Enemy, _, _)
+AND
+QRY_AESN_HpMigrationJournalExact(_Owner, _Enemy)
+AND
+NOT QRY_AESN_HpMigrationLiveBitsChanged(_Owner, _Enemy)
+THEN
+PROC_AESN_ClearHpTotalPending(_Owner, _Enemy, "MigrationApplyTotal", _Status, _OperationEpoch);
+PROC_AESN_SetHpMigrationPhase(_Owner, _Enemy, "ApplyingTotal", "TotalPresent");
+PROC_AESN_ConflictHpMigration(_Owner, _Enemy, "NativeCausalityUnqualified");
+
+PROC
+PROC_AESN_ConflictHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Reason)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+THEN
+DB_AESN_HpMigrationHold(_Enemy, _Owner);
+DB_AESN_HpMigrationConflict(_Owner, _Enemy, _Reason);
+
+IF
+EnteredCombat((GUIDSTRING)_Object, _Combat)
+AND
+DB_AESN_HpMigration(_Owner, (CHARACTER)_Object, _, _, _, _, _, _, _)
+THEN
+PROC_AESN_TraceHpMigration(_Owner, (CHARACTER)_Object, "CombatEntered", "");
+PROC_AESN_ConflictHpMigration(_Owner, (CHARACTER)_Object, "CombatEntered");
+
+IF
+Dying((CHARACTER)_Object)
+AND
+DB_AESN_HpMigration(_Owner, (CHARACTER)_Object, _, _, _, _, _, _, _)
+THEN
+PROC_AESN_TraceHpMigration(_Owner, (CHARACTER)_Object, "Dying", "");
+PROC_AESN_ConflictHpMigration(_Owner, (CHARACTER)_Object, "Dying");
+
+IF
+Died((CHARACTER)_Object)
+AND
+DB_AESN_HpMigration(_Owner, (CHARACTER)_Object, _, _, _, _, _, _, _)
+THEN
+PROC_AESN_TraceHpMigration(_Owner, (CHARACTER)_Object, "Died", "");
+PROC_AESN_ConflictHpMigration(_Owner, (CHARACTER)_Object, "Died");
+
+IF
+HitpointsChanged((GUIDSTRING)_Object, _Percentage)
+AND
+DB_AESN_HpMigration(_Owner, (CHARACTER)_Object, _, _, _, _, _, _, _)
+THEN
+PROC_AESN_TraceHpMigration(_Owner, (CHARACTER)_Object, "UncertainNativeEvent", "");
+PROC_AESN_ConflictHpMigration(_Owner, (CHARACTER)_Object, "UncertainNativeEvent");
+
+IF
+AttackedBy((CHARACTER)_Object, _OwnerOfAttack, _Attacker, _DamageType, _Damage, _Cause, _Action)
+AND
+_Damage > 0
+AND
+DB_AESN_HpMigration(_Owner, _Object, _, _, _, _, _, _, _)
+THEN
+PROC_AESN_TraceHpMigration(_Owner, _Object, "DamageObserved", "");
+PROC_AESN_ConflictHpMigration(_Owner, _Object, "DamageObserved");
+
+IF
+DB_AESN_HpTotalUncertain(_Owner, _Enemy, _Operation, _Status, _Epoch, _Reason)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _, _, _, _, _, _)
+THEN
+PROC_AESN_ConflictHpMigration(_Owner, _Enemy, _Reason);
+
+PROC
+PROC_AESN_RecoverHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+AND
+_Phase == "Captured"
+AND
+DB_AESN_HpMigrationHold(_Enemy, _Owner)
+AND
+NOT DB_AESN_HpMigrationConflict(_Owner, _Enemy, _)
+AND
+NOT DB_AESN_HpTotalPending(_, _Enemy, _, _, _)
+AND
+NOT DB_AESN_HpTotalUncertain(_, _Enemy, _, _, _, _)
+AND
+GetHitpoints(_Enemy, _Captured)
+AND
+GetMaxHitpoints(_Enemy, _Maximum)
+AND
+HasActiveStatus(_Enemy, _Total, 0)
+AND
+QRY_AESN_HpMigrationContextExact(_Owner, _Enemy)
+AND
+NOT QRY_AESN_HpMigrationBadBit(_Owner, _Enemy)
+AND
+NOT QRY_AESN_HpMigrationFrozenChanged(_Owner, _Enemy)
+AND
+NOT DB_AESN_HpMigrationBit(_Owner, _Enemy, _, _, "PendingRemove")
+AND
+NOT DB_AESN_HpMigrationBit(_Owner, _Enemy, _, _, "Removed")
+AND
+QRY_AESN_HpMigrationJournalExact(_Owner, _Enemy)
+THEN
+PROC_AESN_SetHpState(_Owner, _Enemy, "Migrating", "HPCommitted", _Delta);
+PROC_AESN_RetireHpMigration(_Owner, _Enemy);
+
+QRY
+QRY_AESN_HpMigrationFrozenChanged((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, "Owned")
+AND
+NOT DB_AESN_EnemyHpBit(_Owner, _Enemy, _Bit, _Status)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationFrozenChanged((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyHpBit(_Owner, _Enemy, _Bit, _Status)
+AND
+NOT DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, "Owned")
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_RecoverHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+AND
+_Phase == "Verified"
+AND
+QRY_AESN_HpMigrationJournalExact(_Owner, _Enemy)
+AND
+QRY_AESN_HpMigrationContextExact(_Owner, _Enemy)
+AND
+DB_AESN_HpMigrationHold(_Enemy, _Owner)
+AND
+NOT DB_AESN_HpMigrationConflict(_Owner, _Enemy, _)
+AND
+NOT DB_AESN_HpTotalPending(_, _Enemy, _, _, _)
+AND
+NOT DB_AESN_HpTotalUncertain(_, _Enemy, _, _, _, _)
+AND
+NOT DB_AESN_EnemyHpBit(_, _Enemy, _, _)
+AND
+NOT DB_AESN_EnemyHpTotal(_, _Enemy, _, _)
+AND
+NOT DB_AESN_HpMigrationBit(_Owner, _Enemy, _, _, "Owned")
+AND
+NOT DB_AESN_HpMigrationBit(_Owner, _Enemy, _, _, "PendingRemove")
+AND
+NOT QRY_AESN_HpMigrationLiveBitsChanged(_Owner, _Enemy)
+AND
+DB_AESN_HpMigrationCheckpoint(_Owner, _Enemy, "TotalPresent", _, _Maximum)
+AND
+DB_AESN_HpMigrationCheckpoint(_Owner, _Enemy, "Verified", _Captured, _Maximum)
+AND
+HasActiveStatus(_Enemy, _Total, 1)
+AND
+GetMaxHitpoints(_Enemy, _Maximum)
+AND
+GetHitpoints(_Enemy, _Captured)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 1, "Migrating", _Before, _Base, _Percentage, _Maximum, _Delta, _Delta)
+THEN
+DB_AESN_EnemyHpTotal(_Owner, _Enemy, _Delta, _Total);
+NOT DB_AESN_HpTransaction(_Owner, _Enemy, 1, "Migrating", _Before, _Base, _Percentage, _Maximum, _Delta, _Delta);
+DB_AESN_HpTransaction(_Owner, _Enemy, 2, "HPCommitted", _Before, _Base, _Percentage, _Maximum, _Delta, _Delta);
+PROC_AESN_RetireHpMigration(_Owner, _Enemy);
+
+PROC
+PROC_AESN_RecoverHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+THEN
+PROC_AESN_ConflictHpMigration(_Owner, _Enemy, "RecoveryRequiresNativeQualification");
+
+PROC
+PROC_AESN_RetireHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, _State)
+THEN
+NOT DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, _State);
+
+PROC
+PROC_AESN_RetireHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationCheckpoint(_Owner, _Enemy, _Phase, _Current, _Maximum)
+THEN
+NOT DB_AESN_HpMigrationCheckpoint(_Owner, _Enemy, _Phase, _Current, _Maximum);
+
+PROC
+PROC_AESN_RetireHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationComponent(_Owner, _Enemy, _Kind, _Status)
+THEN
+NOT DB_AESN_HpMigrationComponent(_Owner, _Enemy, _Kind, _Status);
+
+PROC
+PROC_AESN_RetireHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationPolicy(_Owner, _Enemy, _Size, _Effective, _Sum, _Average, _Tier, _Percent, _Action, _Bonus, _Cap, _Support)
+THEN
+NOT DB_AESN_HpMigrationPolicy(_Owner, _Enemy, _Size, _Effective, _Sum, _Average, _Tier, _Percent, _Action, _Bonus, _Cap, _Support);
+
+PROC
+PROC_AESN_RetireHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+THEN
+NOT DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch);
+NOT DB_AESN_HpMigrationHold(_Enemy, _Owner);
+
+PROC
+PROC_AESN_AdvanceHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+THEN
+PROC_AESN_InspectHpMigration(_Owner, _Enemy);
+PROC_AESN_DispatchHpMigrationAdvance(_Owner, _Enemy);
+
+QRY
+QRY_AESN_HpMigrationJournalExact((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+AND
+_Captured > 0
+AND
+_Captured <= _Maximum
+AND
+_Base > 0
+AND
+_Delta > 0
+AND
+_Delta <= 65535
+AND
+_Epoch >= 0
+AND
+IntegerSum(_Base, _Delta, _Maximum)
+AND
+ConcatenateInteger("AESN_HP_TOTAL_", _Delta, _Total)
+AND
+DB_AESN_HpMigrationCheckpoint(_Owner, _Enemy, "Captured", _Captured, _Maximum)
+AND
+DB_AESN_HpTransaction(_Owner, _Enemy, 1, "Migrating", _, _Base, _, _Maximum, _Delta, _Delta)
+AND
+NOT QRY_AESN_HpMigrationAmbiguous(_Owner, _Enemy)
+AND
+NOT QRY_AESN_HpMigrationBadFrozenBit(_Owner, _Enemy)
+AND
+QRY_AESN_HpMigrationFrozenSum(_Owner, _Enemy, 15, 0, _Delta)
+AND
+NOT QRY_AESN_HpMigrationAmbiguousJournal(_Owner, _Enemy)
+AND
+NOT DB_AESN_EnemyHpTotal(_, _Enemy, _, _)
+AND
+NOT QRY_AESN_HpMigrationCheckpointConflict(_Owner, _Enemy)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationBadFrozenBit((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, _)
+AND
+NOT DB_AESN_HpBitOrder(_, _Bit, _Status)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationBadFrozenBit((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, _State)
+AND
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, _Other)
+AND
+_State != _Other
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationBadFrozenBit((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _, _, _State)
+AND
+_State != "Owned"
+AND
+_State != "PendingRemove"
+AND
+_State != "Removed"
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationFrozenSum((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (INTEGER)_Index, (INTEGER)_Accumulated, (INTEGER)_Expected)
+AND
+_Index >= 0
+AND
+DB_AESN_HpBitOrder(_Index, _Bit, _Status)
+AND
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, _)
+AND
+IntegerSum(_Accumulated, _Bit, _NextSum)
+AND
+IntegerSubtract(_Index, 1, _Next)
+AND
+QRY_AESN_HpMigrationFrozenSum(_Owner, _Enemy, _Next, _NextSum, _Expected)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationFrozenSum((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (INTEGER)_Index, (INTEGER)_Accumulated, (INTEGER)_Expected)
+AND
+_Index >= 0
+AND
+DB_AESN_HpBitOrder(_Index, _Bit, _Status)
+AND
+NOT DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, _)
+AND
+IntegerSubtract(_Index, 1, _Next)
+AND
+QRY_AESN_HpMigrationFrozenSum(_Owner, _Enemy, _Next, _Accumulated, _Expected)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationFrozenSum((GUIDSTRING)_Owner, (CHARACTER)_Enemy, -1, (INTEGER)_Accumulated, (INTEGER)_Expected)
+AND
+_Accumulated == _Expected
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationRemainingSum((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (INTEGER)_Index, (INTEGER)_Accumulated, (INTEGER)_Expected)
+AND
+_Index >= 0
+AND
+DB_AESN_HpBitOrder(_Index, _Bit, _Status)
+AND
+QRY_AESN_HpMigrationBitRemaining(_Owner, _Enemy, _Bit, _Status)
+AND
+IntegerSum(_Accumulated, _Bit, _NextSum)
+AND
+IntegerSubtract(_Index, 1, _Next)
+AND
+QRY_AESN_HpMigrationRemainingSum(_Owner, _Enemy, _Next, _NextSum, _Expected)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationRemainingSum((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (INTEGER)_Index, (INTEGER)_Accumulated, (INTEGER)_Expected)
+AND
+_Index >= 0
+AND
+DB_AESN_HpBitOrder(_Index, _Bit, _Status)
+AND
+NOT QRY_AESN_HpMigrationBitRemaining(_Owner, _Enemy, _Bit, _Status)
+AND
+IntegerSubtract(_Index, 1, _Next)
+AND
+QRY_AESN_HpMigrationRemainingSum(_Owner, _Enemy, _Next, _Accumulated, _Expected)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationRemainingSum((GUIDSTRING)_Owner, (CHARACTER)_Enemy, -1, (INTEGER)_Accumulated, (INTEGER)_Expected)
+AND
+_Accumulated == _Expected
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationBitRemaining((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (INTEGER)_Bit, (STRING)_Status)
+AND
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, "Owned")
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationBitRemaining((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (INTEGER)_Bit, (STRING)_Status)
+AND
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, "PendingRemove")
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationMaximumExact((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (INTEGER)_JustRemoved)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+AND
+GetMaxHitpoints(_Enemy, _Observed)
+AND
+IntegerSum(_Observed, _JustRemoved, _Before)
+AND
+IntegerSubtract(_Before, _Base, _Remaining)
+AND
+QRY_AESN_HpMigrationRemainingSum(_Owner, _Enemy, 15, 0, _Remaining)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationLiveBitsChanged((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, "Owned")
+AND
+NOT HasActiveStatus(_Enemy, _Status, 1)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationLiveBitsChanged((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, "Removed")
+AND
+NOT HasActiveStatus(_Enemy, _Status, 0)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationLiveBitsChanged((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, _State)
+AND
+_State != "Removed"
+AND
+NOT DB_AESN_EnemyHpBit(_Owner, _Enemy, _Bit, _Status)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationLiveBitsChanged((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_EnemyHpBit(_Owner, _Enemy, _Bit, _Status)
+AND
+NOT QRY_AESN_HpMigrationBitRemaining(_Owner, _Enemy, _Bit, _Status)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationLiveBitsChanged((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpBitOrder(_, _Bit, _Status)
+AND
+HasActiveStatus(_Enemy, _Status, 1)
+AND
+NOT DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, _)
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_InspectHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+AND
+NOT QRY_AESN_HpMigrationJournalExact(_Owner, _Enemy)
+THEN
+PROC_AESN_ConflictHpMigration(_Owner, _Enemy, "InvalidJournalIdentity");
+
+PROC
+PROC_AESN_InspectHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+AND
+NOT QRY_AESN_HpMigrationContextExact(_Owner, _Enemy)
+THEN
+PROC_AESN_ConflictHpMigration(_Owner, _Enemy, "ContextOrOwnerChanged");
+
+PROC
+PROC_AESN_InspectHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+AND
+QRY_AESN_HpMigrationLiveBitsChanged(_Owner, _Enemy)
+THEN
+PROC_AESN_ConflictHpMigration(_Owner, _Enemy, "MissingOrUnexpectedOwnedBit");
+
+PROC
+PROC_AESN_InspectHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+AND
+_Phase == "Captured"
+AND
+GetHitpoints(_Enemy, _Current)
+AND
+_Current != _Captured
+THEN
+PROC_AESN_ConflictHpMigration(_Owner, _Enemy, "UnclassifiedCurrentChange");
+
+PROC
+PROC_AESN_InspectHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+AND
+DB_AESN_HpTotalEpoch(_Enemy, 2147483647)
+THEN
+PROC_AESN_ConflictHpMigration(_Owner, _Enemy, "EpochExhausted");
+
+PROC
+PROC_AESN_InspectHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+AND
+_Phase == "Captured"
+AND
+NOT QRY_AESN_HpMigrationMaximumExact(_Owner, _Enemy, 0)
+THEN
+PROC_AESN_ConflictHpMigration(_Owner, _Enemy, "ExternalMaximumChanged");
+
+PROC
+PROC_AESN_InspectHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+AND
+_Phase == "RemovingLegacy"
+AND
+NOT DB_AESN_HpTotalPending(_, _Enemy, _, _, _)
+AND
+NOT QRY_AESN_HpMigrationMaximumExact(_Owner, _Enemy, 0)
+THEN
+PROC_AESN_ConflictHpMigration(_Owner, _Enemy, "ExternalMaximumChanged");
+
+PROC
+PROC_AESN_AcknowledgeMigrationRemove((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Status, (INTEGER)_OperationEpoch)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+AND
+DB_AESN_HpTotalPending(_Owner, _Enemy, "MigrationRemoveLegacy", _Status, _OperationEpoch)
+THEN
+PROC_AESN_ConflictHpMigration(_Owner, _Enemy, "AcknowledgementUnverified");
+
+PROC
+PROC_AESN_AcknowledgeMigrationTotal((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Status, (INTEGER)_OperationEpoch)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _Captured, _Maximum, _Base, _Delta, _Total, _Epoch)
+AND
+DB_AESN_HpTotalPending(_Owner, _Enemy, "MigrationApplyTotal", _Status, _OperationEpoch)
+THEN
+PROC_AESN_ConflictHpMigration(_Owner, _Enemy, "AcknowledgementUnverified");
+
+PROC
+PROC_AESN_TraceHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Event, (STRING)_Status)
+THEN
+PROC_AESN_TraceNativeHpMigration(_Owner, _Enemy, _Event, _Status, 0);
+
+PROC
+PROC_AESN_TraceNativeHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Event, (STRING)_Status, (INTEGER)_Action)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _, _, _, _, _, _)
+THEN
+PROC_AESN_EnsureHpMigrationTrace(_Enemy);
+PROC_AESN_StoreHpMigrationTrace(_Owner, _Enemy, _Event, _Status, _Action);
+
+PROC
+PROC_AESN_EnsureHpMigrationTrace((CHARACTER)_Enemy)
+AND
+NOT DB_AESN_HpMigrationTraceSequence(_Enemy, _)
+THEN
+DB_AESN_HpMigrationTraceSequence(_Enemy, 0);
+
+PROC
+PROC_AESN_StoreHpMigrationTrace((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Event, (STRING)_Status, (INTEGER)_Action)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _, _, _, _, _, _)
+AND
+DB_AESN_HpMigrationTraceSequence(_Enemy, _Sequence)
+AND
+_Sequence < 2147483647
+AND
+IntegerSum(_Sequence, 1, _Next)
+AND
+GetHitpoints(_Enemy, _Current)
+AND
+GetMaxHitpoints(_Enemy, _Maximum)
+AND
+DB_AESN_HpTotalPending(_Owner, _Enemy, _Operation, _PendingStatus, _PendingEpoch)
+THEN
+NOT DB_AESN_HpMigrationTraceSequence(_Enemy, _Sequence);
+DB_AESN_HpMigrationTraceSequence(_Enemy, _Next);
+DB_AESN_HpMigrationTrace(_Owner, _Enemy, _Next, _Event, _Status, _Current, _Maximum, _Phase, _Operation, _PendingStatus, _PendingEpoch, _Action);
+
+PROC
+PROC_AESN_StoreHpMigrationTrace((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Event, (STRING)_Status, (INTEGER)_Action)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _, _, _, _, _, _)
+AND
+DB_AESN_HpMigrationTraceSequence(_Enemy, _Sequence)
+AND
+_Sequence < 2147483647
+AND
+IntegerSum(_Sequence, 1, _Next)
+AND
+GetHitpoints(_Enemy, _Current)
+AND
+GetMaxHitpoints(_Enemy, _Maximum)
+AND
+NOT DB_AESN_HpTotalPending(_Owner, _Enemy, _, _, _)
+THEN
+NOT DB_AESN_HpMigrationTraceSequence(_Enemy, _Sequence);
+DB_AESN_HpMigrationTraceSequence(_Enemy, _Next);
+DB_AESN_HpMigrationTrace(_Owner, _Enemy, _Next, _Event, _Status, _Current, _Maximum, _Phase, "None", "", -1, _Action);
+
+PROC
+PROC_AESN_DumpHpMigrationTrace((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationTrace(_Owner, _Enemy, _Sequence, _Event, _Status, _Current, _Maximum, _Phase, _Operation, _PendingStatus, _PendingEpoch, _Action)
+AND
+ConcatenateInteger("AESN_MIGRATION trace sequence=", _Sequence, _Message1)
+AND
+Concatenate(_Message1, ",event=", _Message2)
+AND
+Concatenate(_Message2, _Event, _Message3)
+AND
+Concatenate(_Message3, ",phase=", _Message4)
+AND
+Concatenate(_Message4, _Phase, _Message5)
+AND
+Concatenate(_Message5, ",pending=", _Message6)
+AND
+Concatenate(_Message6, _Operation, _Message7)
+AND
+Concatenate(_Message7, ",status=", _Message8)
+AND
+Concatenate(_Message8, _Status, _Message9)
+AND
+Concatenate(_Message9, ",current=", _Message10)
+AND
+ConcatenateInteger(_Message10, _Current, _Message11)
+AND
+Concatenate(_Message11, ",maximum=", _Message12)
+AND
+ConcatenateInteger(_Message12, _Maximum, _Message13)
+AND
+Concatenate(_Message13, ",epoch=", _Message14)
+AND
+ConcatenateInteger(_Message14, _PendingEpoch, _Message15)
+AND
+Concatenate(_Message15, ",action=", _Message16)
+AND
+ConcatenateInteger(_Message16, _Action, _Message)
+THEN
+DebugLog(_Message);
+
+PROC
+PROC_AESN_RetireHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationTrace(_Owner, _Enemy, _Sequence, _Event, _Status, _Current, _Maximum, _Phase, _Operation, _PendingStatus, _PendingEpoch, _Action)
+THEN
+NOT DB_AESN_HpMigrationTrace(_Owner, _Enemy, _Sequence, _Event, _Status, _Current, _Maximum, _Phase, _Operation, _PendingStatus, _PendingEpoch, _Action);
+
+PROC
+PROC_AESN_RouteMigrationStatus((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "StatusRemoved", (STRING)_Status)
+AND
+DB_AESN_HpTotalPending(_Owner, _Enemy, "MigrationRemoveLegacy", _Status, _Epoch)
+THEN
+PROC_AESN_AcknowledgeMigrationRemove(_Owner, _Enemy, _Status, _Epoch);
+
+PROC
+PROC_AESN_RouteMigrationStatus((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "StatusApplied", (STRING)_Status)
+AND
+DB_AESN_HpTotalPending(_Owner, _Enemy, "MigrationApplyTotal", _Status, _Epoch)
+THEN
+PROC_AESN_AcknowledgeMigrationTotal(_Owner, _Enemy, _Status, _Epoch);
+
+IF
+StatusAttemptFailed((GUIDSTRING)_Object, _Status, _Cause, _Action)
+AND
+DB_AESN_HpMigration(_Owner, (CHARACTER)_Object, _, _, _, _, _, _, _)
+THEN
+PROC_AESN_TraceNativeHpMigration(_Owner, (CHARACTER)_Object, "StatusAttemptFailed", _Status, _Action);
+PROC_AESN_MigrationStatusFailed(_Owner, (CHARACTER)_Object, _Status);
+
+PROC
+PROC_AESN_MigrationStatusFailed((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Status)
+AND
+DB_AESN_HpTotalPending(_Owner, _Enemy, "MigrationApplyTotal", _Status, _Epoch)
+THEN
+PROC_AESN_MarkHpTotalUncertain(_Owner, _Enemy, "MigrationApplyTotal", _Status, _Epoch, "StatusAttemptFailed");
+
+PROC
+PROC_AESN_RouteMigrationStatus((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "StatusRemoved", (STRING)_Status)
+AND
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _, _Status, "Owned")
+THEN
+PROC_AESN_ConflictHpMigration(_Owner, _Enemy, "UnexpectedOwnedStatusRemoval");
+
+PROC
+PROC_AESN_RouteMigrationStatus((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "StatusApplied", (STRING)_Status)
+AND
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _, _Status, _)
+THEN
+PROC_AESN_ConflictHpMigration(_Owner, _Enemy, "UnexpectedLegacyStatusApply");
+
+PROC
+PROC_AESN_RouteMigrationStatus((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "StatusRemoved", (STRING)_Status)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _, _, _, _, _Status, _)
+THEN
+PROC_AESN_ConflictHpMigration(_Owner, _Enemy, "UnexpectedTotalRemoval");
+
+PROC
+PROC_AESN_RouteMigrationStatus((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "StatusRemoved", (STRING)_Status)
+AND
+DB_AESN_HpMigrationComponent(_Owner, _Enemy, _, _Status)
+THEN
+PROC_AESN_ConflictHpMigration(_Owner, _Enemy, "ComponentStatusChanged");
+
+PROC
+PROC_AESN_RouteMigrationStatus((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "StatusApplied", (STRING)_Status)
+AND
+DB_AESN_HpMigrationComponent(_Owner, _Enemy, _, _Status)
+THEN
+PROC_AESN_ConflictHpMigration(_Owner, _Enemy, "ComponentStatusChanged");
+
+QRY
+QRY_AESN_HpMigrationAmbiguousJournal((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _, _, _, _, _, _)
+AND
+DB_AESN_HpMigration(_Other, _Enemy, _, _, _, _, _, _, _)
+AND
+_Owner != _Other
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationAmbiguousJournal((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Value, _, _, _, _, _, _)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Other, _, _, _, _, _, _)
+AND
+_Value != _Other
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationAmbiguousJournal((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _Value, _, _, _, _, _)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _Other, _, _, _, _, _)
+AND
+_Value != _Other
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationAmbiguousJournal((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _, _Value, _, _, _, _)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _, _Other, _, _, _, _)
+AND
+_Value != _Other
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationAmbiguousJournal((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _, _, _Value, _, _, _)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _, _, _Other, _, _, _)
+AND
+_Value != _Other
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationAmbiguousJournal((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _, _, _, _Value, _, _)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _, _, _, _Other, _, _)
+AND
+_Value != _Other
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationAmbiguousJournal((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _, _, _, _, _Value, _)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _, _, _, _, _Other, _)
+AND
+_Value != _Other
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationAmbiguousJournal((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _, _, _, _, _, _Value)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _, _, _, _, _, _Other)
+AND
+_Value != _Other
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationUnstableComponents((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_ComponentApplication(_Owner, _Enemy, _Version, _State)
+AND
+_Version != 1
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationUnstableComponents((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_ComponentApplication(_Owner, _Enemy, _Version, _State)
+AND
+_State != "FullyCommitted"
+THEN
+DB_NOOP(1);
+
+// A live matching total appearing before its own apply request is not ours,
+// even if an unrelated compensating maximum change hides its HP contribution.
+PROC
+PROC_AESN_InspectHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _, _, _, _, _Total, _)
+AND
+_Phase != "ApplyingTotal"
+AND
+_Phase != "TotalPresent"
+AND
+_Phase != "Verified"
+AND
+HasActiveStatus(_Enemy, _Total, 1)
+THEN
+PROC_AESN_ConflictHpMigration(_Owner, _Enemy, "UnexpectedMatchingTotal");
+
+// A quiescent observation is not proof of causality. Any fresh HP drift
+// from the unique last acknowledged checkpoint remains UNKNOWN and inhibits
+// the next native request, even when no HP callback was delivered.
+QRY
+QRY_AESN_HpMigrationQuiescentPhase("Captured")
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationQuiescentPhase("RemovingLegacy")
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationQuiescentPhase("LegacyRemoved")
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationQuiescentCurrentExact((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, "Captured", _, _, _, _, _, _)
+AND
+DB_AESN_HpMigrationCheckpoint(_Owner, _Enemy, "Captured", _Current, _Maximum)
+AND
+GetHitpoints(_Enemy, _Current)
+AND
+GetMaxHitpoints(_Enemy, _Maximum)
+AND
+NOT QRY_AESN_HpMigrationCheckpointConflict(_Owner, _Enemy)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationQuiescentCurrentExact((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, "LegacyRemoved", _, _, _, _, _, _)
+AND
+DB_AESN_HpMigrationCheckpoint(_Owner, _Enemy, "LegacyRemoved", _Current, _Maximum)
+AND
+GetHitpoints(_Enemy, _Current)
+AND
+GetMaxHitpoints(_Enemy, _Maximum)
+AND
+NOT QRY_AESN_HpMigrationCheckpointConflict(_Owner, _Enemy)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationQuiescentCurrentExact((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, "RemovingLegacy", _, _, _, _, _, _)
+AND
+NOT DB_AESN_HpMigrationBit(_Owner, _Enemy, _, _, "Removed")
+AND
+DB_AESN_HpMigrationCheckpoint(_Owner, _Enemy, "RemovingLegacy", _Current, _Maximum)
+AND
+GetHitpoints(_Enemy, _Current)
+AND
+GetMaxHitpoints(_Enemy, _Maximum)
+AND
+NOT QRY_AESN_HpMigrationCheckpointConflict(_Owner, _Enemy)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationQuiescentCurrentExact((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, "RemovingLegacy", _, _, _, _, _, _)
+AND
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, "Removed")
+AND
+NOT QRY_AESN_HpMigrationLaterRemovedBit(_Owner, _Enemy, _Bit)
+AND
+DB_AESN_HpMigrationCheckpoint(_Owner, _Enemy, _Status, _Current, _Maximum)
+AND
+GetHitpoints(_Enemy, _Current)
+AND
+GetMaxHitpoints(_Enemy, _Maximum)
+AND
+NOT QRY_AESN_HpMigrationCheckpointConflict(_Owner, _Enemy)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationLaterRemovedBit((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (INTEGER)_Bit)
+AND
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _Later, _, "Removed")
+AND
+_Later < _Bit
+THEN
+DB_NOOP(1);
+
+PROC
+PROC_AESN_InspectHpMigration((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _Phase, _, _, _, _, _, _)
+AND
+QRY_AESN_HpMigrationQuiescentPhase(_Phase)
+AND
+NOT DB_AESN_HpTotalPending(_, _Enemy, _, _, _)
+AND
+NOT QRY_AESN_HpMigrationQuiescentCurrentExact(_Owner, _Enemy)
+THEN
+PROC_AESN_ConflictHpMigration(_Owner, _Enemy, "UnclassifiedQuiescentHpChange");
+
+QRY
+QRY_AESN_HpMigrationCheckpointConflict((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationCheckpoint(_Owner, _Enemy, _Phase, _Value, _)
+AND
+DB_AESN_HpMigrationCheckpoint(_Owner, _Enemy, _Phase, _Other, _)
+AND
+_Value != _Other
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationCheckpointConflict((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationCheckpoint(_Owner, _Enemy, _Phase, _, _Value)
+AND
+DB_AESN_HpMigrationCheckpoint(_Owner, _Enemy, _Phase, _, _Other)
+AND
+_Value != _Other
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationCheckpointConflict((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, "Captured", _, _, _, _, _, _)
+AND
+DB_AESN_HpMigrationCheckpoint(_Owner, _Enemy, _Phase, _, _)
+AND
+_Phase != "Captured"
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationCheckpointConflict((GUIDSTRING)_Owner, (CHARACTER)_Enemy)
+AND
+DB_AESN_HpMigrationCheckpoint(_Owner, _Enemy, _Phase, _Current, _Maximum)
+AND
+NOT QRY_AESN_HpMigrationCheckpointAllowed(_Owner, _Enemy, _Phase, _Current, _Maximum)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationCheckpointAllowed((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "Captured", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _Current, _Maximum, _, _, _, _)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationCheckpointAllowed((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "RemovingLegacy", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _Current, _Maximum, _, _, _, _)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationCheckpointAllowed((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "Verified", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _Current, _Maximum, _, _, _, _)
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationCheckpointAllowed((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "LegacyRemoved", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _, _, _Maximum, _, _, _)
+AND
+_Current > 0
+AND
+_Current <= _Maximum
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationCheckpointAllowed((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "ApplyingTotal", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _, _, _Maximum, _, _, _)
+AND
+_Current > 0
+AND
+_Current <= _Maximum
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationCheckpointAllowed((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "TotalPresent", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _, _Maximum, _, _, _, _)
+AND
+_Current > 0
+AND
+_Current <= _Maximum
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationCheckpointAllowed((GUIDSTRING)_Owner, (CHARACTER)_Enemy, "RestoringCurrent", (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+DB_AESN_HpMigration(_Owner, _Enemy, _, _, _Maximum, _, _, _, _)
+AND
+_Current > 0
+AND
+_Current <= _Maximum
+THEN
+DB_NOOP(1);
+
+QRY
+QRY_AESN_HpMigrationCheckpointAllowed((GUIDSTRING)_Owner, (CHARACTER)_Enemy, (STRING)_Status, (INTEGER)_Current, (INTEGER)_Maximum)
+AND
+DB_AESN_HpMigrationBit(_Owner, _Enemy, _Bit, _Status, "Removed")
+AND
+DB_AESN_HpBitOrder(_, _Bit, _Status)
+AND
+_Current > 0
+AND
+_Current <= _Maximum
+THEN
+DB_NOOP(1);
+
+EXITSECTION
+ENDEXITSECTION
