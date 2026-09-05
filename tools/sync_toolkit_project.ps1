@@ -6,7 +6,9 @@ param(
 
     [switch]$EnableActionResourceProof,
 
-    [switch]$EnableWorldHardenedProof
+    [switch]$EnableWorldHardenedProof,
+
+    [switch]$EnableBossPriorityProof
 )
 
 $ErrorActionPreference = 'Stop'
@@ -40,6 +42,10 @@ if ($EnableActionResourceProof -and -not $IncludeTestHarnesses) {
 
 if ($EnableWorldHardenedProof -and -not $IncludeTestHarnesses) {
     throw "EnableWorldHardenedProof requires IncludeTestHarnesses"
+}
+
+if ($EnableBossPriorityProof -and -not $IncludeTestHarnesses) {
+    throw "EnableBossPriorityProof requires IncludeTestHarnesses"
 }
 
 $moduleFolder = [string]$identity.moduleFolder
@@ -108,6 +114,12 @@ foreach ($copySet in $copySets) {
 }
 
 if (-not $IncludeTestHarnesses) {
+    # This isolated stats fixture is staged separately from toolkit/Public.
+    # Remove only its exact file so a subsequent production publish is clean.
+    $hpTooltipProofStats = Join-Path $requestedRoot "Public\$moduleFolder\Stats\Generated\Data\Status_AESN_HpTooltipProof.txt"
+    if (Test-Path -LiteralPath $hpTooltipProofStats -PathType Leaf) {
+        Remove-Item -LiteralPath $hpTooltipProofStats -Force
+    }
     # Remove any older AESN goal that is no longer present in the repository,
     # as well as current proof goals. This prevents a renamed/deleted harness
     # from surviving a later production synchronization.
@@ -157,7 +169,29 @@ if ($EnableWorldHardenedProof) {
     Set-Content -LiteralPath $worldProofGoal -Value $worldProofText -Encoding Ascii -NoNewline
 }
 
-if ($EnableActionResourceProof -and $EnableWorldHardenedProof) {
+if ($EnableBossPriorityProof) {
+    # Only the staged Toolkit copy is enabled. This observes the native
+    # classifier without changing production allocation or combat resources.
+    $bossPriorityProofGoal = Join-Path $requestedRoot "Mods\$moduleFolder\Story\RawFiles\Goals\AESN_85_BossPriorityHarness.txt"
+    if (-not (Test-Path -LiteralPath $bossPriorityProofGoal -PathType Leaf)) {
+        throw "Boss-priority proof goal was not synchronized: $bossPriorityProofGoal"
+    }
+    $disabledBossPriorityProofFact = 'NOT DB_AESN_BossPriorityHarnessEnabled(1);'
+    $enabledBossPriorityProofFact = 'DB_AESN_BossPriorityHarnessEnabled(1);'
+    $bossPriorityProofText = Get-Content -Raw -LiteralPath $bossPriorityProofGoal
+    if (-not $bossPriorityProofText.Contains($disabledBossPriorityProofFact)) {
+        throw "Boss-priority proof goal does not contain its disabled gate"
+    }
+    $bossPriorityProofText = $bossPriorityProofText.Replace(
+        $disabledBossPriorityProofFact,
+        $enabledBossPriorityProofFact
+    )
+    Set-Content -LiteralPath $bossPriorityProofGoal -Value $bossPriorityProofText -Encoding Ascii -NoNewline
+}
+
+if ($EnableBossPriorityProof) {
+    Write-Output "Synchronized $moduleFolder with the observation-only boss-priority proof enabled at $requestedRoot"
+} elseif ($EnableActionResourceProof -and $EnableWorldHardenedProof) {
     Write-Output "Synchronized $moduleFolder with action-resource and world-Hardened proofs enabled at $requestedRoot"
 } elseif ($EnableActionResourceProof) {
     Write-Output "Synchronized $moduleFolder with the isolated action-resource proof enabled at $requestedRoot"

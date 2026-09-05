@@ -1,4 +1,6 @@
 import pathlib
+import json
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -26,6 +28,36 @@ def run_sync(toolkit_data_root: pathlib.Path) -> subprocess.CompletedProcess:
 
 
 class SyncToolkitProjectTests(unittest.TestCase):
+    def test_production_sync_removes_only_the_isolated_hp_proof_stats(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            repo = root / 'repo'
+            data = root / 'Data'
+            module = 'AESN_Test_Module'
+            for relative in ('tools', 'evidence', 'build', 'toolkit/Mods',
+                             'toolkit/Public', 'story/RawFiles/Goals'):
+                (repo / relative).mkdir(parents=True)
+            data.mkdir()
+            shutil.copy2(SYNC, repo / 'tools/sync_toolkit_project.ps1')
+            (repo / 'evidence/toolkit-paths.json').write_text(json.dumps({'gameDataRoot': str(data)}))
+            (repo / 'build/module-identity.json').write_text(json.dumps({'moduleFolder': module}))
+            stats = data / 'Public' / module / 'Stats/Generated/Data'
+            stats.mkdir(parents=True)
+            proof = stats / 'Status_AESN_HpTooltipProof.txt'
+            production = stats / 'Status_BOOST.txt'
+            unrelated = stats / 'Status_Other.txt'
+            proof.write_text('temporary proof')
+            production.write_text('production sentinel')
+            unrelated.write_text('unrelated sentinel')
+            result = subprocess.run(['powershell', '-NoProfile', '-File',
+                                     str(repo / 'tools/sync_toolkit_project.ps1'),
+                                     '-ToolkitDataRoot', str(data)],
+                                    capture_output=True, text=True, check=False)
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            self.assertFalse(proof.exists(), 'Temporary proof stats leaked into production staging')
+            self.assertEqual('production sentinel', production.read_text())
+            self.assertEqual('unrelated sentinel', unrelated.read_text())
+
     def test_rejects_unverified_destination_before_copying(self):
         self.assertTrue(SYNC.exists(), "Toolkit sync script must exist")
         with tempfile.TemporaryDirectory() as temporary:
@@ -93,6 +125,17 @@ class SyncToolkitProjectTests(unittest.TestCase):
         self.assertIn("NOT DB_AESN_WorldHarnessEnabled(1);", text)
         self.assertIn("DB_AESN_WorldHarnessEnabled(1);", text)
         self.assertIn("Set-Content -LiteralPath $worldProofGoal", text)
+
+    def test_boss_priority_proof_staging_is_explicit_and_source_preserving(self):
+        text = SYNC.read_text(encoding="utf-8")
+        self.assertIn("[switch]$EnableBossPriorityProof", text)
+        self.assertIn(
+            "EnableBossPriorityProof requires IncludeTestHarnesses", text
+        )
+        self.assertIn("AESN_85_BossPriorityHarness.txt", text)
+        self.assertIn("NOT DB_AESN_BossPriorityHarnessEnabled(1);", text)
+        self.assertIn("DB_AESN_BossPriorityHarnessEnabled(1);", text)
+        self.assertIn("Set-Content -LiteralPath $bossPriorityProofGoal", text)
 
 
 if __name__ == "__main__":

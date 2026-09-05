@@ -39,7 +39,7 @@ class DocumentContracts(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn('value="Adaptive Enemy Scaling"', meta)
         self.assertIn('value="ghost2788"', meta)
-        self.assertIn('value="36028797018963973"', meta)
+        self.assertIn('value="36028797018963977"', meta)
 
     def test_upstream_hashes_are_exact(self):
         text = (ROOT / "UPSTREAM.md").read_text(encoding="utf-8")

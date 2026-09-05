@@ -61,6 +61,12 @@ DB_NOOP(1);
 PROC
 PROC_AESN_MergeCombat((GUIDSTRING)_OldCombat, (GUIDSTRING)_NewCombat)
 THEN
+// Ranks are derived, not ownership. Rebuild them after the canonical ledger
+// and eligibility have migrated; never carry an old selection timer forward.
+PROC_AESN_CancelRelentlessSelection(_OldCombat);
+PROC_AESN_CancelRelentlessSelection(_NewCombat);
+PROC_AESN_DeleteRelentlessRanks(_OldCombat);
+PROC_AESN_DeleteRelentlessRanks(_NewCombat);
 PROC_AESN_ReconcileMergePolicy(_OldCombat, _NewCombat);
 PROC_AESN_MigrateRelentlessState(_OldCombat, _NewCombat);
 PROC_AESN_MigrateComponentState(_OldCombat, _NewCombat);
@@ -69,6 +75,7 @@ PROC_AESN_MigrateCombatState(_OldCombat, _NewCombat);
 PROC_AESN_MigrateRosterState(_OldCombat, _NewCombat);
 PROC_AESN_QueueCanonicalMergeReplans(_OldCombat, _NewCombat);
 NOT DB_AESN_MergeInProgress(_OldCombat, _NewCombat);
+PROC_AESN_RequestRelentlessSelection(_NewCombat);
 DebugLog("AESN_MERGE MIGRATION_COMPLETE markBeforeMigrate=1");
 
 // Old-only schema-2 snapshots are adopted exactly. Equal snapshots keep the
@@ -495,6 +502,7 @@ PROC
 PROC_AESN_RequestCombatCleanup((GUIDSTRING)_SurvivingCombat)
 THEN
 DB_AESN_CombatCleanupRequested(_SurvivingCombat);
+PROC_AESN_CancelRelentlessSelection(_SurvivingCombat);
 PROC_AESN_DispatchCombatEnemyCleanup(_SurvivingCombat);
 
 PROC
@@ -559,6 +567,19 @@ AND DB_AESN_MergePolicyMismatch(_Source, _Combat, _OldAverage, _OldSize, _NewAve
 THEN NOT DB_AESN_MergePolicyMismatch(_Source, _Combat, _OldAverage, _OldSize, _NewAverage, _NewSize, _CanonicalAverage, _CanonicalSize);
 
 // Final cleanup removes only bookkeeping after exact per-enemy status cleanup.
+PROC
+PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
+THEN
+PROC_AESN_CancelRelentlessSelection(_Combat);
+PROC_AESN_DeleteRelentlessRanks(_Combat);
+
+PROC
+PROC_AESN_DeleteRelentlessRanks((GUIDSTRING)_Combat)
+AND
+DB_AESN_RelentlessRank(_Combat, _Enemy, _Priority)
+THEN
+NOT DB_AESN_RelentlessRank(_Combat, _Enemy, _Priority);
+
 PROC
 PROC_AESN_DeleteCombatOwnedFacts((GUIDSTRING)_Combat)
 AND DB_AESN_RosterBuildOpen(_Combat)

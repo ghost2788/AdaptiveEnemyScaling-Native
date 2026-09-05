@@ -365,6 +365,21 @@ class Schema2ProductionPolicyContracts(unittest.TestCase):
             "ActionProofFailure must be positively queried so the Toolkit does not reject it as an orphan database",
         )
 
+    def test_boss_classifier_proof_is_gated_and_observation_only(self):
+        proof_path = GOALS / "AESN_85_BossPriorityHarness.txt"
+        self.assertTrue(proof_path.exists(), "boss-priority proof goal is missing")
+        proof = proof_path.read_text(encoding="utf-8")
+
+        self.assertIn("NOT DB_AESN_BossPriorityHarnessEnabled(1);", proof)
+        self.assertIn("IsBoss(_Enemy, 1)", proof)
+        self.assertIn("IsBoss(_Enemy, 0)", proof)
+        self.assertIn(
+            "AESN_BOSS_PRIORITY_PROOF PASS nativeIsBoss=1,hardenedReady=1",
+            proof,
+        )
+        self.assertNotIn("ApplyStatus(", proof)
+        self.assertNotIn("DB_AESN_RelentlessRecipient(", proof)
+
     def test_story_policy_harness_covers_every_boundary_and_party_size(self):
         harness = (GOALS / "AESN_86_PolicyHarness.txt").read_text(
             encoding="utf-8"
